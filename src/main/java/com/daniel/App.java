@@ -1,4 +1,4 @@
-package com.daniel.investment;
+package com.daniel;
 
 import javafx.application.Application;
 import javafx.scene.Scene;
