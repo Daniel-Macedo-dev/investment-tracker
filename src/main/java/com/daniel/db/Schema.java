@@ -11,7 +11,6 @@ public final class Schema {
         try (Statement st = conn.createStatement()) {
             st.execute("PRAGMA foreign_keys = ON;");
 
-            // controle de versão
             st.executeUpdate("""
                 CREATE TABLE IF NOT EXISTS schema_version (
                   version INTEGER NOT NULL
@@ -20,7 +19,6 @@ public final class Schema {
 
             int version = currentVersion(st);
 
-            // v0 -> v2 direto (primeira migração real)
             if (version < 2) {
                 migrateToV2(st);
                 setVersion(st, 2);
@@ -62,7 +60,6 @@ public final class Schema {
     }
 
     private static void migrateToV2(Statement st) throws Exception {
-        // accounts (ok)
         st.executeUpdate("""
             CREATE TABLE IF NOT EXISTS accounts (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,12 +68,10 @@ public final class Schema {
             );
         """);
 
-        // Se já existe transactions mas não tem from_account_id -> é schema antigo. Vamos recriar.
         if (tableExists(st, "transactions") && !columnExists(st, "transactions", "from_account_id")) {
             st.executeUpdate("ALTER TABLE transactions RENAME TO transactions_legacy;");
         }
 
-        // schema novo
         st.executeUpdate("""
             CREATE TABLE IF NOT EXISTS transactions (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
