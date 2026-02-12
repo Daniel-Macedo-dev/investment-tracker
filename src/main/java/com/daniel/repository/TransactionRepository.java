@@ -18,18 +18,31 @@ public final class TransactionRepository {
         this.conn = conn;
     }
 
-    public long insert(TransactionType type, long accountId, long amountCents, Instant createdAt, String note) {
-        String sql = """
-            INSERT INTO transactions(created_at, type, account_id, amount_cents, note)
-            VALUES(?, ?, ?, ?, ?)
-            """;
+    public long insertDeposit(long accountId, long amountCents, Instant createdAt, String note) {
+        return insert(TransactionType.DEPOSIT, accountId, null, amountCents, createdAt, note);
+    }
 
+    public long insertWithdraw(long accountId, long amountCents, Instant createdAt, String note) {
+        return insert(TransactionType.WITHDRAW, accountId, null, amountCents, createdAt, note);
+    }
+
+    public long insertTransfer(long fromAccountId, long toAccountId, long amountCents, Instant createdAt, String note) {
+        return insert(TransactionType.TRANSFER, fromAccountId, toAccountId, amountCents, createdAt, note);
+    }
+
+    private long insert(TransactionType type, long fromAccountId, Long toAccountId, long amountCents, Instant createdAt, String note) {
+        String sql = """
+            INSERT INTO transactions(created_at, type, from_account_id, to_account_id, amount_cents, note)
+            VALUES(?, ?, ?, ?, ?, ?)
+            """;
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, createdAt.toString());
             ps.setString(2, type.name());
-            ps.setLong(3, accountId);
-            ps.setLong(4, amountCents);
-            ps.setString(5, (note == null || note.isBlank()) ? null : note.trim());
+            ps.setLong(3, fromAccountId);
+            if (toAccountId == null) ps.setNull(4, java.sql.Types.INTEGER);
+            else ps.setLong(4, toAccountId);
+            ps.setLong(5, amountCents);
+            ps.setString(6, (note == null || note.isBlank()) ? null : note.trim());
             ps.executeUpdate();
 
             try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -41,25 +54,27 @@ public final class TransactionRepository {
         }
     }
 
-    public List<Transaction> findAllByAccount(long accountId) {
+    public List<Transaction> listForAccount(long accountId) {
         String sql = """
-            SELECT id, created_at, type, account_id, amount_cents, note
+            SELECT id, created_at, type, from_account_id, to_account_id, amount_cents, note
             FROM transactions
-            WHERE account_id = ?
+            WHERE from_account_id = ? OR to_account_id = ?
             ORDER BY created_at DESC
             """;
-
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, accountId);
+            ps.setLong(2, accountId);
 
             try (ResultSet rs = ps.executeQuery()) {
                 List<Transaction> list = new ArrayList<>();
                 while (rs.next()) {
+                    Long toId = (rs.getObject("to_account_id") == null) ? null : rs.getLong("to_account_id");
                     list.add(new Transaction(
                             rs.getLong("id"),
                             Instant.parse(rs.getString("created_at")),
                             TransactionType.valueOf(rs.getString("type")),
-                            rs.getLong("account_id"),
+                            rs.getLong("from_account_id"),
+                            toId,
                             rs.getLong("amount_cents"),
                             rs.getString("note")
                     ));
@@ -67,25 +82,34 @@ public final class TransactionRepository {
                 return list;
             }
         } catch (Exception e) {
-            throw new RuntimeException("Failed to list transactions", e);
+            throw new RuntimeException("Failed to list transactions for account", e);
         }
     }
 
-    public long computeCashBalanceCents(long accountId) {
+    public long balanceCents(long accountId) {
         String sql = """
-            SELECT COALESCE(SUM(
-                CASE
-                    WHEN type = 'DEPOSIT' THEN amount_cents
-                    WHEN type = 'WITHDRAW' THEN -amount_cents
+            SELECT COALESCE(SUM(delta), 0) AS balance
+            FROM (
+                SELECT
+                  CASE
+                    WHEN type = 'DEPOSIT' AND from_account_id = ? THEN amount_cents
+                    WHEN type = 'WITHDRAW' AND from_account_id = ? THEN -amount_cents
+                    WHEN type = 'TRANSFER' AND from_account_id = ? THEN -amount_cents
+                    WHEN type = 'TRANSFER' AND to_account_id = ? THEN amount_cents
                     ELSE 0
-                END
-            ), 0) AS balance
-            FROM transactions
-            WHERE account_id = ?
+                  END AS delta
+                FROM transactions
+                WHERE from_account_id = ? OR to_account_id = ?
+            )
             """;
 
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, accountId);
+            ps.setLong(2, accountId);
+            ps.setLong(3, accountId);
+            ps.setLong(4, accountId);
+            ps.setLong(5, accountId);
+            ps.setLong(6, accountId);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.getLong("balance");
             }

@@ -4,7 +4,7 @@ import com.daniel.db.Database;
 import com.daniel.repository.AccountRepository;
 import com.daniel.repository.TransactionRepository;
 import com.daniel.service.CashService;
-import com.daniel.ui.MainView;
+import com.daniel.ui.AppShell;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
@@ -25,18 +25,19 @@ public class App extends Application {
 
         long cashAccountId = accountRepo.ensureDefaultCashAccount();
 
-        MainView mainView = new MainView(cashAccountId, txRepo, cashService);
+        AppShell shell = new AppShell(cashAccountId, accountRepo, txRepo, cashService);
+
+        Scene scene = new Scene(shell.build(), 1200, 720);
+        scene.getStylesheets().add(getClass().getResource("/styles/app.css").toExternalForm());
 
         stage.setTitle("Investment Tracker");
-        stage.setScene(new Scene((javafx.scene.Parent) mainView.build(), 980, 560));
+        stage.setScene(scene);
         stage.show();
     }
 
     @Override
     public void stop() {
-        try {
-            if (conn != null) conn.close();
-        } catch (Exception ignored) {}
+        try { if (conn != null) conn.close(); } catch (Exception ignored) {}
     }
 
     public static void main(String[] args) {

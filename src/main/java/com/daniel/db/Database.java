@@ -17,8 +17,6 @@ public final class Database {
             Files.createDirectories(dbPath.getParent());
 
             Connection conn = DriverManager.getConnection("jdbc:sqlite:" + dbPath.toAbsolutePath());
-
-            // recommended: enable FK constraints in SQLite
             try (Statement st = conn.createStatement()) {
                 st.execute("PRAGMA foreign_keys = ON;");
             }
@@ -40,7 +38,6 @@ public final class Database {
                 return Path.of(appData, "InvestmentTracker", DB_FILE);
             }
         }
-        // Linux/mac
         return Path.of(home, ".local", "share", "InvestmentTracker", DB_FILE);
     }
 }

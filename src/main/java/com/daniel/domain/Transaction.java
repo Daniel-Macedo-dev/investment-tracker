@@ -6,7 +6,8 @@ public record Transaction(
         long id,
         Instant createdAt,
         TransactionType type,
-        long accountId,
+        long fromAccountId,
+        Long toAccountId,
         long amountCents,
         String note
 ) {}
