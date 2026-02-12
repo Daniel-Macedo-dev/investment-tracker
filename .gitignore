@@ -37,3 +37,15 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Local app data (SQLite / backups / logs) ###
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sqlite-journal
+*.db-wal
+*.db-shm
+
+*.log
+*.zip
