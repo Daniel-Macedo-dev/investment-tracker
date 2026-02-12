@@ -1,4 +1,5 @@
 package com.daniel.domain;
 
-public class AccountType {
+public enum AccountType {
+    CASH
 }

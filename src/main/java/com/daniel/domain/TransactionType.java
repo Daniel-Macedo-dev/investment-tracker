@@ -1,4 +1,6 @@
 package com.daniel.domain;
 
-public class TransactionType {
+public enum TransactionType {
+    DEPOSIT,
+    WITHDRAW
 }

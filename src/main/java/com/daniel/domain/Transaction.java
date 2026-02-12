@@ -1,4 +1,12 @@
 package com.daniel.domain;
 
-public class Transaction {
-}
+import java.time.Instant;
+
+public record Transaction(
+        long id,
+        Instant createdAt,
+        TransactionType type,
+        long accountId,
+        long amountCents,
+        String note
+) {}
