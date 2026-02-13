@@ -20,10 +20,11 @@ public final class AppShell {
 
     public AppShell(DailyService dailyService) {
         pages.put("Dashboard", new DashboardPage(dailyService));
+        pages.put("Agenda", new AgendaPage(dailyService, this::go));
         pages.put("Registro Diário", new DailyEntryPage(dailyService));
         pages.put("Tipos de Investimento", new InvestmentTypesPage(dailyService));
         pages.put("Gráficos", new ChartsPage(dailyService));
-        pages.put("Relatórios", new ReportsPage());
+        pages.put("Relatórios", new ReportsPage(dailyService));
     }
 
     public Parent build() {
@@ -38,18 +39,19 @@ public final class AppShell {
         VBox box = new VBox(10);
         box.getStyleClass().add("sidebar");
         box.setPadding(new Insets(14));
-        box.setPrefWidth(250);
+        box.setPrefWidth(260);
 
         Label title = new Label("Investment Tracker");
-        title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
-        Label sub = new Label("Registro diário • Lucro por variação");
-        sub.setStyle("-fx-opacity: 0.75;");
+        title.getStyleClass().add("sidebar-title");
+        Label sub = new Label("Registro diário • lucro por variação (Δ − fluxo)");
+        sub.getStyleClass().add("sidebar-sub");
 
         box.getChildren().addAll(title, sub, new Separator());
 
         for (String k : pages.keySet()) {
             Button b = new Button(k);
             b.setMaxWidth(Double.MAX_VALUE);
+            b.getStyleClass().add("nav-btn");
             b.setOnAction(e -> go(k));
             nav.put(k, b);
             box.getChildren().add(b);
@@ -57,8 +59,8 @@ public final class AppShell {
 
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
-        Label footer = new Label("v0.2.0");
-        footer.setStyle("-fx-opacity: 0.6;");
+        Label footer = new Label("v0.3.0");
+        footer.getStyleClass().add("sidebar-footer");
         box.getChildren().addAll(spacer, footer);
         return box;
     }
@@ -68,7 +70,7 @@ public final class AppShell {
         if (p == null) return;
 
         nav.values().forEach(b -> b.getStyleClass().remove("active"));
-        nav.get(key).getStyleClass().add("active");
+        if (nav.get(key) != null) nav.get(key).getStyleClass().add("active");
 
         content.getChildren().setAll(p.view());
         p.onShow();

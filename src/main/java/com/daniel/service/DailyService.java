@@ -6,17 +6,27 @@ import com.daniel.repository.InvestmentTypeRepository;
 import com.daniel.repository.SnapshotRepository;
 
 import java.sql.Connection;
+import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.util.*;
 
 public final class DailyService {
 
     public record SeriesPoint(LocalDate date, long valueCents) {}
+    public record RangeSummary(LocalDate start, LocalDate end,
+                               long totalProfitCents,
+                               Map<Long, Long> profitByInvestmentCents,
+                               Map<Long, DayExtremes> extremesByInvestment) {}
+
+    public record DayExtremes(LocalDate bestDay, long bestProfitCents,
+                              LocalDate worstDay, long worstProfitCents) {}
 
     private final Connection conn;
     private final InvestmentTypeRepository typeRepo;
     private final SnapshotRepository snapRepo;
     private final FlowRepository flowRepo;
+
+    private final NumberFormat brl = NumberFormat.getCurrencyInstance(new Locale("pt","BR"));
 
     public DailyService(Connection conn) {
         this.conn = conn;
@@ -54,7 +64,6 @@ public final class DailyService {
         }
     }
 
-    // Flows
     public List<Flow> flowsFor(LocalDate date) {
         return flowRepo.listForDate(date);
     }
@@ -92,7 +101,6 @@ public final class DailyService {
         LocalDate prev = date.minusDays(1);
 
         List<InvestmentType> types = listTypes();
-
         boolean hasPrev = hasAnyData(prev);
 
         long cashToday = snapRepo.getCash(date);
@@ -108,14 +116,6 @@ public final class DailyService {
 
         long totalToday = cashToday;
         long totalPrev = cashPrev;
-
-        long totalFlowNetInvestments = 0;
-        for (long v : flowNetByInv.values()) totalFlowNetInvestments += v;
-
-        long cashFlowNet = -totalFlowNetInvestments;
-
-        long cashProfitMarket = 0;
-        long cashDelta = hasPrev ? (cashToday - cashPrev) : 0;
 
         for (InvestmentType t : types) {
             long today = invToday.getOrDefault(t.id(), 0L);
@@ -133,19 +133,15 @@ public final class DailyService {
             totalPrev += prevVal;
         }
 
-        long totalDelta = hasPrev ? (totalToday - totalPrev) : 0;
-        long totalProfitMarket = hasPrev ? (totalDelta - totalFlowNetInvestments - cashFlowNet) : 0;
-
         long sumInvProfit = 0;
         for (long p : invProfitMarketMap.values()) sumInvProfit += p;
-        totalProfitMarket = sumInvProfit;
 
         return new DailySummary(
                 date,
                 totalToday,
-                totalProfitMarket,
+                sumInvProfit,
                 cashToday,
-                cashDelta,
+                hasPrev ? (cashToday - cashPrev) : 0,
                 invTodayMap,
                 invProfitMarketMap
         );
@@ -154,6 +150,10 @@ public final class DailyService {
     private boolean hasAnyData(LocalDate date) {
         long cash = snapRepo.getCash(date);
         return cash != 0 || !snapRepo.getAllInvestmentsForDate(date).isEmpty() || !flowRepo.listForDate(date).isEmpty();
+    }
+
+    public boolean hasAnyDataPublic(LocalDate date) {
+        return hasAnyData(date);
     }
 
     private Map<Long, Long> computeFlowNetByInvestment(LocalDate date) {
@@ -194,34 +194,54 @@ public final class DailyService {
         return points;
     }
 
-    public DailyEntry suggestToday(java.time.LocalDate date) {
-        java.time.LocalDate y = date.minusDays(1);
+    public String brl(long cents) { return brl.format(cents / 100.0); }
+    public String brlAbs(long centsAbs) { return brl.format(centsAbs / 100.0); }
 
-        DailyEntry yesterday = loadEntry(y);
-        DailyEntry today = loadEntry(date);
+    public RangeSummary rangeSummary(LocalDate start, LocalDate end) {
+        Map<Long, Long> profitByInv = new HashMap<>();
+        Map<Long, LocalDate> bestDay = new HashMap<>();
+        Map<Long, Long> bestProfit = new HashMap<>();
+        Map<Long, LocalDate> worstDay = new HashMap<>();
+        Map<Long, Long> worstProfit = new HashMap<>();
 
-        long cash = yesterday.cashCents();
-        java.util.Map<Long, Long> inv = new java.util.HashMap<>(yesterday.investmentValuesCents());
+        long totalProfit = 0;
 
-        for (Flow f : flowsFor(date)) {
-            long v = f.amountCents();
-
-            if (f.fromKind() == FlowKind.CASH) cash -= v;
-            else inv.put(f.fromInvestmentTypeId(), inv.getOrDefault(f.fromInvestmentTypeId(), 0L) - v);
-
-            if (f.toKind() == FlowKind.CASH) cash += v;
-            else inv.put(f.toInvestmentTypeId(), inv.getOrDefault(f.toInvestmentTypeId(), 0L) + v);
+        List<InvestmentType> types = listTypes();
+        for (InvestmentType t : types) {
+            profitByInv.put(t.id(), 0L);
+            bestProfit.put(t.id(), Long.MIN_VALUE);
+            worstProfit.put(t.id(), Long.MAX_VALUE);
         }
 
-        if (cash < 0) cash = 0;
-        for (var e : inv.entrySet()) {
-            if (e.getValue() < 0) e.setValue(0L);
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+            if (!hasAnyData(d)) continue;
+
+            DailySummary s = summaryFor(d);
+            totalProfit += s.totalProfitTodayCents();
+
+            for (InvestmentType t : types) {
+                long p = s.investmentProfitTodayCents().getOrDefault(t.id(), 0L);
+                profitByInv.put(t.id(), profitByInv.get(t.id()) + p);
+
+                if (p > bestProfit.get(t.id())) {
+                    bestProfit.put(t.id(), p);
+                    bestDay.put(t.id(), d);
+                }
+                if (p < worstProfit.get(t.id())) {
+                    worstProfit.put(t.id(), p);
+                    worstDay.put(t.id(), d);
+                }
+            }
         }
 
-        java.util.Set<Long> currentTypes = listTypes().stream().map(InvestmentType::id).collect(java.util.stream.Collectors.toSet());
-        inv.keySet().retainAll(currentTypes);
+        Map<Long, DayExtremes> extremes = new HashMap<>();
+        for (InvestmentType t : types) {
+            extremes.put(t.id(), new DayExtremes(
+                    bestDay.get(t.id()), bestProfit.get(t.id()) == Long.MIN_VALUE ? 0 : bestProfit.get(t.id()),
+                    worstDay.get(t.id()), worstProfit.get(t.id()) == Long.MAX_VALUE ? 0 : worstProfit.get(t.id())
+            ));
+        }
 
-        return new DailyEntry(date, cash, inv);
+        return new RangeSummary(start, end, totalProfit, profitByInv, extremes);
     }
-
 }

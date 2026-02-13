@@ -1,4 +1,4 @@
-.root {
+.root{
     -fx-font-family: "Segoe UI";
     -fx-base: #0b0f0c;
     -fx-background-color: #0b0f0c;
@@ -11,84 +11,98 @@
 }
 
 /* Typography */
-.label { -fx-text-fill: #e6f1ea; }
-.h1 { -fx-font-size: 20px; -fx-font-weight: 800; }
-.card-title { -fx-font-weight: 700; -fx-text-fill: #dff6ea; }
+.label{ -fx-text-fill: #e6f1ea; }
+.h1{ -fx-font-size: 20px; -fx-font-weight: 800; }
+.section-title{ -fx-font-size: 14px; -fx-font-weight: 800; -fx-opacity: 0.92; }
+.muted{ -fx-opacity: 0.75; }
+.card-value{ -fx-font-size: 16px; -fx-font-weight: 800; }
 
-/* Layout helpers */
-.app-scroll { -fx-background-color: transparent; }
-.app-scroll > .viewport { -fx-background-color: transparent; }
+.pos{ -fx-text-fill: #1fbf72; -fx-font-weight: 800; }
+.neg{ -fx-text-fill: #ff6b6b; -fx-font-weight: 800; }
 
 /* Card */
-.card {
+.card{
     -fx-background-color: #0f1511;
     -fx-background-radius: 16;
     -fx-border-radius: 16;
-    -fx-border-color: rgba(255,255,255,0.08);
+    -fx-border-color: rgba(255,255,255,0.10);
     -fx-padding: 14;
 }
 
 /* Inputs */
-.text-field, .text-area, .combo-box-base, .date-picker {
+.text-field, .text-area, .combo-box-base, .date-picker{
     -fx-background-color: #101712;
     -fx-text-fill: #e6f1ea;
     -fx-background-radius: 12;
     -fx-border-radius: 12;
-    -fx-border-color: rgba(255,255,255,0.10);
+    -fx-border-color: rgba(255,255,255,0.12);
     -fx-padding: 8 10;
 }
-.text-field:focused, .combo-box-base:focused, .date-picker:focused {
+.text-field:focused, .combo-box-base:focused, .date-picker:focused{
     -fx-border-color: rgba(31,191,114,0.65);
 }
 
 /* Buttons */
-.button {
+.button{
     -fx-background-color: #0f6b3f;
     -fx-text-fill: white;
     -fx-background-radius: 12;
     -fx-padding: 9 14;
-    -fx-font-weight: 700;
+    -fx-font-weight: 800;
 }
-.button:hover { -fx-background-color: #178a54; }
-.button:pressed { -fx-background-color: #0b5532; }
+.button:hover{ -fx-background-color: #178a54; }
+.button:pressed{ -fx-background-color: #0b5532; }
 
-/* TableView */
-.table-view {
+/* Table */
+.table-view{
     -fx-background-color: rgba(0,0,0,0.22);
-    -fx-background-insets: 0;
     -fx-border-color: rgba(255,255,255,0.10);
     -fx-border-radius: 12;
     -fx-background-radius: 12;
 }
-.table-view .column-header-background {
+.table-view .column-header-background{
     -fx-background-color: rgba(0,0,0,0.28);
-    -fx-background-radius: 12 12 0 0;
 }
-.table-view .column-header .label {
+.table-view .column-header .label{
     -fx-text-fill: #bfead2;
-    -fx-font-weight: 800;
+    -fx-font-weight: 900;
 }
-.table-row-cell {
-    -fx-background-color: transparent;
-}
-.table-row-cell:filled:selected {
-    -fx-background-color: rgba(31,191,114,0.22);
-}
-.table-row-cell:filled:hover {
-    -fx-background-color: rgba(255,255,255,0.04);
-}
+.table-row-cell:filled:selected{ -fx-background-color: rgba(31,191,114,0.22); }
+.table-row-cell:filled:hover{ -fx-background-color: rgba(255,255,255,0.04); }
 
 /* Sidebar */
-.sidebar {
+.sidebar{
     -fx-background-color: #0c120e;
     -fx-padding: 14;
 }
-.sidebar .button {
+.sidebar-title{ -fx-font-size: 16px; -fx-font-weight: 900; }
+.sidebar-sub{ -fx-opacity: 0.75; }
+.sidebar-footer{ -fx-opacity: 0.60; }
+
+.sidebar .nav-btn{
     -fx-background-color: transparent;
     -fx-text-fill: #bfead2;
     -fx-font-weight: 500;
     -fx-padding: 10 12;
     -fx-alignment: CENTER_LEFT;
 }
-.sidebar .button:hover { -fx-background-color: rgba(31,191,114,0.10); }
-.sidebar .button.active { -fx-background-color: rgba(31,191,114,0.18); -fx-font-weight: 800; }
+.sidebar .nav-btn:hover{ -fx-background-color: rgba(31,191,114,0.12); }
+.sidebar .nav-btn.active{ -fx-background-color: rgba(31,191,114,0.20); -fx-font-weight: 900; }
+
+/* Agenda rows */
+.row-empty{ -fx-opacity: 0.65; }
+.row-today{ -fx-background-color: rgba(31,191,114,0.15); }
+.row-yesterday{ -fx-background-color: rgba(31,191,114,0.08); }
+
+/* Chart */
+.chart-card{
+    -fx-background-color: #0f1511;
+    -fx-background-radius: 16;
+    -fx-border-radius: 16;
+    -fx-border-color: rgba(255,255,255,0.10);
+    -fx-padding: 10;
+}
+.chart-plot-background{ -fx-background-color: transparent; }
+.chart-vertical-grid-lines{ -fx-stroke: rgba(255,255,255,0.08); }
+.chart-horizontal-grid-lines{ -fx-stroke: rgba(255,255,255,0.08); }
+.chart-series-line{ -fx-stroke-width: 2.0px; }
