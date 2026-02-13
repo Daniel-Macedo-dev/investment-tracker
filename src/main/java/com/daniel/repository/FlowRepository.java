@@ -17,6 +17,11 @@ public final class FlowRepository {
         this.conn = conn;
     }
 
+    private static Long nullableLong(ResultSet rs, String col) throws Exception {
+        long v = rs.getLong(col);
+        return rs.wasNull() ? null : v;
+    }
+
     public List<Flow> listForDate(LocalDate date) {
         String sql = """
             SELECT id, date, from_kind, from_investment_type_id, to_kind, to_investment_type_id, amount_cents, note
@@ -29,13 +34,16 @@ public final class FlowRepository {
             try (ResultSet rs = ps.executeQuery()) {
                 List<Flow> list = new ArrayList<>();
                 while (rs.next()) {
+                    Long fromId = nullableLong(rs, "from_investment_type_id");
+                    Long toId = nullableLong(rs, "to_investment_type_id");
+
                     list.add(new Flow(
                             rs.getLong("id"),
                             LocalDate.parse(rs.getString("date")),
                             FlowKind.valueOf(rs.getString("from_kind")),
-                            (Long) rs.getObject("from_investment_type_id"),
+                            fromId,
                             FlowKind.valueOf(rs.getString("to_kind")),
-                            (Long) rs.getObject("to_investment_type_id"),
+                            toId,
                             rs.getLong("amount_cents"),
                             rs.getString("note")
                     ));

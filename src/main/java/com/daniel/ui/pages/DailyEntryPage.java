@@ -210,21 +210,31 @@ public final class DailyEntryPage implements Page {
     }
 
     private void saveDay() {
+        if (invTable.getEditingCell() != null) {
+            invTable.edit(-1, null);
+        }
+
+        root.requestFocus();
+
         LocalDate date = datePicker.getValue();
 
         long cash = Money.textToCentsOrZero(cashField.getText());
         if (cash < 0) { Dialogs.error("Dinheiro livre inválido."); return; }
 
         Map<Long, Long> inv = new HashMap<>();
-        for (InvestmentValueRow row : invRows) inv.put(row.getType().id(), Math.max(0, row.getValueCents()));
+        for (InvestmentValueRow row : invRows) {
+            inv.put(row.getType().id(), Math.max(0, row.getValueCents()));
+        }
 
         try {
             daily.saveEntry(new DailyEntry(date, cash, inv));
             Dialogs.info("Dia salvo.");
+            loadFor(date);
         } catch (Exception ex) {
             Dialogs.error(ex.getMessage());
         }
     }
+
 
     private void openFlowDialog() {
         LocalDate date = datePicker.getValue();

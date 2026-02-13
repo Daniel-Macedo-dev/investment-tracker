@@ -20,7 +20,7 @@ public final class InvestmentTypesPage implements Page {
         root.setPadding(new Insets(16));
 
         Label h1 = new Label("Tipos de Investimento");
-        h1.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+        h1.getStyleClass().add("h1");
 
         Button add = new Button("+ Criar");
         add.setOnAction(e -> onAdd());
@@ -33,18 +33,26 @@ public final class InvestmentTypesPage implements Page {
 
         HBox actions = new HBox(8, add, rename, delete);
 
+        list.setCellFactory(v -> new ListCell<>() {
+            @Override protected void updateItem(InvestmentType item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.name());
+            }
+        });
+
         root.getChildren().addAll(h1, actions, list);
         VBox.setVgrow(list, Priority.ALWAYS);
+        list.getStyleClass().add("list");
     }
 
-    @Override
-    public Parent view() { return root; }
-
-    @Override
-    public void onShow() { refresh(); }
+    @Override public Parent view() { return root; }
+    @Override public void onShow() { refresh(); }
 
     private void refresh() {
         list.getItems().setAll(daily.listTypes());
+        if (list.getItems().isEmpty()) {
+            list.setPlaceholder(new Label("Crie seus tipos (ex: CDB, Ouro, Previdência...)."));
+        }
     }
 
     private void onAdd() {
@@ -52,7 +60,7 @@ public final class InvestmentTypesPage implements Page {
         if (name == null || name.isBlank()) return;
 
         try {
-            daily.createType(name);
+            daily.createType(name.trim());
             refresh();
         } catch (Exception ex) {
             Dialogs.error(ex.getMessage());
@@ -67,7 +75,7 @@ public final class InvestmentTypesPage implements Page {
         if (name == null || name.isBlank()) return;
 
         try {
-            daily.renameType(sel.id(), name);
+            daily.renameType(sel.id(), name.trim());
             refresh();
         } catch (Exception ex) {
             Dialogs.error(ex.getMessage());

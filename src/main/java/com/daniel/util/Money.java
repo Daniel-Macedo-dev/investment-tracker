@@ -3,72 +3,74 @@ package com.daniel.util;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 
+import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
 import java.util.Locale;
 import java.util.function.UnaryOperator;
+import java.util.regex.Pattern;
 
 public final class Money {
-    private static final Locale PT_BR = new Locale("pt", "BR");
-    private static final NumberFormat CURRENCY = NumberFormat.getCurrencyInstance(PT_BR);
-    private static final NumberFormat NUMBER = NumberFormat.getNumberInstance(PT_BR);
 
-    static {
-        NUMBER.setMinimumFractionDigits(2);
-        NUMBER.setMaximumFractionDigits(2);
-        NUMBER.setGroupingUsed(true);
-    }
+    private static final Locale LOCALE_BR = new Locale("pt", "BR");
+    private static final NumberFormat BRL = NumberFormat.getCurrencyInstance(LOCALE_BR);
+
+    private static final char DECIMAL_SEP = new DecimalFormatSymbols(LOCALE_BR).getDecimalSeparator();
+    private static final char GROUP_SEP = new DecimalFormatSymbols(LOCALE_BR).getGroupingSeparator();
+
+    private static final Pattern ALLOWED = Pattern.compile("[0-9\\sR\\$\\.,]*");
 
     private Money() {}
 
-    public static String centsToCurrencyText(long cents) {
-        return CURRENCY.format(cents / 100.0);
-    }
-
-    public static String centsToNumberText(long cents) {
-        return NUMBER.format(cents / 100.0);
-    }
-
     public static long textToCentsOrZero(String input) {
-        if (input == null) return 0;
+        if (input == null) return 0L;
         String s = input.trim();
-        if (s.isBlank()) return 0;
+        if (s.isEmpty()) return 0L;
 
         s = s.replace("R$", "").trim();
         s = s.replace(" ", "");
 
-        if (s.contains(",") && s.contains(".")) {
+        if (s.indexOf('.') >= 0 && s.indexOf(',') >= 0) {
             s = s.replace(".", "").replace(",", ".");
-        } else if (s.contains(",")) {
+        } else if (s.indexOf(',') >= 0) {
             s = s.replace(",", ".");
         }
-
-        s = s.replaceAll("[^0-9.\\-]", "");
-        if (s.isBlank() || s.equals("-") || s.equals(".")) return 0;
 
         double v = Double.parseDouble(s);
         return Math.round(v * 100.0);
     }
 
+    public static String centsToCurrencyText(long cents) {
+        return BRL.format(cents / 100.0);
+    }
+
+    public static String centsToText(long cents) {
+        return centsToCurrencyText(cents);
+    }
+
     public static TextFormatter<String> currencyFormatterEditable() {
         UnaryOperator<TextFormatter.Change> filter = change -> {
-            String t = change.getControlNewText();
-            if (t.isBlank()) return change;
-            if (!t.matches("[0-9.,\\-\\sR$]*")) return null;
-
-            String cleaned = t.replace("R$", "").trim();
-            if (cleaned.indexOf('-') > 0) return null;
-            if (cleaned.chars().filter(ch -> ch == '-').count() > 1) return null;
+            String n = change.getControlNewText();
+            if (n == null) return change;
+            if (!ALLOWED.matcher(n).matches()) return null;
             return change;
         };
         return new TextFormatter<>(filter);
     }
 
     public static void applyCurrencyFormatOnBlur(TextField field) {
-        field.focusedProperty().addListener((obs, oldV, focused) -> {
-            if (!focused) {
+        field.focusedProperty().addListener((obs, was, is) -> {
+            if (was && !is) {
                 long cents = textToCentsOrZero(field.getText());
-                field.setText(cents == 0 ? "" : centsToCurrencyText(cents));
+                if (cents == 0) {
+                    field.setText("");
+                } else {
+                    field.setText(centsToCurrencyText(cents));
+                }
             }
         });
+    }
+
+    public static void applyFormatOnBlur(TextField field) {
+        applyCurrencyFormatOnBlur(field);
     }
 }

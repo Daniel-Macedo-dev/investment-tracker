@@ -1,17 +1,26 @@
 package com.daniel.ui.components;
 
 import com.daniel.util.Money;
+import javafx.application.Platform;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TextField;
 
 public final class MoneyEditingCell<S> extends TableCell<S, Number> {
+
     private final TextField field = new TextField();
+    private boolean committing;
 
     public MoneyEditingCell() {
         field.setTextFormatter(Money.currencyFormatterEditable());
         field.setPromptText("R$ 0,00");
         Money.applyCurrencyFormatOnBlur(field);
-        field.setOnAction(e -> commitNow());
+
+        field.setOnAction(e -> commitIfPossible());
+
+        field.focusedProperty().addListener((obs, oldV, focused) -> {
+            if (!focused) commitIfPossible();
+        });
+
         field.setOnKeyPressed(e -> {
             switch (e.getCode()) {
                 case ESCAPE -> cancelEdit();
@@ -19,19 +28,26 @@ public final class MoneyEditingCell<S> extends TableCell<S, Number> {
         });
     }
 
-    private void commitNow() {
-        long cents = Money.textToCentsOrZero(field.getText());
-        commitEdit(cents / 100.0);
+    private void commitIfPossible() {
+        if (committing) return;
+        committing = true;
+        try {
+            long cents = Money.textToCentsOrZero(field.getText());
+            Platform.runLater(() -> {
+                try {
+                    commitEdit(cents / 100.0);
+                } finally {
+                    committing = false;
+                }
+            });
+        } catch (Exception ex) {
+            committing = false;
+        }
     }
 
     @Override public void startEdit() {
         super.startEdit();
-        if (getItem() != null) {
-            long cents = Math.round(getItem().doubleValue() * 100);
-            field.setText(cents == 0 ? "" : Money.centsToCurrencyText(cents));
-        } else {
-            field.setText("");
-        }
+        syncFromItem();
         setGraphic(field);
         field.requestFocus();
         field.positionCaret(field.getText().length());
@@ -39,8 +55,8 @@ public final class MoneyEditingCell<S> extends TableCell<S, Number> {
 
     @Override public void cancelEdit() {
         super.cancelEdit();
+        syncFromItem();
         setGraphic(field);
-        updateItem(getItem(), false);
     }
 
     @Override protected void updateItem(Number item, boolean empty) {
@@ -49,8 +65,13 @@ public final class MoneyEditingCell<S> extends TableCell<S, Number> {
             setGraphic(null);
             return;
         }
+        syncFromItem();
+        setGraphic(field);
+    }
+
+    private void syncFromItem() {
+        Number item = getItem();
         long cents = item == null ? 0 : Math.round(item.doubleValue() * 100);
         field.setText(cents == 0 ? "" : Money.centsToCurrencyText(cents));
-        setGraphic(field);
     }
 }
