@@ -120,3 +120,24 @@
     -fx-background-color: transparent;
 }
 
+.app-scroll { -fx-background-color: transparent; }
+.app-scroll > .viewport { -fx-background-color: transparent; }
+
+.card-title { -fx-font-weight: bold; }
+
+.text-field {
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+}
+
+.table-view {
+  -fx-background-color: rgba(0,0,0,0.22);
+  -fx-border-color: rgba(255,255,255,0.08);
+  -fx-border-radius: 10;
+  -fx-background-radius: 10;
+}
+.table-view .column-header-background {
+  -fx-background-color: rgba(0,0,0,0.25);
+}
+
+

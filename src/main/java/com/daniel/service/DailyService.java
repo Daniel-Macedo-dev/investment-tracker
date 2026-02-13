@@ -193,4 +193,35 @@ public final class DailyService {
         }
         return points;
     }
+
+    public DailyEntry suggestToday(java.time.LocalDate date) {
+        java.time.LocalDate y = date.minusDays(1);
+
+        DailyEntry yesterday = loadEntry(y);
+        DailyEntry today = loadEntry(date);
+
+        long cash = yesterday.cashCents();
+        java.util.Map<Long, Long> inv = new java.util.HashMap<>(yesterday.investmentValuesCents());
+
+        for (Flow f : flowsFor(date)) {
+            long v = f.amountCents();
+
+            if (f.fromKind() == FlowKind.CASH) cash -= v;
+            else inv.put(f.fromInvestmentTypeId(), inv.getOrDefault(f.fromInvestmentTypeId(), 0L) - v);
+
+            if (f.toKind() == FlowKind.CASH) cash += v;
+            else inv.put(f.toInvestmentTypeId(), inv.getOrDefault(f.toInvestmentTypeId(), 0L) + v);
+        }
+
+        if (cash < 0) cash = 0;
+        for (var e : inv.entrySet()) {
+            if (e.getValue() < 0) e.setValue(0L);
+        }
+
+        java.util.Set<Long> currentTypes = listTypes().stream().map(InvestmentType::id).collect(java.util.stream.Collectors.toSet());
+        inv.keySet().retainAll(currentTypes);
+
+        return new DailyEntry(date, cash, inv);
+    }
+
 }

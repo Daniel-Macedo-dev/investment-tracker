@@ -8,18 +8,42 @@ public final class MoneyEditingCell<S> extends TableCell<S, Number> {
     private final TextField field = new TextField();
 
     public MoneyEditingCell() {
-        field.setTextFormatter(Money.currencyFormatter());
+        field.setTextFormatter(Money.currencyFormatterEditable());
         field.setPromptText("0,00");
-
-        field.focusedProperty().addListener((obs, oldV, focused) -> {
-            if (!focused) commitEdit(Money.textToCentsOrZero(field.getText()) / 100.0);
+        Money.applyFormatOnBlur(field);
+        field.setOnAction(e -> commitNow());
+        field.setOnKeyPressed(e -> {
+            switch (e.getCode()) {
+                case ESCAPE -> cancelEdit();
+            }
         });
-
-        field.setOnAction(e -> commitEdit(Money.textToCentsOrZero(field.getText()) / 100.0));
     }
 
-    @Override
-    protected void updateItem(Number item, boolean empty) {
+    private void commitNow() {
+        long cents = Money.textToCentsOrZero(field.getText());
+        commitEdit(cents / 100.0);
+    }
+
+    @Override public void startEdit() {
+        super.startEdit();
+        if (getItem() != null) {
+            long cents = Math.round(getItem().doubleValue() * 100);
+            field.setText(cents == 0 ? "" : Money.centsToText(cents));
+        } else {
+            field.setText("");
+        }
+        setGraphic(field);
+        field.requestFocus();
+        field.positionCaret(field.getText().length());
+    }
+
+    @Override public void cancelEdit() {
+        super.cancelEdit();
+        setGraphic(field);
+        updateItem(getItem(), false);
+    }
+
+    @Override protected void updateItem(Number item, boolean empty) {
         super.updateItem(item, empty);
         if (empty) {
             setGraphic(null);

@@ -1,20 +1,27 @@
 package com.daniel.util;
 
+import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 
-import java.text.DecimalFormatSymbols;
+import java.text.NumberFormat;
 import java.util.Locale;
 import java.util.function.UnaryOperator;
 
 public final class Money {
+    private static final Locale PT_BR = new Locale("pt", "BR");
+    private static final NumberFormat NF = NumberFormat.getNumberInstance(PT_BR);
+
+    static {
+        NF.setMinimumFractionDigits(2);
+        NF.setMaximumFractionDigits(2);
+        NF.setGroupingUsed(true);
+    }
+
     private Money() {}
 
     public static String centsToText(long cents) {
-        long abs = Math.abs(cents);
-        long reais = abs / 100;
-        long cent = abs % 100;
-        String s = reais + "," + (cent < 10 ? "0" + cent : cent);
-        return cents < 0 ? "-" + s : s;
+        double v = cents / 100.0;
+        return NF.format(v);
     }
 
     public static long textToCentsOrZero(String input) {
@@ -23,7 +30,6 @@ public final class Money {
         if (s.isBlank()) return 0;
 
         s = s.replace("R$", "").trim();
-
         s = s.replace(" ", "");
 
         if (s.contains(",") && s.contains(".")) {
@@ -39,39 +45,30 @@ public final class Money {
         return Math.round(v * 100.0);
     }
 
-    public static TextFormatter<String> currencyFormatter() {
-        Locale ptBR = new Locale("pt", "BR");
-        char decimalSep = new DecimalFormatSymbols(ptBR).getDecimalSeparator(); // ','
-
+    public static TextFormatter<String> currencyFormatterEditable() {
         UnaryOperator<TextFormatter.Change> filter = change -> {
-            String newText = change.getControlNewText();
+            String t = change.getControlNewText();
+            if (t.isBlank()) return change;
 
-            if (newText.isBlank()) return change;
+            if (!t.matches("[0-9.,\\-\\sR$]*")) return null;
 
-            String digits = newText.replaceAll("\\D", "");
+            String cleaned = t.replace("R$", "").trim();
 
-            if (digits.length() > 16) return null;
+            if (cleaned.indexOf('-') > 0) return null;
+            if (cleaned.chars().filter(ch -> ch == '-').count() > 1) return null;
 
-            if (digits.isEmpty()) {
-                change.setText("");
-                change.setRange(0, change.getControlText().length());
-                return change;
-            }
-
-            String formatted;
-            if (digits.length() == 1) formatted = "0" + decimalSep + "0" + digits;
-            else if (digits.length() == 2) formatted = "0" + decimalSep + digits;
-            else {
-                String reais = digits.substring(0, digits.length() - 2);
-                String cents = digits.substring(digits.length() - 2);
-                formatted = reais + decimalSep + cents;
-            }
-
-            change.setText(formatted);
-            change.setRange(0, change.getControlText().length());
             return change;
         };
 
         return new TextFormatter<>(filter);
+    }
+
+    public static void applyFormatOnBlur(TextField field) {
+        field.focusedProperty().addListener((obs, oldV, focused) -> {
+            if (!focused) {
+                long cents = textToCentsOrZero(field.getText());
+                field.setText(cents == 0 ? "" : centsToText(cents));
+            }
+        });
     }
 }

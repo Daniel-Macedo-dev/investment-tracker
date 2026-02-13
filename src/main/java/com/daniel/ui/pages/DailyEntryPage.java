@@ -3,9 +3,9 @@ package com.daniel.ui.pages;
 import com.daniel.domain.*;
 import com.daniel.service.DailyService;
 import com.daniel.ui.Dialogs;
+import com.daniel.ui.FxConverters;
 import com.daniel.ui.components.MoneyEditingCell;
 import com.daniel.ui.model.InvestmentValueRow;
-import com.daniel.util.FxConverters;
 import com.daniel.util.Money;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -28,11 +28,9 @@ public final class DailyEntryPage implements Page {
 
     private final TextField cashField = new TextField();
 
-    // investimentos do dia (tabela)
     private final ObservableList<InvestmentValueRow> invRows = FXCollections.observableArrayList();
     private final TableView<InvestmentValueRow> invTable = new TableView<>(invRows);
 
-    // fluxos do dia
     private final ObservableList<Flow> flowItems = FXCollections.observableArrayList();
     private final TableView<Flow> flowTable = new TableView<>(flowItems);
 
@@ -45,8 +43,9 @@ public final class DailyEntryPage implements Page {
         root.setTop(topBar());
         root.setCenter(center());
 
-        cashField.setTextFormatter(Money.currencyFormatter());
+        cashField.setTextFormatter(Money.currencyFormatterEditable());
         cashField.setPromptText("0,00");
+        Money.applyFormatOnBlur(cashField);
 
         buildInvTable();
         buildFlowTable();
@@ -54,9 +53,7 @@ public final class DailyEntryPage implements Page {
 
     @Override public Parent view() { return root; }
 
-    @Override public void onShow() {
-        loadFor(datePicker.getValue());
-    }
+    @Override public void onShow() { loadFor(datePicker.getValue()); }
 
     private Parent topBar() {
         Label h1 = new Label("Registro Diário");
@@ -65,13 +62,19 @@ public final class DailyEntryPage implements Page {
         Button load = new Button("Carregar");
         load.setOnAction(e -> loadFor(datePicker.getValue()));
 
-        Button copyYesterday = new Button("Copiar ontem");
-        copyYesterday.setOnAction(e -> copyYesterday());
+        // melhor nome e tooltip
+        Button fillYesterday = new Button("Preencher com ontem");
+        fillYesterday.setTooltip(new Tooltip("Copia os valores de ontem para você só ajustar o que mudou hoje."));
+        fillYesterday.setOnAction(e -> copyYesterday());
+
+        Button suggest = new Button("Sugerir hoje");
+        suggest.setTooltip(new Tooltip("Preenche com: ontem + movimentações do dia (sem lucro). Depois ajuste o mercado."));
+        suggest.setOnAction(e -> suggestToday());
 
         Button save = new Button("Salvar dia");
         save.setOnAction(e -> saveDay());
 
-        HBox right = new HBox(8, load, copyYesterday, save);
+        HBox right = new HBox(8, load, fillYesterday, suggest, save);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -106,16 +109,9 @@ public final class DailyEntryPage implements Page {
         Label title = new Label("Investimentos (valor total de cada tipo no dia)");
         title.getStyleClass().add("card-title");
 
-        Button goTypes = new Button("Criar tipos");
-        goTypes.setOnAction(e -> Dialogs.info("Crie tipos em: Tipos de Investimento"));
-
-        HBox header = new HBox(8, title);
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        header.getChildren().addAll(spacer, goTypes);
-
-        v.getChildren().addAll(header, invTable);
+        v.getChildren().addAll(title, invTable);
         invTable.setPrefHeight(220);
+
         return v;
     }
 
@@ -188,17 +184,15 @@ public final class DailyEntryPage implements Page {
 
     private void loadFor(LocalDate date) {
         List<InvestmentType> types = daily.listTypes();
-
         DailyEntry entry = daily.loadEntry(date);
 
         cashField.setText(entry.cashCents() == 0 ? "" : Money.centsToText(entry.cashCents()));
 
         invRows.clear();
         if (types.isEmpty()) {
-            // tabela vazia, mas com UX clara
             invTable.setPlaceholder(new Label("Nenhum tipo criado. Vá em 'Tipos de Investimento' e crie os seus."));
         } else {
-            invTable.setPlaceholder(new Label("Sem dados. Digite os valores do dia e salve."));
+            invTable.setPlaceholder(new Label("Digite os valores do dia e salve."));
             for (InvestmentType t : types) {
                 long v = entry.investmentValuesCents().getOrDefault(t.id(), 0L);
                 invRows.add(new InvestmentValueRow(t, v));
@@ -210,19 +204,27 @@ public final class DailyEntryPage implements Page {
 
     private void copyYesterday() {
         LocalDate d = datePicker.getValue();
-        LocalDate y = d.minusDays(1);
-
-        DailyEntry prev = daily.loadEntry(y);
+        DailyEntry prev = daily.loadEntry(d.minusDays(1));
 
         cashField.setText(prev.cashCents() == 0 ? "" : Money.centsToText(prev.cashCents()));
 
-        // copia por tipo (mantém linhas)
         Map<Long, Long> prevMap = prev.investmentValuesCents();
         for (InvestmentValueRow row : invRows) {
-            long v = prevMap.getOrDefault(row.getType().id(), 0L);
-            row.setValueCents(v);
+            row.setValueCents(prevMap.getOrDefault(row.getType().id(), 0L));
         }
+        invTable.refresh();
+    }
 
+    private void suggestToday() {
+        LocalDate d = datePicker.getValue();
+        DailyEntry suggested = daily.suggestToday(d);
+
+        cashField.setText(suggested.cashCents() == 0 ? "" : Money.centsToText(suggested.cashCents()));
+
+        Map<Long, Long> map = suggested.investmentValuesCents();
+        for (InvestmentValueRow row : invRows) {
+            row.setValueCents(map.getOrDefault(row.getType().id(), 0L));
+        }
         invTable.refresh();
     }
 
@@ -242,7 +244,7 @@ public final class DailyEntryPage implements Page {
 
         try {
             daily.saveEntry(new DailyEntry(date, cash, inv));
-            Dialogs.info("Dia salvo com sucesso.");
+            Dialogs.info("Dia salvo.");
         } catch (Exception ex) {
             Dialogs.error(ex.getMessage());
         }
@@ -266,15 +268,16 @@ public final class DailyEntryPage implements Page {
 
         ComboBox<InvestmentType> fromInv = new ComboBox<>(FXCollections.observableArrayList(types));
         ComboBox<InvestmentType> toInv = new ComboBox<>(FXCollections.observableArrayList(types));
-        fromInv.setConverter(FxConverters.investmentTypeConverter());
-        toInv.setConverter(FxConverters.investmentTypeConverter());
+        FxConverters.applyInvestmentTypeRenderer(fromInv);
+        FxConverters.applyInvestmentTypeRenderer(toInv);
 
         fromInv.setDisable(true);
         toInv.setDisable(false);
 
         TextField value = new TextField();
+        value.setTextFormatter(Money.currencyFormatterEditable());
         value.setPromptText("0,00");
-        value.setTextFormatter(Money.currencyFormatter());
+        Money.applyFormatOnBlur(value);
 
         TextField note = new TextField();
         note.setPromptText("Obs (opcional)");
@@ -311,6 +314,10 @@ public final class DailyEntryPage implements Page {
                         ? Objects.requireNonNull(toInv.getValue(), "Selecione o investimento de destino.").id()
                         : null;
 
+                if (fk == tk && Objects.equals(fId, tId)) {
+                    throw new IllegalArgumentException("Origem e destino não podem ser iguais.");
+                }
+
                 daily.addFlow(date, fk, fId, tk, tId, cents, note.getText());
                 flowItems.setAll(daily.flowsFor(date));
 
@@ -323,6 +330,8 @@ public final class DailyEntryPage implements Page {
     private void deleteSelectedFlow() {
         Flow sel = flowTable.getSelectionModel().getSelectedItem();
         if (sel == null) return;
+
+        if (!Dialogs.confirm("Excluir", "Deseja excluir a movimentação selecionada?")) return;
 
         try {
             daily.deleteFlow(sel.id());
