@@ -9,19 +9,23 @@ import java.util.function.UnaryOperator;
 
 public final class Money {
     private static final Locale PT_BR = new Locale("pt", "BR");
-    private static final NumberFormat NF = NumberFormat.getNumberInstance(PT_BR);
+    private static final NumberFormat CURRENCY = NumberFormat.getCurrencyInstance(PT_BR);
+    private static final NumberFormat NUMBER = NumberFormat.getNumberInstance(PT_BR);
 
     static {
-        NF.setMinimumFractionDigits(2);
-        NF.setMaximumFractionDigits(2);
-        NF.setGroupingUsed(true);
+        NUMBER.setMinimumFractionDigits(2);
+        NUMBER.setMaximumFractionDigits(2);
+        NUMBER.setGroupingUsed(true);
     }
 
     private Money() {}
 
-    public static String centsToText(long cents) {
-        double v = cents / 100.0;
-        return NF.format(v);
+    public static String centsToCurrencyText(long cents) {
+        return CURRENCY.format(cents / 100.0);
+    }
+
+    public static String centsToNumberText(long cents) {
+        return NUMBER.format(cents / 100.0);
     }
 
     public static long textToCentsOrZero(String input) {
@@ -49,25 +53,21 @@ public final class Money {
         UnaryOperator<TextFormatter.Change> filter = change -> {
             String t = change.getControlNewText();
             if (t.isBlank()) return change;
-
             if (!t.matches("[0-9.,\\-\\sR$]*")) return null;
 
             String cleaned = t.replace("R$", "").trim();
-
             if (cleaned.indexOf('-') > 0) return null;
             if (cleaned.chars().filter(ch -> ch == '-').count() > 1) return null;
-
             return change;
         };
-
         return new TextFormatter<>(filter);
     }
 
-    public static void applyFormatOnBlur(TextField field) {
+    public static void applyCurrencyFormatOnBlur(TextField field) {
         field.focusedProperty().addListener((obs, oldV, focused) -> {
             if (!focused) {
                 long cents = textToCentsOrZero(field.getText());
-                field.setText(cents == 0 ? "" : centsToText(cents));
+                field.setText(cents == 0 ? "" : centsToCurrencyText(cents));
             }
         });
     }

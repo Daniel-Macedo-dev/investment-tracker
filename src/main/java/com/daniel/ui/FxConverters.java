@@ -1,8 +1,8 @@
 package com.daniel.ui;
 
 import com.daniel.domain.InvestmentType;
-import javafx.scene.control.ListCell;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ListCell;
 import javafx.util.StringConverter;
 
 public final class FxConverters {
@@ -17,14 +17,12 @@ public final class FxConverters {
 
     public static void applyInvestmentTypeRenderer(ComboBox<InvestmentType> combo) {
         combo.setConverter(investmentTypeConverter());
-
         combo.setCellFactory(lv -> new ListCell<>() {
             @Override protected void updateItem(InvestmentType item, boolean empty) {
                 super.updateItem(item, empty);
                 setText(empty || item == null ? "" : item.name());
             }
         });
-
         combo.setButtonCell(new ListCell<>() {
             @Override protected void updateItem(InvestmentType item, boolean empty) {
                 super.updateItem(item, empty);
