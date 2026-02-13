@@ -1,8 +1,7 @@
 package com.daniel.service;
 
-import com.daniel.domain.DailyEntry;
-import com.daniel.domain.DailySummary;
-import com.daniel.domain.InvestmentType;
+import com.daniel.domain.*;
+import com.daniel.repository.FlowRepository;
 import com.daniel.repository.InvestmentTypeRepository;
 import com.daniel.repository.SnapshotRepository;
 
@@ -17,28 +16,19 @@ public final class DailyService {
     private final Connection conn;
     private final InvestmentTypeRepository typeRepo;
     private final SnapshotRepository snapRepo;
+    private final FlowRepository flowRepo;
 
     public DailyService(Connection conn) {
         this.conn = conn;
         this.typeRepo = new InvestmentTypeRepository(conn);
         this.snapRepo = new SnapshotRepository(conn);
+        this.flowRepo = new FlowRepository(conn);
     }
 
-    public List<InvestmentType> listTypes() {
-        return typeRepo.listAll();
-    }
-
-    public long createType(String name) {
-        return typeRepo.create(name);
-    }
-
-    public void renameType(long id, String newName) {
-        typeRepo.rename(id, newName);
-    }
-
-    public void deleteType(long id) {
-        typeRepo.delete(id);
-    }
+    public List<InvestmentType> listTypes() { return typeRepo.listAll(); }
+    public long createType(String name) { return typeRepo.create(name); }
+    public void renameType(long id, String newName) { typeRepo.rename(id, newName); }
+    public void deleteType(long id) { typeRepo.delete(id); }
 
     public DailyEntry loadEntry(LocalDate date) {
         long cash = snapRepo.getCash(date);
@@ -51,7 +41,6 @@ public final class DailyService {
             conn.setAutoCommit(false);
 
             snapRepo.upsertCash(entry.date(), entry.cashCents());
-
             for (var e : entry.investmentValuesCents().entrySet()) {
                 snapRepo.upsertInvestment(entry.date(), e.getKey(), e.getValue(), null);
             }
@@ -65,61 +54,127 @@ public final class DailyService {
         }
     }
 
+    // Flows
+    public List<Flow> flowsFor(LocalDate date) {
+        return flowRepo.listForDate(date);
+    }
+
+    public long addFlow(LocalDate date,
+                        FlowKind fromKind, Long fromInvId,
+                        FlowKind toKind, Long toInvId,
+                        long amountCents, String note) {
+
+        validateFlow(fromKind, fromInvId, toKind, toInvId, amountCents);
+
+        Flow f = new Flow(0, date, fromKind, fromInvId, toKind, toInvId, amountCents, note);
+        return flowRepo.create(f);
+    }
+
+    public void deleteFlow(long id) {
+        flowRepo.delete(id);
+    }
+
+    private void validateFlow(FlowKind fromKind, Long fromInvId, FlowKind toKind, Long toInvId, long amountCents) {
+        if (amountCents <= 0) throw new IllegalArgumentException("Valor deve ser > 0.");
+
+        if (fromKind == FlowKind.CASH && fromInvId != null) throw new IllegalArgumentException("Origem CASH não pode ter investimento.");
+        if (toKind == FlowKind.CASH && toInvId != null) throw new IllegalArgumentException("Destino CASH não pode ter investimento.");
+
+        if (fromKind == FlowKind.INVESTMENT && fromInvId == null) throw new IllegalArgumentException("Origem INVESTMENT precisa do tipo.");
+        if (toKind == FlowKind.INVESTMENT && toInvId == null) throw new IllegalArgumentException("Destino INVESTMENT precisa do tipo.");
+
+        if (fromKind == FlowKind.INVESTMENT && toKind == FlowKind.INVESTMENT && Objects.equals(fromInvId, toInvId)) {
+            throw new IllegalArgumentException("Transferência para o mesmo investimento não faz sentido.");
+        }
+    }
+
     public DailySummary summaryFor(LocalDate date) {
         LocalDate prev = date.minusDays(1);
 
         List<InvestmentType> types = listTypes();
 
-        boolean hasPrev = hasData(prev);
+        boolean hasPrev = hasAnyData(prev);
 
         long cashToday = snapRepo.getCash(date);
         long cashPrev = snapRepo.getCash(prev);
-        long cashProfit = hasPrev ? (cashToday - cashPrev) : 0;
 
-        Map<Long, Long> todayMap = new HashMap<>();
-        Map<Long, Long> profitMap = new HashMap<>();
+        Map<Long, Long> invToday = snapRepo.getAllInvestmentsForDate(date);
+        Map<Long, Long> invPrev = snapRepo.getAllInvestmentsForDate(prev);
+
+        Map<Long, Long> flowNetByInv = computeFlowNetByInvestment(date);
+
+        Map<Long, Long> invTodayMap = new HashMap<>();
+        Map<Long, Long> invProfitMarketMap = new HashMap<>();
 
         long totalToday = cashToday;
         long totalPrev = cashPrev;
 
-        Map<Long, Long> invTodayRaw = snapRepo.getAllInvestmentsForDate(date);
-        Map<Long, Long> invPrevRaw = snapRepo.getAllInvestmentsForDate(prev);
+        long totalFlowNetInvestments = 0;
+        for (long v : flowNetByInv.values()) totalFlowNetInvestments += v;
+
+        long cashFlowNet = -totalFlowNetInvestments;
+
+        long cashProfitMarket = 0;
+        long cashDelta = hasPrev ? (cashToday - cashPrev) : 0;
 
         for (InvestmentType t : types) {
-            long today = invTodayRaw.getOrDefault(t.id(), 0L);
-            long prevVal = invPrevRaw.getOrDefault(t.id(), 0L);
+            long today = invToday.getOrDefault(t.id(), 0L);
+            long prevVal = invPrev.getOrDefault(t.id(), 0L);
 
-            todayMap.put(t.id(), today);
-            profitMap.put(t.id(), hasPrev ? (today - prevVal) : 0);
+            invTodayMap.put(t.id(), today);
+
+            long delta = hasPrev ? (today - prevVal) : 0;
+            long flowNet = flowNetByInv.getOrDefault(t.id(), 0L);
+
+            long profitMarket = hasPrev ? (delta - flowNet) : 0;
+            invProfitMarketMap.put(t.id(), profitMarket);
 
             totalToday += today;
             totalPrev += prevVal;
         }
 
-        long totalProfit = hasPrev ? (totalToday - totalPrev) : 0;
+        long totalDelta = hasPrev ? (totalToday - totalPrev) : 0;
+        long totalProfitMarket = hasPrev ? (totalDelta - totalFlowNetInvestments - cashFlowNet) : 0;
+
+        long sumInvProfit = 0;
+        for (long p : invProfitMarketMap.values()) sumInvProfit += p;
+        totalProfitMarket = sumInvProfit;
 
         return new DailySummary(
                 date,
                 totalToday,
-                totalProfit,
+                totalProfitMarket,
                 cashToday,
-                cashProfit,
-                todayMap,
-                profitMap
+                cashDelta,
+                invTodayMap,
+                invProfitMarketMap
         );
     }
 
-    private boolean hasData(LocalDate date) {
+    private boolean hasAnyData(LocalDate date) {
         long cash = snapRepo.getCash(date);
-        return cash != 0 || !snapRepo.getAllInvestmentsForDate(date).isEmpty();
+        return cash != 0 || !snapRepo.getAllInvestmentsForDate(date).isEmpty() || !flowRepo.listForDate(date).isEmpty();
+    }
+
+    private Map<Long, Long> computeFlowNetByInvestment(LocalDate date) {
+        Map<Long, Long> net = new HashMap<>();
+        for (Flow f : flowRepo.listForDate(date)) {
+            if (f.toKind() == FlowKind.INVESTMENT) {
+                long id = f.toInvestmentTypeId();
+                net.put(id, net.getOrDefault(id, 0L) + f.amountCents());
+            }
+            if (f.fromKind() == FlowKind.INVESTMENT) {
+                long id = f.fromInvestmentTypeId();
+                net.put(id, net.getOrDefault(id, 0L) - f.amountCents());
+            }
+        }
+        return net;
     }
 
     public List<SeriesPoint> seriesForInvestment(long investmentTypeId) {
-        Map<String, Long> raw = snapRepo.seriesForInvestment(investmentTypeId);
+        var raw = snapRepo.seriesForInvestment(investmentTypeId);
         List<SeriesPoint> points = new ArrayList<>();
-        for (var e : raw.entrySet()) {
-            points.add(new SeriesPoint(LocalDate.parse(e.getKey()), e.getValue()));
-        }
+        for (var e : raw.entrySet()) points.add(new SeriesPoint(LocalDate.parse(e.getKey()), e.getValue()));
         points.sort(Comparator.comparing(SeriesPoint::date));
         return points;
     }
@@ -127,7 +182,6 @@ public final class DailyService {
     public List<SeriesPoint> seriesTotalLastDays(int daysBack) {
         LocalDate end = LocalDate.now();
         LocalDate start = end.minusDays(daysBack);
-
         List<InvestmentType> types = listTypes();
 
         List<SeriesPoint> points = new ArrayList<>();

@@ -1,7 +1,6 @@
 package com.daniel.db;
 
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.Statement;
 
 public final class Schema {
@@ -17,30 +16,18 @@ public final class Schema {
                 );
             """);
 
-            int version = currentVersion(st);
+            ensureV1(st);
+            ensureV2Flows(st);
 
-            ensureV1Tables(st);
-
-            if (version < 1) setVersion(st, 1);
+            st.executeUpdate("INSERT INTO schema_version(version) SELECT 2 WHERE NOT EXISTS (SELECT 1 FROM schema_version);");
+            st.executeUpdate("UPDATE schema_version SET version = CASE WHEN version < 2 THEN 2 ELSE version END;");
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to ensure schema", e);
         }
     }
 
-    private static int currentVersion(Statement st) throws Exception {
-        try (ResultSet rs = st.executeQuery("SELECT version FROM schema_version LIMIT 1")) {
-            if (rs.next()) return rs.getInt(1);
-        }
-        st.executeUpdate("INSERT INTO schema_version(version) VALUES(0)");
-        return 0;
-    }
-
-    private static void setVersion(Statement st, int v) throws Exception {
-        st.executeUpdate("UPDATE schema_version SET version = " + v);
-    }
-
-    private static void ensureV1Tables(Statement st) throws Exception {
+    private static void ensureV1(Statement st) throws Exception {
         st.executeUpdate("""
             CREATE TABLE IF NOT EXISTS investment_types (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,5 +54,28 @@ public final class Schema {
         """);
 
         st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_snapshots_date ON daily_snapshots(date);");
+    }
+
+    private static void ensureV2Flows(Statement st) throws Exception {
+        st.executeUpdate("""
+            CREATE TABLE IF NOT EXISTS daily_flows (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              date TEXT NOT NULL,              -- YYYY-MM-DD
+
+              from_kind TEXT NOT NULL,         -- CASH | INVESTMENT
+              from_investment_type_id INTEGER, -- nullable se CASH
+
+              to_kind TEXT NOT NULL,           -- CASH | INVESTMENT
+              to_investment_type_id INTEGER,   -- nullable se CASH
+
+              amount_cents INTEGER NOT NULL,
+              note TEXT,
+
+              FOREIGN KEY (from_investment_type_id) REFERENCES investment_types(id) ON DELETE CASCADE,
+              FOREIGN KEY (to_investment_type_id)   REFERENCES investment_types(id) ON DELETE CASCADE
+            );
+        """);
+
+        st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_flows_date ON daily_flows(date);");
     }
 }
