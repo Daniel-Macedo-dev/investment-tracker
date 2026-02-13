@@ -48,6 +48,7 @@ public final class AppShell {
 
         Label title = new Label("Investment Tracker");
         title.getStyleClass().add("sidebar-title");
+
         Label sub = new Label("Registro diário • lucro por variação (Δ − fluxo)");
         sub.getStyleClass().add("sidebar-sub");
 
@@ -70,13 +71,15 @@ public final class AppShell {
 
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
+
         Label footer = new Label("v0.3.0");
         footer.getStyleClass().add("sidebar-footer");
+
         box.getChildren().addAll(spacer, footer);
         return box;
     }
 
-    private void go(String key) {
+    public void go(String key) {
         Page p = pages.get(key);
         if (p == null) return;
 
@@ -87,9 +90,8 @@ public final class AppShell {
         p.onShow();
     }
 
-    private void goToDaily(LocalDate date) {
+    public void goToDaily(LocalDate date) {
         if (date == null) date = LocalDate.now();
-
         dailyEntryPage.setDate(date);
         go("Registro Diário");
     }

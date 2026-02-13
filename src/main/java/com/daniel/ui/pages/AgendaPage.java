@@ -43,7 +43,7 @@ public final class AgendaPage implements Page {
                 now.minusMonths(3), now.minusMonths(2), now.minusMonths(1),
                 now, now.plusMonths(1)
         ));
-        monthPicker.getSelectionModel().select(now);
+        if (monthPicker.getValue() == null) monthPicker.getSelectionModel().select(now);
         reload();
     }
 
@@ -53,7 +53,9 @@ public final class AgendaPage implements Page {
 
         monthPicker.setPrefWidth(160);
         monthPicker.setConverter(new javafx.util.StringConverter<>() {
-            @Override public String toString(YearMonth ym) { return ym == null ? "" : String.format("%02d/%d", ym.getMonthValue(), ym.getYear()); }
+            @Override public String toString(YearMonth ym) {
+                return ym == null ? "" : String.format("%02d/%d", ym.getMonthValue(), ym.getYear());
+            }
             @Override public YearMonth fromString(String s) { return null; }
         });
 
@@ -78,13 +80,13 @@ public final class AgendaPage implements Page {
     private void buildTable() {
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        var colDate = new TableColumn<Row, String>("Data");
+        TableColumn<Row, String> colDate = new TableColumn<>("Data");
         colDate.setCellValueFactory(v -> new SimpleStringProperty(v.getValue().date.format(BR)));
 
-        var colTotal = new TableColumn<Row, String>("Total do dia");
+        TableColumn<Row, String> colTotal = new TableColumn<>("Total do dia");
         colTotal.setCellValueFactory(v -> new SimpleStringProperty(v.getValue().totalText));
 
-        var colProfit = new TableColumn<Row, String>("Lucro/Prejuízo (mercado)");
+        TableColumn<Row, String> colProfit = new TableColumn<>("Lucro/Prejuízo (mercado)");
         colProfit.setCellValueFactory(v -> new SimpleStringProperty(v.getValue().profitText));
 
         table.getColumns().setAll(colDate, colTotal, colProfit);
@@ -119,7 +121,7 @@ public final class AgendaPage implements Page {
     }
 
     private void reload() {
-        var ym = monthPicker.getValue();
+        YearMonth ym = monthPicker.getValue();
         if (ym == null) return;
 
         var items = FXCollections.<Row>observableArrayList();
