@@ -9,8 +9,8 @@ public final class MoneyEditingCell<S> extends TableCell<S, Number> {
 
     public MoneyEditingCell() {
         field.setTextFormatter(Money.currencyFormatterEditable());
-        field.setPromptText("0,00");
-        Money.applyFormatOnBlur(field);
+        field.setPromptText("R$ 0,00");
+        Money.applyCurrencyFormatOnBlur(field);
         field.setOnAction(e -> commitNow());
         field.setOnKeyPressed(e -> {
             switch (e.getCode()) {
@@ -28,7 +28,7 @@ public final class MoneyEditingCell<S> extends TableCell<S, Number> {
         super.startEdit();
         if (getItem() != null) {
             long cents = Math.round(getItem().doubleValue() * 100);
-            field.setText(cents == 0 ? "" : Money.centsToText(cents));
+            field.setText(cents == 0 ? "" : Money.centsToCurrencyText(cents));
         } else {
             field.setText("");
         }
@@ -50,7 +50,7 @@ public final class MoneyEditingCell<S> extends TableCell<S, Number> {
             return;
         }
         long cents = item == null ? 0 : Math.round(item.doubleValue() * 100);
-        field.setText(cents == 0 ? "" : Money.centsToText(cents));
+        field.setText(cents == 0 ? "" : Money.centsToCurrencyText(cents));
         setGraphic(field);
     }
 }
