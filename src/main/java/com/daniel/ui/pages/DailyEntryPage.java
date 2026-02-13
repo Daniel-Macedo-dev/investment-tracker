@@ -3,9 +3,11 @@ package com.daniel.ui.pages;
 import com.daniel.domain.*;
 import com.daniel.service.DailyService;
 import com.daniel.ui.Dialogs;
+import com.daniel.util.Money;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.css.PseudoClass;
 import javafx.geometry.Insets;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
@@ -16,6 +18,8 @@ import java.time.LocalDate;
 import java.util.*;
 
 public final class DailyEntryPage implements Page {
+
+    private static final PseudoClass INVALID = PseudoClass.getPseudoClass("invalid");
 
     private final DailyService daily;
 
@@ -37,6 +41,10 @@ public final class DailyEntryPage implements Page {
         root.setPadding(new Insets(16));
         root.setTop(topBar());
         root.setCenter(center());
+
+        // formatter de moeda no cash
+        cashField.setTextFormatter(Money.currencyFormatter());
+        cashField.setPromptText("0,00");
     }
 
     @Override public Parent view() { return root; }
@@ -69,14 +77,14 @@ public final class DailyEntryPage implements Page {
     private Parent center() {
         VBox box = new VBox(12);
 
-        VBox cashCard = new VBox(6);
-        cashCard.getStyleClass().add("card");
-        cashCard.getChildren().addAll(new Label("Dinheiro Livre (valor total do dia)"), cashField);
-        cashField.setPromptText("ex: 1200,50");
+        VBox cashCard = card("Dinheiro Livre (valor total do dia)", cashField);
 
         VBox invCard = new VBox(10);
         invCard.getStyleClass().add("card");
-        invCard.getChildren().addAll(new Label("Investimentos (valor total de cada tipo no dia)"), buildInvestGrid());
+        invCard.getChildren().addAll(
+                new Label("Investimentos (valor total de cada tipo no dia)"),
+                buildInvestGrid()
+        );
 
         VBox flowCard = new VBox(10);
         flowCard.getStyleClass().add("card");
@@ -97,14 +105,21 @@ public final class DailyEntryPage implements Page {
         );
 
         box.getChildren().addAll(cashCard, invCard, flowCard);
-        return new ScrollPane(box) {{
-            setFitToWidth(true);
-            setStyle("-fx-background: transparent;");
-        }};
+        ScrollPane sp = new ScrollPane(box);
+        sp.setFitToWidth(true);
+        sp.setStyle("-fx-background: transparent;");
+        return sp;
+    }
+
+    private VBox card(String title, Control body) {
+        VBox v = new VBox(6);
+        v.getStyleClass().add("card");
+        v.getChildren().addAll(new Label(title), body);
+        return v;
     }
 
     private Parent buildInvestGrid() {
-        grid.setHgap(10);
+        grid.setHgap(12);
         grid.setVgap(10);
 
         ScrollPane scroll = new ScrollPane(grid);
@@ -148,13 +163,24 @@ public final class DailyEntryPage implements Page {
         grid.getChildren().clear();
         fields.clear();
 
+        if (types.isEmpty()) {
+            Label empty = new Label("Você ainda não criou tipos de investimento.\nVá em \"Tipos de Investimento\" e crie os seus.");
+            empty.setStyle("-fx-opacity: 0.9; -fx-padding: 10;");
+            grid.add(empty, 0, 0);
+            return;
+        }
+
         int r = 0;
         for (InvestmentType t : types) {
             Label name = new Label(t.name());
             name.setStyle("-fx-font-weight: bold;");
 
             TextField value = new TextField();
-            value.setPromptText("ex: 5000,00");
+            value.setPromptText("0,00");
+            value.setTextFormatter(Money.currencyFormatter());
+
+            // remove estado inválido quando digita
+            value.textProperty().addListener((obs, oldV, newV) -> value.pseudoClassStateChanged(INVALID, false));
 
             fields.put(t.id(), value);
             grid.addRow(r++, name, value);
@@ -167,10 +193,16 @@ public final class DailyEntryPage implements Page {
 
         DailyEntry entry = daily.loadEntry(date);
 
-        cashField.setText(entry.cashCents() == 0 ? "" : centsToBr(entry.cashCents()));
+        cashField.setText(entry.cashCents() == 0 ? "" : Money.centsToText(entry.cashCents()));
+        cashField.pseudoClassStateChanged(INVALID, false);
+
         for (InvestmentType t : types) {
             long v = entry.investmentValuesCents().getOrDefault(t.id(), 0L);
-            fields.get(t.id()).setText(v == 0 ? "" : centsToBr(v));
+            TextField tf = fields.get(t.id());
+            if (tf != null) {
+                tf.setText(v == 0 ? "" : Money.centsToText(v));
+                tf.pseudoClassStateChanged(INVALID, false);
+            }
         }
 
         flowItems.setAll(daily.flowsFor(date));
@@ -182,21 +214,41 @@ public final class DailyEntryPage implements Page {
 
         DailyEntry prev = daily.loadEntry(y);
 
-        cashField.setText(prev.cashCents() == 0 ? "" : centsToBr(prev.cashCents()));
+        cashField.setText(prev.cashCents() == 0 ? "" : Money.centsToText(prev.cashCents()));
+        cashField.pseudoClassStateChanged(INVALID, false);
+
         for (var e : prev.investmentValuesCents().entrySet()) {
             TextField tf = fields.get(e.getKey());
-            if (tf != null) tf.setText(e.getValue() == 0 ? "" : centsToBr(e.getValue()));
+            if (tf != null) {
+                tf.setText(e.getValue() == 0 ? "" : Money.centsToText(e.getValue()));
+                tf.pseudoClassStateChanged(INVALID, false);
+            }
         }
     }
 
     private void saveDay() {
         LocalDate date = datePicker.getValue();
-        long cash = parseCentsOrZero(cashField.getText());
+
+        long cash = Money.textToCentsOrZero(cashField.getText());
+        cashField.pseudoClassStateChanged(INVALID, cash < 0);
 
         Map<Long, Long> inv = new HashMap<>();
+        boolean hasInvalid = (cash < 0);
+
         for (var e : fields.entrySet()) {
-            long val = parseCentsOrZero(e.getValue().getText());
+            TextField tf = e.getValue();
+            long val = Money.textToCentsOrZero(tf.getText());
+
+            boolean invalid = val < 0;
+            tf.pseudoClassStateChanged(INVALID, invalid);
+            if (invalid) hasInvalid = true;
+
             inv.put(e.getKey(), val);
+        }
+
+        if (hasInvalid) {
+            Dialogs.error("Existem valores inválidos (negativos). Corrija os campos marcados.");
+            return;
         }
 
         try {
@@ -228,7 +280,8 @@ public final class DailyEntryPage implements Page {
         toInv.setDisable(false);
 
         TextField value = new TextField();
-        value.setPromptText("ex: 300,00");
+        value.setPromptText("0,00");
+        value.setTextFormatter(Money.currencyFormatter());
 
         TextField note = new TextField();
         note.setPromptText("Obs (opcional)");
@@ -252,14 +305,19 @@ public final class DailyEntryPage implements Page {
             if (bt != ok) return;
 
             try {
-                long cents = parseCentsOrZero(value.getText());
-                if (cents <= 0) throw new IllegalArgumentException("Valor inválido.");
+                long cents = Money.textToCentsOrZero(value.getText());
+                if (cents <= 0) throw new IllegalArgumentException("Valor deve ser maior que zero.");
 
                 FlowKind fk = "Investimento".equals(fromKind.getValue()) ? FlowKind.INVESTMENT : FlowKind.CASH;
                 FlowKind tk = "Investimento".equals(toKind.getValue()) ? FlowKind.INVESTMENT : FlowKind.CASH;
 
-                Long fId = (fk == FlowKind.INVESTMENT) ? Objects.requireNonNull(fromInv.getValue(), "Selecione o investimento de origem.").id() : null;
-                Long tId = (tk == FlowKind.INVESTMENT) ? Objects.requireNonNull(toInv.getValue(), "Selecione o investimento de destino.").id() : null;
+                Long fId = (fk == FlowKind.INVESTMENT)
+                        ? Objects.requireNonNull(fromInv.getValue(), "Selecione o investimento de origem.").id()
+                        : null;
+
+                Long tId = (tk == FlowKind.INVESTMENT)
+                        ? Objects.requireNonNull(toInv.getValue(), "Selecione o investimento de destino.").id()
+                        : null;
 
                 daily.addFlow(date, fk, fId, tk, tId, cents, note.getText());
                 flowItems.setAll(daily.flowsFor(date));
@@ -280,21 +338,5 @@ public final class DailyEntryPage implements Page {
         } catch (Exception ex) {
             Dialogs.error(ex.getMessage());
         }
-    }
-
-    private long parseCentsOrZero(String s) {
-        if (s == null || s.trim().isBlank()) return 0L;
-        String x = s.replace("R$", "").trim();
-        if (x.contains(",") && x.contains(".")) x = x.replace(".", "").replace(",", ".");
-        else if (x.contains(",")) x = x.replace(",", ".");
-        double v = Double.parseDouble(x);
-        return Math.round(v * 100.0);
-    }
-
-    private String centsToBr(long cents) {
-        long abs = Math.abs(cents);
-        long reais = abs / 100;
-        long cent = abs % 100;
-        return reais + "," + (cent < 10 ? "0" + cent : cent);
     }
 }
