@@ -6,6 +6,7 @@ import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.*;
 
 import java.time.LocalDate;
@@ -15,7 +16,7 @@ import java.time.format.DateTimeFormatter;
 public final class AgendaPage implements Page {
 
     private final DailyService daily;
-    private final java.util.function.Consumer<String> navigator;
+    private final java.util.function.Consumer<LocalDate> openDailyAt;
 
     private final BorderPane root = new BorderPane();
     private final ComboBox<YearMonth> monthPicker = new ComboBox<>();
@@ -23,9 +24,9 @@ public final class AgendaPage implements Page {
 
     private static final DateTimeFormatter BR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    public AgendaPage(DailyService daily, java.util.function.Consumer<String> navigator) {
+    public AgendaPage(DailyService daily, java.util.function.Consumer<LocalDate> openDailyAt) {
         this.daily = daily;
-        this.navigator = navigator;
+        this.openDailyAt = openDailyAt;
 
         root.setPadding(new Insets(16));
         root.setTop(top());
@@ -36,7 +37,7 @@ public final class AgendaPage implements Page {
     @Override public Parent view() { return root; }
 
     @Override public void onShow() {
-        var now = YearMonth.now();
+        YearMonth now = YearMonth.now();
         monthPicker.setItems(FXCollections.observableArrayList(
                 now.minusMonths(6), now.minusMonths(5), now.minusMonths(4),
                 now.minusMonths(3), now.minusMonths(2), now.minusMonths(1),
@@ -52,19 +53,19 @@ public final class AgendaPage implements Page {
 
         monthPicker.setPrefWidth(160);
         monthPicker.setConverter(new javafx.util.StringConverter<>() {
-            @Override public String toString(YearMonth ym) { return ym == null ? "" : ym.getMonthValue() + "/" + ym.getYear(); }
+            @Override public String toString(YearMonth ym) { return ym == null ? "" : String.format("%02d/%d", ym.getMonthValue(), ym.getYear()); }
             @Override public YearMonth fromString(String s) { return null; }
         });
 
-        Button openDaily = new Button("Abrir Registro Diário");
-        openDaily.setOnAction(e -> navigator.accept("Registro Diário"));
+        Button openToday = new Button("Abrir hoje");
+        openToday.setOnAction(e -> openDailyAt.accept(LocalDate.now()));
 
         monthPicker.setOnAction(e -> reload());
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        return new HBox(12, h1, new Label("Mês:"), monthPicker, spacer, openDaily);
+        return new HBox(12, h1, new Label("Mês:"), monthPicker, spacer, openToday);
     }
 
     private Parent center() {
@@ -88,15 +89,31 @@ public final class AgendaPage implements Page {
 
         table.getColumns().setAll(colDate, colTotal, colProfit);
 
-        table.setRowFactory(tv -> new TableRow<>() {
-            @Override protected void updateItem(Row item, boolean empty) {
-                super.updateItem(item, empty);
-                getStyleClass().removeAll("row-today","row-yesterday","row-empty");
-                if (empty || item == null) return;
+        table.setRowFactory(tv -> {
+            TableRow<Row> r = new TableRow<>() {
+                @Override protected void updateItem(Row item, boolean empty) {
+                    super.updateItem(item, empty);
+                    getStyleClass().removeAll("row-today","row-yesterday","row-empty");
+                    if (empty || item == null) return;
 
-                if (!item.hasData) getStyleClass().add("row-empty");
-                if (item.date.equals(LocalDate.now())) getStyleClass().add("row-today");
-                if (item.date.equals(LocalDate.now().minusDays(1))) getStyleClass().add("row-yesterday");
+                    if (!item.hasData) getStyleClass().add("row-empty");
+                    if (item.date.equals(LocalDate.now())) getStyleClass().add("row-today");
+                    if (item.date.equals(LocalDate.now().minusDays(1))) getStyleClass().add("row-yesterday");
+                }
+            };
+
+            r.setOnMouseClicked(e -> {
+                if (e.getClickCount() == 2 && !r.isEmpty()) {
+                    openDailyAt.accept(r.getItem().date);
+                }
+            });
+            return r;
+        });
+
+        table.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ENTER) {
+                Row sel = table.getSelectionModel().getSelectedItem();
+                if (sel != null) openDailyAt.accept(sel.date);
             }
         });
     }
@@ -109,9 +126,8 @@ public final class AgendaPage implements Page {
 
         for (int day = 1; day <= ym.lengthOfMonth(); day++) {
             LocalDate d = ym.atDay(day);
+            boolean has = daily.hasAnyDataPublic(d);
             var s = daily.summaryFor(d);
-
-            boolean has = daily.hasAnyDataPublic(d); // método novo no DailyService (patch abaixo)
 
             String total = has ? daily.brl(s.totalTodayCents()) : "—";
             long p = s.totalProfitTodayCents();

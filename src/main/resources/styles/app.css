@@ -106,3 +106,38 @@
 .chart-vertical-grid-lines{ -fx-stroke: rgba(255,255,255,0.08); }
 .chart-horizontal-grid-lines{ -fx-stroke: rgba(255,255,255,0.08); }
 .chart-series-line{ -fx-stroke-width: 2.0px; }
+
+/* ScrollPane polish */
+.scroll-pane, .scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+.app-scroll {
+    -fx-background-color: transparent;
+}
+
+/* Table cells spacing */
+.table-view .table-cell {
+    -fx-padding: 10 12;
+    -fx-text-fill: #e6f1ea;
+}
+.table-view .placeholder .label {
+    -fx-opacity: 0.75;
+}
+
+/* DatePicker popup */
+.date-picker .arrow-button {
+    -fx-background-color: transparent;
+}
+.date-picker-popup {
+    -fx-background-color: #0f1511;
+    -fx-border-color: rgba(255,255,255,0.12);
+}
+.date-picker-popup .cell {
+    -fx-text-fill: #e6f1ea;
+}
+.date-picker-popup .cell:hover {
+    -fx-background-color: rgba(31,191,114,0.12);
+}
+.date-picker-popup .cell:selected {
+    -fx-background-color: rgba(31,191,114,0.22);
+}

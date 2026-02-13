@@ -9,6 +9,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
 import javafx.scene.layout.*;
 
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -18,10 +19,14 @@ public final class AppShell {
     private final Map<String, Page> pages = new LinkedHashMap<>();
     private final Map<String, Button> nav = new LinkedHashMap<>();
 
+    private final DailyEntryPage dailyEntryPage;
+
     public AppShell(DailyService dailyService) {
+        this.dailyEntryPage = new DailyEntryPage(dailyService);
+
         pages.put("Dashboard", new DashboardPage(dailyService));
-        pages.put("Agenda", new AgendaPage(dailyService, this::go));
-        pages.put("Registro Diário", new DailyEntryPage(dailyService));
+        pages.put("Agenda", new AgendaPage(dailyService, this::goToDaily));
+        pages.put("Registro Diário", dailyEntryPage);
         pages.put("Tipos de Investimento", new InvestmentTypesPage(dailyService));
         pages.put("Gráficos", new ChartsPage(dailyService));
         pages.put("Relatórios", new ReportsPage(dailyService));
@@ -52,7 +57,13 @@ public final class AppShell {
             Button b = new Button(k);
             b.setMaxWidth(Double.MAX_VALUE);
             b.getStyleClass().add("nav-btn");
-            b.setOnAction(e -> go(k));
+
+            if ("Registro Diário".equals(k)) {
+                b.setOnAction(e -> goToDaily(LocalDate.now()));
+            } else {
+                b.setOnAction(e -> go(k));
+            }
+
             nav.put(k, b);
             box.getChildren().add(b);
         }
@@ -74,5 +85,12 @@ public final class AppShell {
 
         content.getChildren().setAll(p.view());
         p.onShow();
+    }
+
+    private void goToDaily(LocalDate date) {
+        if (date == null) date = LocalDate.now();
+
+        dailyEntryPage.setDate(date);
+        go("Registro Diário");
     }
 }

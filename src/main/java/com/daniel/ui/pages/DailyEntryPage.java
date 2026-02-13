@@ -404,4 +404,13 @@ public final class DailyEntryPage implements Page {
             Dialogs.error(ex);
         }
     }
+
+    public void setDate(LocalDate date) {
+        if (date == null) date = LocalDate.now();
+        loading = true;
+        datePicker.setValue(date);
+        loading = false;
+        loadFor(date);
+    }
+
 }
