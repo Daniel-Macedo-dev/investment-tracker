@@ -22,6 +22,13 @@ public final class InvestmentTypesPage implements Page {
         Label h1 = new Label("Tipos de Investimento");
         h1.getStyleClass().add("h1");
 
+        list.setCellFactory(lv -> new ListCell<>() {
+            @Override protected void updateItem(InvestmentType item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : item.name());
+            }
+        });
+
         Button add = new Button("+ Criar");
         add.setOnAction(e -> onAdd());
 
@@ -32,27 +39,20 @@ public final class InvestmentTypesPage implements Page {
         delete.setOnAction(e -> onDelete());
 
         HBox actions = new HBox(8, add, rename, delete);
-
-        list.setCellFactory(v -> new ListCell<>() {
-            @Override protected void updateItem(InvestmentType item, boolean empty) {
-                super.updateItem(item, empty);
-                setText(empty || item == null ? null : item.name());
-            }
-        });
+        actions.getStyleClass().add("toolbar");
 
         root.getChildren().addAll(h1, actions, list);
         VBox.setVgrow(list, Priority.ALWAYS);
-        list.getStyleClass().add("list");
     }
 
-    @Override public Parent view() { return root; }
-    @Override public void onShow() { refresh(); }
+    @Override
+    public Parent view() { return root; }
+
+    @Override
+    public void onShow() { refresh(); }
 
     private void refresh() {
         list.getItems().setAll(daily.listTypes());
-        if (list.getItems().isEmpty()) {
-            list.setPlaceholder(new Label("Crie seus tipos (ex: CDB, Ouro, Previdência...)."));
-        }
     }
 
     private void onAdd() {
@@ -60,10 +60,11 @@ public final class InvestmentTypesPage implements Page {
         if (name == null || name.isBlank()) return;
 
         try {
-            daily.createType(name.trim());
+            daily.createType(name);
             refresh();
+            Dialogs.info("Tipo criado. Agora você pode definir o valor do dia no Registro Diário.");
         } catch (Exception ex) {
-            Dialogs.error(ex.getMessage());
+            Dialogs.error(ex);
         }
     }
 
@@ -75,10 +76,10 @@ public final class InvestmentTypesPage implements Page {
         if (name == null || name.isBlank()) return;
 
         try {
-            daily.renameType(sel.id(), name.trim());
+            daily.renameType(sel.id(), name);
             refresh();
         } catch (Exception ex) {
-            Dialogs.error(ex.getMessage());
+            Dialogs.error(ex);
         }
     }
 
@@ -86,17 +87,13 @@ public final class InvestmentTypesPage implements Page {
         InvestmentType sel = list.getSelectionModel().getSelectedItem();
         if (sel == null) { Dialogs.error("Selecione um tipo."); return; }
 
-        Alert a = new Alert(Alert.AlertType.CONFIRMATION);
-        a.setTitle("Confirmar");
-        a.setHeaderText("Excluir tipo: " + sel.name() + "?");
-        a.setContentText("Isso apaga os registros diários desse tipo.");
-        if (a.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return;
+        if (!Dialogs.confirm("Confirmar", "Excluir tipo: " + sel.name() + "?\nIsso apaga os registros diários desse tipo.")) return;
 
         try {
             daily.deleteType(sel.id());
             refresh();
         } catch (Exception ex) {
-            Dialogs.error(ex.getMessage());
+            Dialogs.error(ex);
         }
     }
 }

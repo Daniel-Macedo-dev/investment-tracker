@@ -55,6 +55,17 @@ public final class Dialogs {
         a.showAndWait();
     }
 
+    public static void error(Throwable ex) {
+        if (ex == null) { error("Ocorreu um erro."); return; }
+
+        String msg = ex.getMessage();
+        Throwable c = ex.getCause();
+        if (c != null && c.getMessage() != null && !c.getMessage().isBlank()) {
+            msg = (msg == null ? "" : msg) + "\n\nCausa: " + c.getMessage();
+        }
+        error(msg);
+    }
+
     private static long parseToCents(String input) {
         String s = input.replace("R$", "").trim();
         if (s.contains(",") && s.contains(".")) s = s.replace(".", "").replace(",", ".");

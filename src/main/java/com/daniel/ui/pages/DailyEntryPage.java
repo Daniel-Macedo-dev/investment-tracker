@@ -33,6 +33,11 @@ public final class DailyEntryPage implements Page {
     private final ObservableList<Flow> flowItems = FXCollections.observableArrayList();
     private final TableView<Flow> flowTable = new TableView<>(flowItems);
 
+    private final Map<Long, String> typeNameCache = new HashMap<>();
+
+    private boolean dirty = false;
+    private boolean loading = false;
+
     public DailyEntryPage(DailyService dailyService) {
         this.daily = dailyService;
 
@@ -43,6 +48,23 @@ public final class DailyEntryPage implements Page {
         cashField.setTextFormatter(Money.currencyFormatterEditable());
         cashField.setPromptText("R$ 0,00");
         Money.applyCurrencyFormatOnBlur(cashField);
+
+        cashField.textProperty().addListener((o, a, b) -> {
+            if (!loading) dirty = true;
+        });
+
+        datePicker.valueProperty().addListener((obs, oldV, newV) -> {
+            if (loading) return;
+            if (Objects.equals(oldV, newV)) return;
+
+            if (!ensureCanNavigate()) {
+                loading = true;
+                datePicker.setValue(oldV);
+                loading = false;
+                return;
+            }
+            loadFor(newV);
+        });
 
         buildInvTable();
         buildFlowTable();
@@ -56,10 +78,13 @@ public final class DailyEntryPage implements Page {
         h1.getStyleClass().add("h1");
 
         Button load = new Button("Carregar");
-        load.setOnAction(e -> loadFor(datePicker.getValue()));
+        load.setOnAction(e -> {
+            if (!ensureCanNavigate()) return;
+            loadFor(datePicker.getValue());
+        });
 
         Button copyYesterday = new Button("Copiar ontem");
-        copyYesterday.setTooltip(new Tooltip("Copia os valores totais de ontem (cash + investimentos) para você ajustar o dia."));
+        copyYesterday.setTooltip(new Tooltip("Copia os valores totais do dia anterior para você ajustar o dia."));
         copyYesterday.setOnAction(e -> copyYesterday());
 
         Button save = new Button("Salvar dia");
@@ -141,9 +166,14 @@ public final class DailyEntryPage implements Page {
         colValue.setOnEditCommit(ev -> {
             long cents = Math.round(ev.getNewValue().doubleValue() * 100);
             ev.getRowValue().setValueCents(Math.max(0, cents));
+            dirty = true;
         });
 
         invTable.getColumns().setAll(colType, colValue);
+
+        invTable.getItems().addListener((javafx.collections.ListChangeListener<InvestmentValueRow>) c -> {
+            if (!loading) dirty = true;
+        });
     }
 
     private void buildFlowTable() {
@@ -169,76 +199,132 @@ public final class DailyEntryPage implements Page {
         Long invId = from ? f.fromInvestmentTypeId() : f.toInvestmentTypeId();
 
         if (kind == FlowKind.CASH) return "Dinheiro Livre";
-        return daily.listTypes().stream()
-                .filter(t -> t.id() == invId)
-                .map(InvestmentType::name)
-                .findFirst()
-                .orElse("Investimento");
+        if (invId == null) return "Investimento"; // null-safe
+
+        String name = typeNameCache.get(invId);
+        return (name == null || name.isBlank()) ? "Investimento" : name;
     }
 
-    private void loadFor(LocalDate date) {
-        List<InvestmentType> types = daily.listTypes();
-        DailyEntry entry = daily.loadEntry(date);
-
-        cashField.setText(entry.cashCents() == 0 ? "" : Money.centsToCurrencyText(entry.cashCents()));
-
-        invRows.clear();
-        if (types.isEmpty()) {
-            invTable.setPlaceholder(new Label("Nenhum tipo criado. Vá em 'Tipos de Investimento'."));
-        } else {
-            invTable.setPlaceholder(new Label("Digite os valores do dia e salve."));
-            for (InvestmentType t : types) {
-                long v = entry.investmentValuesCents().getOrDefault(t.id(), 0L);
-                invRows.add(new InvestmentValueRow(t, v));
-            }
+    private void rebuildTypeCache(List<InvestmentType> types) {
+        typeNameCache.clear();
+        for (InvestmentType t : types) {
+            typeNameCache.put(t.id(), t.name());
         }
-
-        flowItems.setAll(daily.flowsFor(date));
     }
 
-    private void copyYesterday() {
-        LocalDate d = datePicker.getValue();
-        DailyEntry prev = daily.loadEntry(d.minusDays(1));
-
-        cashField.setText(prev.cashCents() == 0 ? "" : Money.centsToCurrencyText(prev.cashCents()));
-
-        Map<Long, Long> prevMap = prev.investmentValuesCents();
-        for (InvestmentValueRow row : invRows) {
-            row.setValueCents(prevMap.getOrDefault(row.getType().id(), 0L));
-        }
-        invTable.refresh();
-    }
-
-    private void saveDay() {
+    private void commitPendingEdits() {
         if (invTable.getEditingCell() != null) {
             invTable.edit(-1, null);
         }
-
         root.requestFocus();
+    }
 
-        LocalDate date = datePicker.getValue();
+    private boolean ensureCanNavigate() {
+        commitPendingEdits();
+        if (!dirty) return true;
 
-        long cash = Money.textToCentsOrZero(cashField.getText());
-        if (cash < 0) { Dialogs.error("Dinheiro livre inválido."); return; }
-
-        Map<Long, Long> inv = new HashMap<>();
-        for (InvestmentValueRow row : invRows) {
-            inv.put(row.getType().id(), Math.max(0, row.getValueCents()));
+        boolean save = Dialogs.confirm(
+                "Alterações não salvas",
+                "Você tem alterações não salvas.\nDeseja salvar antes de trocar/carregar a data?"
+        );
+        if (save) {
+            return saveDayInternal(false);
         }
+        dirty = false;
+        return true;
+    }
 
+    private void loadFor(LocalDate date) {
+        if (date == null) return;
+
+        commitPendingEdits();
+
+        loading = true;
         try {
-            daily.saveEntry(new DailyEntry(date, cash, inv));
-            Dialogs.info("Dia salvo.");
-            loadFor(date);
+            List<InvestmentType> types = daily.listTypes();
+            rebuildTypeCache(types);
+
+            DailyEntry entry = daily.loadEntry(date);
+
+            cashField.setText(entry.cashCents() == 0 ? "" : Money.centsToCurrencyText(entry.cashCents()));
+
+            invRows.clear();
+            if (types.isEmpty()) {
+                invTable.setPlaceholder(new Label("Nenhum tipo criado. Vá em 'Tipos de Investimento'."));
+            } else {
+                invTable.setPlaceholder(new Label("Digite os valores do dia e salve."));
+                for (InvestmentType t : types) {
+                    long v = entry.investmentValuesCents().getOrDefault(t.id(), 0L);
+                    invRows.add(new InvestmentValueRow(t, v));
+                }
+            }
+
+            flowItems.setAll(daily.flowsFor(date));
+
+            dirty = false;
         } catch (Exception ex) {
-            Dialogs.error(ex.getMessage());
+            Dialogs.error(ex);
+        } finally {
+            loading = false;
         }
     }
 
+    private void copyYesterday() {
+        commitPendingEdits();
+        try {
+            LocalDate d = datePicker.getValue();
+            if (d == null) return;
+
+            DailyEntry prev = daily.loadEntry(d.minusDays(1));
+
+            cashField.setText(prev.cashCents() == 0 ? "" : Money.centsToCurrencyText(prev.cashCents()));
+
+            Map<Long, Long> prevMap = prev.investmentValuesCents();
+            for (InvestmentValueRow row : invRows) {
+                row.setValueCents(prevMap.getOrDefault(row.getType().id(), 0L));
+            }
+            invTable.refresh();
+            dirty = true;
+        } catch (Exception ex) {
+            Dialogs.error(ex);
+        }
+    }
+
+    private void saveDay() {
+        commitPendingEdits();
+        saveDayInternal(true);
+    }
+
+    private boolean saveDayInternal(boolean showInfo) {
+        try {
+            LocalDate date = datePicker.getValue();
+            if (date == null) return false;
+
+            long cash = Money.textToCentsOrZero(cashField.getText());
+            if (cash < 0) { Dialogs.error("Dinheiro livre inválido."); return false; }
+
+            Map<Long, Long> inv = new HashMap<>();
+            for (InvestmentValueRow row : invRows) inv.put(row.getType().id(), Math.max(0, row.getValueCents()));
+
+            daily.saveEntry(new DailyEntry(date, cash, inv));
+
+            dirty = false;
+            if (showInfo) Dialogs.info("Dia salvo.");
+            return true;
+        } catch (Exception ex) {
+            Dialogs.error(ex);
+            return false;
+        }
+    }
 
     private void openFlowDialog() {
+        commitPendingEdits();
+
         LocalDate date = datePicker.getValue();
+        if (date == null) return;
+
         var types = daily.listTypes();
+        rebuildTypeCache(types);
 
         Dialog<ButtonType> dialog = new Dialog<>();
         dialog.setTitle("Movimentação do dia");
@@ -298,8 +384,9 @@ public final class DailyEntryPage implements Page {
 
                 daily.addFlow(date, fk, fId, tk, tId, cents, note.getText());
                 flowItems.setAll(daily.flowsFor(date));
+                dirty = true;
             } catch (Exception ex) {
-                Dialogs.error(ex.getMessage());
+                Dialogs.error(ex);
             }
         });
     }
@@ -312,8 +399,9 @@ public final class DailyEntryPage implements Page {
         try {
             daily.deleteFlow(sel.id());
             flowItems.setAll(daily.flowsFor(datePicker.getValue()));
+            dirty = true;
         } catch (Exception ex) {
-            Dialogs.error(ex.getMessage());
+            Dialogs.error(ex);
         }
     }
 }
