@@ -1,9 +1,7 @@
 package com.daniel;
 
 import com.daniel.db.Database;
-import com.daniel.repository.AccountRepository;
-import com.daniel.repository.TransactionRepository;
-import com.daniel.service.CashService;
+import com.daniel.service.DailyService;
 import com.daniel.ui.AppShell;
 import javafx.application.Application;
 import javafx.scene.Scene;
@@ -19,15 +17,10 @@ public class App extends Application {
     public void start(Stage stage) {
         conn = Database.open();
 
-        AccountRepository accountRepo = new AccountRepository(conn);
-        TransactionRepository txRepo = new TransactionRepository(conn);
-        CashService cashService = new CashService(txRepo);
+        DailyService dailyService = new DailyService(conn);
+        AppShell shell = new AppShell(dailyService);
 
-        long cashAccountId = accountRepo.ensureDefaultCashAccount();
-
-        AppShell shell = new AppShell(cashAccountId, accountRepo, txRepo, cashService);
-
-        Scene scene = new Scene(shell.build(), 1200, 720);
+        Scene scene = new Scene(shell.build(), 1250, 740);
         scene.getStylesheets().add(getClass().getResource("/styles/app.css").toExternalForm());
 
         stage.setTitle("Investment Tracker");

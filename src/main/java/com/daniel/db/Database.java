@@ -20,7 +20,6 @@ public final class Database {
             try (Statement st = conn.createStatement()) {
                 st.execute("PRAGMA foreign_keys = ON;");
             }
-
             Schema.ensure(conn);
             return conn;
         } catch (Exception e) {

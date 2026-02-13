@@ -19,10 +19,9 @@ public final class Schema {
 
             int version = currentVersion(st);
 
-            if (version < 2) {
-                migrateToV2(st);
-                setVersion(st, 2);
-            }
+            ensureV1Tables(st);
+
+            if (version < 1) setVersion(st, 1);
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to ensure schema", e);
@@ -41,52 +40,32 @@ public final class Schema {
         st.executeUpdate("UPDATE schema_version SET version = " + v);
     }
 
-    private static boolean tableExists(Statement st, String name) throws Exception {
-        try (ResultSet rs = st.executeQuery(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='" + name + "'"
-        )) {
-            return rs.next();
-        }
-    }
-
-    private static boolean columnExists(Statement st, String table, String column) throws Exception {
-        try (ResultSet rs = st.executeQuery("PRAGMA table_info(" + table + ")")) {
-            while (rs.next()) {
-                String colName = rs.getString("name");
-                if (column.equalsIgnoreCase(colName)) return true;
-            }
-            return false;
-        }
-    }
-
-    private static void migrateToV2(Statement st) throws Exception {
+    private static void ensureV1Tables(Statement st) throws Exception {
         st.executeUpdate("""
-            CREATE TABLE IF NOT EXISTS accounts (
+            CREATE TABLE IF NOT EXISTS investment_types (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
-              name TEXT NOT NULL,
-              type TEXT NOT NULL
+              name TEXT NOT NULL UNIQUE
             );
         """);
 
-        if (tableExists(st, "transactions") && !columnExists(st, "transactions", "from_account_id")) {
-            st.executeUpdate("ALTER TABLE transactions RENAME TO transactions_legacy;");
-        }
+        st.executeUpdate("""
+            CREATE TABLE IF NOT EXISTS cash_snapshots (
+              date TEXT PRIMARY KEY,         -- YYYY-MM-DD
+              value_cents INTEGER NOT NULL
+            );
+        """);
 
         st.executeUpdate("""
-            CREATE TABLE IF NOT EXISTS transactions (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              created_at TEXT NOT NULL,
-              type TEXT NOT NULL,
-              from_account_id INTEGER NOT NULL,
-              to_account_id INTEGER,
-              amount_cents INTEGER NOT NULL,
+            CREATE TABLE IF NOT EXISTS daily_snapshots (
+              investment_type_id INTEGER NOT NULL,
+              date TEXT NOT NULL,            -- YYYY-MM-DD
+              value_cents INTEGER NOT NULL,
               note TEXT,
-              FOREIGN KEY(from_account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
-              FOREIGN KEY(to_account_id) REFERENCES accounts(id) ON DELETE RESTRICT
+              PRIMARY KEY (investment_type_id, date),
+              FOREIGN KEY (investment_type_id) REFERENCES investment_types(id) ON DELETE CASCADE
             );
         """);
 
-        st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_tx_from_date ON transactions(from_account_id, created_at);");
-        st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_tx_to_date   ON transactions(to_account_id, created_at);");
+        st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_snapshots_date ON daily_snapshots(date);");
     }
 }
