@@ -47,7 +47,7 @@
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>com.daniel.App</mainClass>
+                    <mainClass>com.daniel.main.App</mainClass>
                 </configuration>
             </plugin>
 
