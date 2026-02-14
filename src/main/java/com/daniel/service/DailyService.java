@@ -13,6 +13,7 @@ import java.util.*;
 public final class DailyService {
 
     public record SeriesPoint(LocalDate date, long valueCents) {}
+
     public record RangeSummary(LocalDate start, LocalDate end,
                                long totalProfitCents,
                                Map<Long, Long> profitByInvestmentCents,
@@ -97,28 +98,39 @@ public final class DailyService {
         }
     }
 
+    public boolean hasAnyDataPublic(LocalDate date) {
+        return hasAnyData(date);
+    }
+
+    private boolean hasAnyData(LocalDate date) {
+        long cash = snapRepo.getCash(date);
+        return cash != 0 || !snapRepo.getAllInvestmentsForDate(date).isEmpty() || !flowRepo.listForDate(date).isEmpty();
+    }
+
     public DailySummary summaryFor(LocalDate date) {
+        DailyEntry e = loadEntry(date);
+        return previewSummary(date, e.cashCents(), e.investmentValuesCents());
+    }
+
+    public DailySummary previewSummary(LocalDate date, long cashTodayCents, Map<Long, Long> invTodayOverride) {
         LocalDate prev = date.minusDays(1);
 
         List<InvestmentType> types = listTypes();
         boolean hasPrev = hasAnyData(prev);
 
-        long cashToday = snapRepo.getCash(date);
         long cashPrev = snapRepo.getCash(prev);
 
-        Map<Long, Long> invToday = snapRepo.getAllInvestmentsForDate(date);
         Map<Long, Long> invPrev = snapRepo.getAllInvestmentsForDate(prev);
-
         Map<Long, Long> flowNetByInv = computeFlowNetByInvestment(date);
 
         Map<Long, Long> invTodayMap = new HashMap<>();
         Map<Long, Long> invProfitMarketMap = new HashMap<>();
 
-        long totalToday = cashToday;
+        long totalToday = cashTodayCents;
         long totalPrev = cashPrev;
 
         for (InvestmentType t : types) {
-            long today = invToday.getOrDefault(t.id(), 0L);
+            long today = invTodayOverride.getOrDefault(t.id(), 0L);
             long prevVal = invPrev.getOrDefault(t.id(), 0L);
 
             invTodayMap.put(t.id(), today);
@@ -140,32 +152,29 @@ public final class DailyService {
                 date,
                 totalToday,
                 sumInvProfit,
-                cashToday,
-                hasPrev ? (cashToday - cashPrev) : 0,
+                cashTodayCents,
+                hasPrev ? (cashTodayCents - cashPrev) : 0,
                 invTodayMap,
                 invProfitMarketMap
         );
-    }
-
-    private boolean hasAnyData(LocalDate date) {
-        long cash = snapRepo.getCash(date);
-        return cash != 0 || !snapRepo.getAllInvestmentsForDate(date).isEmpty() || !flowRepo.listForDate(date).isEmpty();
-    }
-
-    public boolean hasAnyDataPublic(LocalDate date) {
-        return hasAnyData(date);
     }
 
     private Map<Long, Long> computeFlowNetByInvestment(LocalDate date) {
         Map<Long, Long> net = new HashMap<>();
         for (Flow f : flowRepo.listForDate(date)) {
             if (f.toKind() == FlowKind.INVESTMENT) {
-                long id = f.toInvestmentTypeId();
-                net.put(id, net.getOrDefault(id, 0L) + f.amountCents());
+                Long idObj = f.toInvestmentTypeId();
+                if (idObj != null) {
+                    long id = idObj;
+                    net.put(id, net.getOrDefault(id, 0L) + f.amountCents());
+                }
             }
             if (f.fromKind() == FlowKind.INVESTMENT) {
-                long id = f.fromInvestmentTypeId();
-                net.put(id, net.getOrDefault(id, 0L) - f.amountCents());
+                Long idObj = f.fromInvestmentTypeId();
+                if (idObj != null) {
+                    long id = idObj;
+                    net.put(id, net.getOrDefault(id, 0L) - f.amountCents());
+                }
             }
         }
         return net;

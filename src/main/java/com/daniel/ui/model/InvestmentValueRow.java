@@ -1,22 +1,34 @@
 package com.daniel.ui.model;
 
-import com.daniel.domain.InvestmentType;
-import javafx.beans.property.SimpleLongProperty;
-import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.*;
 
 public final class InvestmentValueRow {
-    private final SimpleObjectProperty<InvestmentType> type = new SimpleObjectProperty<>();
-    private final SimpleLongProperty valueCents = new SimpleLongProperty(0);
 
-    public InvestmentValueRow(InvestmentType type, long valueCents) {
-        this.type.set(type);
+    private final long investmentTypeId;
+    private final StringProperty name = new SimpleStringProperty();
+    private final LongProperty valueCents = new SimpleLongProperty(0);
+    private final LongProperty profitCents = new SimpleLongProperty(0);
+
+    public InvestmentValueRow(long investmentTypeId, String name, long valueCents) {
+        this.investmentTypeId = investmentTypeId;
+        this.name.set(name);
         this.valueCents.set(valueCents);
     }
 
-    public InvestmentType getType() { return type.get(); }
-    public SimpleObjectProperty<InvestmentType> typeProperty() { return type; }
+    public long getInvestmentTypeId() { return investmentTypeId; }
 
+    public StringProperty nameProperty() { return name; }
+    public String getName() { return name.get(); }
+
+    public LongProperty valueCentsProperty() { return valueCents; }
     public long getValueCents() { return valueCents.get(); }
-    public void setValueCents(long v) { valueCents.set(v); }
-    public SimpleLongProperty valueCentsProperty() { return valueCents; }
+    public void setValueCents(long cents) { valueCents.set(cents); }
+
+    public LongProperty profitCentsProperty() { return profitCents; }
+    public long getProfitCents() { return profitCents.get(); }
+    public void setProfitCents(long cents) { profitCents.set(cents); }
+
+    public StringProperty profitTextProperty() {
+        return new SimpleStringProperty(""); // preenchido pela página (pra manter simples e rápido)
+    }
 }

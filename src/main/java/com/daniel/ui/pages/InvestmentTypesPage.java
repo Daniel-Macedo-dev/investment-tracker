@@ -30,47 +30,42 @@ public final class InvestmentTypesPage implements Page {
         });
 
         Button add = new Button("+ Criar");
-        add.setOnAction(e -> onAdd());
-
         Button rename = new Button("Renomear");
-        rename.setOnAction(e -> onRename());
-
         Button delete = new Button("Excluir");
+        delete.getStyleClass().add("danger-btn");
+
+        add.setOnAction(e -> onAdd());
+        rename.setOnAction(e -> onRename());
         delete.setOnAction(e -> onDelete());
 
         HBox actions = new HBox(8, add, rename, delete);
-        actions.getStyleClass().add("toolbar");
+        root.getChildren().addAll(h1, new Label("Crie os tipos do seu jeito (ex: CDB, Ações, Cripto, etc)."), actions, list);
 
-        root.getChildren().addAll(h1, actions, list);
-        VBox.setVgrow(list, Priority.ALWAYS);
+        refresh();
     }
 
-    @Override
-    public Parent view() { return root; }
+    @Override public Parent view() { return root; }
 
-    @Override
-    public void onShow() { refresh(); }
+    @Override public void onShow() { refresh(); }
 
     private void refresh() {
         list.getItems().setAll(daily.listTypes());
     }
 
     private void onAdd() {
-        String name = Dialogs.askText("Novo tipo", "Nome do investimento:");
+        String name = Dialogs.askText("Novo tipo", "Nome do tipo:");
         if (name == null || name.isBlank()) return;
-
         try {
             daily.createType(name);
             refresh();
-            Dialogs.info("Tipo criado. Agora você pode definir o valor do dia no Registro Diário.");
-        } catch (Exception ex) {
-            Dialogs.error(ex);
+        } catch (Exception e) {
+            Dialogs.error(e.getMessage());
         }
     }
 
     private void onRename() {
         InvestmentType sel = list.getSelectionModel().getSelectedItem();
-        if (sel == null) { Dialogs.error("Selecione um tipo."); return; }
+        if (sel == null) return;
 
         String name = Dialogs.askText("Renomear", "Novo nome:");
         if (name == null || name.isBlank()) return;
@@ -78,22 +73,24 @@ public final class InvestmentTypesPage implements Page {
         try {
             daily.renameType(sel.id(), name);
             refresh();
-        } catch (Exception ex) {
-            Dialogs.error(ex);
+        } catch (Exception e) {
+            Dialogs.error(e.getMessage());
         }
     }
 
     private void onDelete() {
         InvestmentType sel = list.getSelectionModel().getSelectedItem();
-        if (sel == null) { Dialogs.error("Selecione um tipo."); return; }
+        if (sel == null) return;
 
-        if (!Dialogs.confirm("Confirmar", "Excluir tipo: " + sel.name() + "?\nIsso apaga os registros diários desse tipo.")) return;
+        boolean ok = Dialogs.confirm("Excluir", "Excluir tipo \"" + sel.name() + "\"?",
+                "Isso apaga os registros relacionados (snapshots/fluxos) desse tipo.");
+        if (!ok) return;
 
         try {
             daily.deleteType(sel.id());
             refresh();
-        } catch (Exception ex) {
-            Dialogs.error(ex);
+        } catch (Exception e) {
+            Dialogs.error(e.getMessage());
         }
     }
 }

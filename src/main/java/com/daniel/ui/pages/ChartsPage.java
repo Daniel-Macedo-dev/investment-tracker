@@ -36,87 +36,61 @@ public final class ChartsPage implements Page {
         Label h1 = new Label("Gráficos");
         h1.getStyleClass().add("h1");
 
-        range.setItems(FXCollections.observableArrayList(30, 90, 180, 365));
-        range.getSelectionModel().select(Integer.valueOf(90));
+        picker.setItems(FXCollections.observableArrayList(daily.listTypes()));
+        picker.setPromptText("Selecione um investimento...");
 
-        picker.setPromptText("Selecione (ou Total)");
-        picker.setCellFactory(v -> new javafx.scene.control.ListCell<>() {
-            @Override protected void updateItem(InvestmentType item, boolean empty) {
-                super.updateItem(item, empty);
-                setText(empty || item == null ? null : item.name());
-            }
-        });
-        picker.setButtonCell(new javafx.scene.control.ListCell<>() {
-            @Override protected void updateItem(InvestmentType item, boolean empty) {
-                super.updateItem(item, empty);
-                setText(empty || item == null ? "Selecione..." : item.name());
-            }
-        });
+        range.setItems(FXCollections.observableArrayList(30, 60, 90, 180, 365));
+        range.setValue(90);
 
-        x.setTickLabelRotation(45);
-        x.setTickLabelGap(8);
+        HBox top = new HBox(10, new Label("Investimento:"), picker, new Label("Janela (dias):"), range);
+        top.getStyleClass().add("card");
 
+        chart.setAnimated(true);
         chart.setLegendVisible(false);
-        chart.setAnimated(false);
         chart.setCreateSymbols(true);
-        chart.getStyleClass().add("chart-card");
 
-        picker.setOnAction(e -> reload());
-        range.setOnAction(e -> reload());
+        root.getChildren().addAll(h1, top, chart);
 
-        HBox controls = new HBox(10,
-                new Label("Tipo:"), picker,
-                new Region(),
-                new Label("Período:"), range
-        );
-        HBox.setHgrow(controls.getChildren().get(2), Priority.ALWAYS);
-
-        root.getChildren().addAll(h1, controls, chart);
-        VBox.setVgrow(chart, Priority.ALWAYS);
+        picker.valueProperty().addListener((o,a,b) -> reload());
+        range.valueProperty().addListener((o,a,b) -> reload());
     }
 
     @Override public Parent view() { return root; }
 
     @Override public void onShow() {
-        var types = new ArrayList<>(daily.listTypes());
-        types.add(0, new InvestmentType(-1, "TOTAL (Cash + Investimentos)"));
-        picker.setItems(FXCollections.observableArrayList(types));
-        picker.getSelectionModel().select(0);
+        picker.setItems(FXCollections.observableArrayList(daily.listTypes()));
+        if (!picker.getItems().isEmpty() && picker.getValue() == null) picker.setValue(picker.getItems().get(0));
         reload();
     }
 
     private void reload() {
-        InvestmentType sel = picker.getSelectionModel().getSelectedItem();
-        Integer days = range.getValue();
-        if (sel == null || days == null) return;
-
-        chart.getData().clear();
-        XYChart.Series<String, Number> s = new XYChart.Series<>();
-
-        if (sel.id() == -1) {
-            for (var p : daily.seriesTotalLastDays(days)) {
-                s.getData().add(point(p.date().format(DMY), p.valueCents(), p.date().toString()));
-            }
-        } else {
-            var all = daily.seriesForInvestment(sel.id());
-            int from = Math.max(0, all.size() - days);
-            for (int i = from; i < all.size(); i++) {
-                var p = all.get(i);
-                s.getData().add(point(p.date().format(DMY), p.valueCents(), p.date().toString()));
-            }
+        InvestmentType t = picker.getValue();
+        if (t == null) {
+            chart.getData().clear();
+            return;
         }
 
-        chart.getData().add(s);
-    }
+        var points = daily.seriesForInvestment(t.id());
+        int days = range.getValue() == null ? 90 : range.getValue();
 
-    private XYChart.Data<String, Number> point(String label, long cents, String fullDate) {
-        XYChart.Data<String, Number> d = new XYChart.Data<>(label, cents / 100.0);
-        d.nodeProperty().addListener((obs, o, n) -> {
-            if (n != null) {
-                Tooltip.install(n, new Tooltip(fullDate + "\n" + daily.brl(cents)));
-                n.getStyleClass().add("chart-point");
-            }
-        });
-        return d;
+        // corta pra janela final
+        if (points.size() > days) points = new ArrayList<>(points.subList(points.size() - days, points.size()));
+
+        XYChart.Series<String, Number> s = new XYChart.Series<>();
+        for (var p : points) {
+            var node = new XYChart.Data<String, Number>(DMY.format(p.date()), p.valueCents() / 100.0);
+            s.getData().add(node);
+        }
+
+        chart.getData().setAll(s);
+
+        // tooltip por ponto
+        for (var d : s.getData()) {
+            d.nodeProperty().addListener((obs, oldN, n) -> {
+                if (n != null) {
+                    Tooltip.install(n, new Tooltip("R$ " + d.getYValue()));
+                }
+            });
+        }
     }
 }

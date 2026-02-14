@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,11 +47,13 @@ public final class SnapshotRepository {
             ps.setString(1, date.toString());
             try (ResultSet rs = ps.executeQuery()) {
                 Map<Long, Long> map = new HashMap<>();
-                while (rs.next()) map.put(rs.getLong(1), rs.getLong(2));
+                while (rs.next()) {
+                    map.put(rs.getLong("investment_type_id"), rs.getLong("value_cents"));
+                }
                 return map;
             }
         } catch (Exception e) {
-            throw new RuntimeException("Failed to read daily snapshots", e);
+            throw new RuntimeException("Failed to read investment snapshots", e);
         }
     }
 
@@ -65,14 +68,14 @@ public final class SnapshotRepository {
             ps.setLong(1, investmentTypeId);
             ps.setString(2, date.toString());
             ps.setLong(3, valueCents);
-            ps.setString(4, (note == null || note.isBlank()) ? null : note.trim());
+            ps.setString(4, note);
             ps.executeUpdate();
         } catch (Exception e) {
             throw new RuntimeException("Failed to upsert investment snapshot", e);
         }
     }
 
-    public Map<String, Long> seriesForInvestment(long investmentTypeId) {
+    public LinkedHashMap<String, Long> seriesForInvestment(long investmentTypeId) {
         String sql = """
             SELECT date, value_cents
             FROM daily_snapshots
@@ -82,16 +85,12 @@ public final class SnapshotRepository {
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, investmentTypeId);
             try (ResultSet rs = ps.executeQuery()) {
-                Map<String, Long> series = new HashMap<>();
-                while (rs.next()) series.put(rs.getString(1), rs.getLong(2));
-                return series;
+                LinkedHashMap<String, Long> map = new LinkedHashMap<>();
+                while (rs.next()) map.put(rs.getString("date"), rs.getLong("value_cents"));
+                return map;
             }
         } catch (Exception e) {
-            throw new RuntimeException("Failed to load investment series", e);
+            throw new RuntimeException("Failed to load series", e);
         }
-    }
-
-    public Map<String, Long> seriesTotal(LocalDate from, LocalDate to, Iterable<Long> investmentIds) {
-        throw new UnsupportedOperationException("Not used");
     }
 }

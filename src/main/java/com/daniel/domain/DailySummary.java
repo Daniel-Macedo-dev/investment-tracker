@@ -8,7 +8,7 @@ public record DailySummary(
         long totalTodayCents,
         long totalProfitTodayCents,
         long cashTodayCents,
-        long cashProfitTodayCents,
+        long cashDeltaCents,
         Map<Long, Long> investmentTodayCents,
         Map<Long, Long> investmentProfitTodayCents
 ) {}

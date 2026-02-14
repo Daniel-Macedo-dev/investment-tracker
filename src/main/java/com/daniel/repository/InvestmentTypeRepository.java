@@ -36,8 +36,8 @@ public final class InvestmentTypeRepository {
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) return rs.getLong(1);
+                throw new RuntimeException("Failed to get generated id");
             }
-            throw new IllegalStateException("No generated key for investment_types");
         } catch (Exception e) {
             throw new RuntimeException("Failed to create investment type", e);
         }
@@ -45,7 +45,7 @@ public final class InvestmentTypeRepository {
 
     public void rename(long id, String newName) {
         if (newName == null || newName.trim().isBlank()) throw new IllegalArgumentException("Nome inválido.");
-        String sql = "UPDATE investment_types SET name=? WHERE id=?";
+        String sql = "UPDATE investment_types SET name = ? WHERE id = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, newName.trim());
             ps.setLong(2, id);
@@ -56,7 +56,7 @@ public final class InvestmentTypeRepository {
     }
 
     public void delete(long id) {
-        String sql = "DELETE FROM investment_types WHERE id=?";
+        String sql = "DELETE FROM investment_types WHERE id = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, id);
             ps.executeUpdate();

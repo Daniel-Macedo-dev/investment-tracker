@@ -2,7 +2,11 @@ package com.daniel.ui;
 
 import com.daniel.service.DailyService;
 import com.daniel.ui.pages.*;
+import javafx.animation.FadeTransition;
+import javafx.animation.Interpolator;
+import javafx.animation.TranslateTransition;
 import javafx.geometry.Insets;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -44,12 +48,12 @@ public final class AppShell {
         VBox box = new VBox(10);
         box.getStyleClass().add("sidebar");
         box.setPadding(new Insets(14));
-        box.setPrefWidth(260);
+        box.setPrefWidth(280);
 
         Label title = new Label("Investment Tracker");
         title.getStyleClass().add("sidebar-title");
 
-        Label sub = new Label("Registro diário • lucro por variação (Δ − fluxo)");
+        Label sub = new Label("Registro diário • lucro = (Δ) − fluxos");
         sub.getStyleClass().add("sidebar-sub");
 
         box.getChildren().addAll(title, sub, new Separator());
@@ -72,7 +76,7 @@ public final class AppShell {
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
-        Label footer = new Label("v0.3.0");
+        Label footer = new Label("v0.4.0");
         footer.getStyleClass().add("sidebar-footer");
 
         box.getChildren().addAll(spacer, footer);
@@ -86,7 +90,9 @@ public final class AppShell {
         nav.values().forEach(b -> b.getStyleClass().remove("active"));
         if (nav.get(key) != null) nav.get(key).getStyleClass().add("active");
 
-        content.getChildren().setAll(p.view());
+        Parent view = p.view();
+        swapWithAnimation(view);
+
         p.onShow();
     }
 
@@ -94,5 +100,41 @@ public final class AppShell {
         if (date == null) date = LocalDate.now();
         dailyEntryPage.setDate(date);
         go("Registro Diário");
+    }
+
+    private void swapWithAnimation(Node newNode) {
+        if (content.getChildren().isEmpty()) {
+            content.getChildren().setAll(newNode);
+            return;
+        }
+
+        Node old = content.getChildren().get(0);
+
+        FadeTransition fadeOut = new FadeTransition(javafx.util.Duration.millis(120), old);
+        fadeOut.setFromValue(1.0);
+        fadeOut.setToValue(0.0);
+        fadeOut.setInterpolator(Interpolator.EASE_BOTH);
+
+        fadeOut.setOnFinished(ev -> {
+            content.getChildren().setAll(newNode);
+
+            newNode.setOpacity(0.0);
+            newNode.setTranslateY(10);
+
+            FadeTransition fadeIn = new FadeTransition(javafx.util.Duration.millis(180), newNode);
+            fadeIn.setFromValue(0.0);
+            fadeIn.setToValue(1.0);
+            fadeIn.setInterpolator(Interpolator.EASE_OUT);
+
+            TranslateTransition slide = new TranslateTransition(javafx.util.Duration.millis(180), newNode);
+            slide.setFromY(10);
+            slide.setToY(0);
+            slide.setInterpolator(Interpolator.EASE_OUT);
+
+            fadeIn.play();
+            slide.play();
+        });
+
+        fadeOut.play();
     }
 }

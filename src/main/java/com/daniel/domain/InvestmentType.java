@@ -6,5 +6,3 @@ public record InvestmentType(long id, String name) {
         return name();
     }
 }
-
-

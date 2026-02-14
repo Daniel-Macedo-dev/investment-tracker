@@ -9,21 +9,37 @@ import java.util.Optional;
 public final class Dialogs {
     private Dialogs() {}
 
-    public static void info(String message) {
+    public static void info(String title, String message) {
         Alert a = new Alert(Alert.AlertType.INFORMATION);
-        a.setTitle("Info");
+        a.setTitle(title == null ? "Info" : title);
         a.setHeaderText(null);
         a.setContentText(message == null ? "" : message);
         a.showAndWait();
     }
 
-    public static boolean confirm(String title, String message) {
+    public static void info(String message) {
+        info("Info", message);
+    }
+
+    public static void error(String message) {
+        Alert a = new Alert(Alert.AlertType.ERROR);
+        a.setTitle("Erro");
+        a.setHeaderText(null);
+        a.setContentText(message == null ? "Ocorreu um erro." : message);
+        a.showAndWait();
+    }
+
+    public static boolean confirm(String title, String header, String message) {
         Alert a = new Alert(Alert.AlertType.CONFIRMATION);
         a.setTitle(title == null ? "Confirmar" : title);
-        a.setHeaderText(null);
+        a.setHeaderText(header);
         a.setContentText(message == null ? "" : message);
         Optional<ButtonType> r = a.showAndWait();
         return r.isPresent() && r.get() == ButtonType.OK;
+    }
+
+    public static boolean confirm(String title, String message) {
+        return confirm(title, null, message);
     }
 
     public static Long askAmountCents(String title, String header) {
@@ -45,25 +61,6 @@ public final class Dialogs {
         d.setHeaderText(null);
         d.setContentText(label);
         return d.showAndWait().map(String::trim).orElse(null);
-    }
-
-    public static void error(String message) {
-        Alert a = new Alert(Alert.AlertType.ERROR);
-        a.setTitle("Erro");
-        a.setHeaderText(null);
-        a.setContentText(message == null ? "Ocorreu um erro." : message);
-        a.showAndWait();
-    }
-
-    public static void error(Throwable ex) {
-        if (ex == null) { error("Ocorreu um erro."); return; }
-
-        String msg = ex.getMessage();
-        Throwable c = ex.getCause();
-        if (c != null && c.getMessage() != null && !c.getMessage().isBlank()) {
-            msg = (msg == null ? "" : msg) + "\n\nCausa: " + c.getMessage();
-        }
-        error(msg);
     }
 
     private static long parseToCents(String input) {

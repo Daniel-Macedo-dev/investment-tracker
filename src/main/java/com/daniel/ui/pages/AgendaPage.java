@@ -1,5 +1,6 @@
 package com.daniel.ui.pages;
 
+import com.daniel.domain.DailySummary;
 import com.daniel.service.DailyService;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -37,13 +38,7 @@ public final class AgendaPage implements Page {
     @Override public Parent view() { return root; }
 
     @Override public void onShow() {
-        YearMonth now = YearMonth.now();
-        monthPicker.setItems(FXCollections.observableArrayList(
-                now.minusMonths(6), now.minusMonths(5), now.minusMonths(4),
-                now.minusMonths(3), now.minusMonths(2), now.minusMonths(1),
-                now, now.plusMonths(1)
-        ));
-        if (monthPicker.getValue() == null) monthPicker.getSelectionModel().select(now);
+        if (monthPicker.getValue() == null) monthPicker.setValue(YearMonth.now());
         reload();
     }
 
@@ -51,37 +46,41 @@ public final class AgendaPage implements Page {
         Label h1 = new Label("Agenda");
         h1.getStyleClass().add("h1");
 
-        monthPicker.setPrefWidth(160);
-        monthPicker.setConverter(new javafx.util.StringConverter<>() {
-            @Override public String toString(YearMonth ym) {
-                return ym == null ? "" : String.format("%02d/%d", ym.getMonthValue(), ym.getYear());
-            }
-            @Override public YearMonth fromString(String s) { return null; }
-        });
-
-        Button openToday = new Button("Abrir hoje");
-        openToday.setOnAction(e -> openDailyAt.accept(LocalDate.now()));
-
-        monthPicker.setOnAction(e -> reload());
+        monthPicker.getItems().setAll(
+                YearMonth.now().minusMonths(6),
+                YearMonth.now().minusMonths(5),
+                YearMonth.now().minusMonths(4),
+                YearMonth.now().minusMonths(3),
+                YearMonth.now().minusMonths(2),
+                YearMonth.now().minusMonths(1),
+                YearMonth.now(),
+                YearMonth.now().plusMonths(1),
+                YearMonth.now().plusMonths(2)
+        );
+        monthPicker.setValue(YearMonth.now());
+        monthPicker.valueProperty().addListener((o,a,b) -> reload());
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        return new HBox(12, h1, new Label("Mês:"), monthPicker, spacer, openToday);
+        HBox bar = new HBox(10, h1, spacer, new Label("Mês:"), monthPicker);
+        bar.getStyleClass().add("header-row");
+        return bar;
     }
 
     private Parent center() {
         VBox box = new VBox(10);
-        box.getChildren().add(table);
-        VBox.setVgrow(table, Priority.ALWAYS);
+        Label tip = new Label("Dê duplo clique em um dia para abrir o Registro Diário nessa data.");
+        tip.getStyleClass().add("muted");
+        box.getChildren().addAll(tip, table);
         return box;
     }
 
     private void buildTable() {
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.getStyleClass().add("table");
 
         TableColumn<Row, String> colDate = new TableColumn<>("Data");
-        colDate.setCellValueFactory(v -> new SimpleStringProperty(v.getValue().date.format(BR)));
+        colDate.setCellValueFactory(v -> new SimpleStringProperty(BR.format(v.getValue().date)));
 
         TableColumn<Row, String> colTotal = new TableColumn<>("Total do dia");
         colTotal.setCellValueFactory(v -> new SimpleStringProperty(v.getValue().totalText));
@@ -90,6 +89,7 @@ public final class AgendaPage implements Page {
         colProfit.setCellValueFactory(v -> new SimpleStringProperty(v.getValue().profitText));
 
         table.getColumns().setAll(colDate, colTotal, colProfit);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
 
         table.setRowFactory(tv -> {
             TableRow<Row> r = new TableRow<>() {
@@ -105,9 +105,7 @@ public final class AgendaPage implements Page {
             };
 
             r.setOnMouseClicked(e -> {
-                if (e.getClickCount() == 2 && !r.isEmpty()) {
-                    openDailyAt.accept(r.getItem().date);
-                }
+                if (e.getClickCount() == 2 && !r.isEmpty()) openDailyAt.accept(r.getItem().date);
             });
             return r;
         });
@@ -129,11 +127,17 @@ public final class AgendaPage implements Page {
         for (int day = 1; day <= ym.lengthOfMonth(); day++) {
             LocalDate d = ym.atDay(day);
             boolean has = daily.hasAnyDataPublic(d);
-            var s = daily.summaryFor(d);
 
-            String total = has ? daily.brl(s.totalTodayCents()) : "—";
-            long p = s.totalProfitTodayCents();
-            String prof = has ? ((p >= 0 ? "+ " : "- ") + daily.brl(Math.abs(p))) : "—";
+            String total = "—";
+            String prof = "—";
+
+            if (has) {
+                DailySummary s = daily.summaryFor(d);
+                total = daily.brl(s.totalTodayCents());
+
+                long p = s.totalProfitTodayCents();
+                prof = (p == 0) ? "—" : ((p >= 0 ? "+ " : "- ") + daily.brlAbs(Math.abs(p)));
+            }
 
             items.add(new Row(d, total, prof, has));
         }

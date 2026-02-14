@@ -15,9 +15,7 @@ public final class Money {
     private static final NumberFormat BRL = NumberFormat.getCurrencyInstance(LOCALE_BR);
 
     private static final char DECIMAL_SEP = new DecimalFormatSymbols(LOCALE_BR).getDecimalSeparator();
-    private static final char GROUP_SEP = new DecimalFormatSymbols(LOCALE_BR).getGroupingSeparator();
-
-    private static final Pattern ALLOWED = Pattern.compile("[0-9\\sR\\$\\.,]*");
+    private static final Pattern ALLOWED = Pattern.compile("[0-9\\sR\\$\\.,-]*");
 
     private Money() {}
 
@@ -29,14 +27,28 @@ public final class Money {
         s = s.replace("R$", "").trim();
         s = s.replace(" ", "");
 
-        if (s.indexOf('.') >= 0 && s.indexOf(',') >= 0) {
+        boolean neg = s.startsWith("-");
+        if (neg) s = s.substring(1);
+
+        if (s.contains(".") && s.contains(",")) {
             s = s.replace(".", "").replace(",", ".");
-        } else if (s.indexOf(',') >= 0) {
+        } else if (s.contains(",")) {
             s = s.replace(",", ".");
         }
 
+        if (s.isBlank()) return 0L;
+
         double v = Double.parseDouble(s);
-        return Math.round(v * 100.0);
+        long cents = Math.round(v * 100.0);
+        return neg ? -cents : cents;
+    }
+
+    public static long textToCentsSafe(String input) {
+        try {
+            return textToCentsOrZero(input);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Valor inválido. Use algo como 1234,56");
+        }
     }
 
     public static String centsToCurrencyText(long cents) {
@@ -60,12 +72,10 @@ public final class Money {
     public static void applyCurrencyFormatOnBlur(TextField field) {
         field.focusedProperty().addListener((obs, was, is) -> {
             if (was && !is) {
-                long cents = textToCentsOrZero(field.getText());
-                if (cents == 0) {
-                    field.setText("");
-                } else {
-                    field.setText(centsToCurrencyText(cents));
-                }
+                String t = field.getText();
+                if (t == null || t.trim().isBlank()) return;
+                long cents = textToCentsOrZero(t);
+                field.setText(centsToCurrencyText(cents));
             }
         });
     }

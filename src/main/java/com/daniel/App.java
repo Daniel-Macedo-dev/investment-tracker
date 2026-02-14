@@ -20,8 +20,9 @@ public class App extends Application {
         DailyService dailyService = new DailyService(conn);
         AppShell shell = new AppShell(dailyService);
 
-        Scene scene = new Scene(shell.build(), 1250, 740);
-        scene.getStylesheets().add(getClass().getResource("/styles/app.css").toExternalForm());
+        Scene scene = new Scene(shell.build(), 1280, 760);
+        var css = getClass().getResource("/styles/app.css");
+        if (css != null) scene.getStylesheets().add(css.toExternalForm());
 
         stage.setTitle("Investment Tracker");
         stage.setScene(scene);

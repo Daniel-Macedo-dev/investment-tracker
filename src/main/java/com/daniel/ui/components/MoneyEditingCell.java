@@ -5,7 +5,7 @@ import javafx.application.Platform;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TextField;
 
-public final class MoneyEditingCell<S> extends TableCell<S, Number> {
+public final class MoneyEditingCell<S> extends TableCell<S, Long> {
 
     private final TextField field = new TextField();
     private boolean committing;
@@ -13,10 +13,9 @@ public final class MoneyEditingCell<S> extends TableCell<S, Number> {
     public MoneyEditingCell() {
         field.setTextFormatter(Money.currencyFormatterEditable());
         field.setPromptText("R$ 0,00");
-        Money.applyCurrencyFormatOnBlur(field);
+        Money.applyFormatOnBlur(field);
 
         field.setOnAction(e -> commitIfPossible());
-
         field.focusedProperty().addListener((obs, oldV, focused) -> {
             if (!focused) commitIfPossible();
         });
@@ -28,50 +27,53 @@ public final class MoneyEditingCell<S> extends TableCell<S, Number> {
         });
     }
 
+    @Override
+    public void startEdit() {
+        super.startEdit();
+        if (!isEmpty()) {
+            field.setText(Money.centsToText(getItem() == null ? 0L : getItem()));
+            setText(null);
+            setGraphic(field);
+            Platform.runLater(() -> {
+                field.requestFocus();
+                field.selectAll();
+            });
+        }
+    }
+
+    @Override
+    public void cancelEdit() {
+        super.cancelEdit();
+        setText(Money.centsToText(getItem() == null ? 0L : getItem()));
+        setGraphic(null);
+    }
+
+    @Override
+    protected void updateItem(Long value, boolean empty) {
+        super.updateItem(value, empty);
+        if (empty) {
+            setText(null);
+            setGraphic(null);
+            return;
+        }
+
+        if (isEditing()) {
+            setText(null);
+            setGraphic(field);
+        } else {
+            setText(Money.centsToText(value == null ? 0L : value));
+            setGraphic(null);
+        }
+    }
+
     private void commitIfPossible() {
         if (committing) return;
         committing = true;
         try {
-            long cents = Money.textToCentsOrZero(field.getText());
-            Platform.runLater(() -> {
-                try {
-                    commitEdit(cents / 100.0);
-                } finally {
-                    committing = false;
-                }
-            });
-        } catch (Exception ex) {
+            long cents = Money.textToCentsSafe(field.getText());
+            commitEdit(cents);
+        } finally {
             committing = false;
         }
-    }
-
-    @Override public void startEdit() {
-        super.startEdit();
-        syncFromItem();
-        setGraphic(field);
-        field.requestFocus();
-        field.positionCaret(field.getText().length());
-    }
-
-    @Override public void cancelEdit() {
-        super.cancelEdit();
-        syncFromItem();
-        setGraphic(field);
-    }
-
-    @Override protected void updateItem(Number item, boolean empty) {
-        super.updateItem(item, empty);
-        if (empty) {
-            setGraphic(null);
-            return;
-        }
-        syncFromItem();
-        setGraphic(field);
-    }
-
-    private void syncFromItem() {
-        Number item = getItem();
-        long cents = item == null ? 0 : Math.round(item.doubleValue() * 100);
-        field.setText(cents == 0 ? "" : Money.centsToCurrencyText(cents));
     }
 }
