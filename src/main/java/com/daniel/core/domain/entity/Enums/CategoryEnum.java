@@ -1,4 +1,4 @@
-package com.daniel.core.domain.entity;
+package com.daniel.core.domain.entity.Enums;
 
 public enum CategoryEnum {
     RENDA_FIXA("Renda Fixa", "#3b82f6"),
