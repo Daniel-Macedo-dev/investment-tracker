@@ -9,4 +9,5 @@ public interface IFlowRepository {
     List<Flow> listForDate (LocalDate date);
     void save(Flow flow);
     void delete(long id);
+    long create(Flow flow);
 }
