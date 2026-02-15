@@ -2,7 +2,6 @@ package com.daniel.core.service;
 
 import com.daniel.core.domain.entity.*;
 import com.daniel.core.domain.repository.*;
-import com.daniel.infrastructure.persistence.repository.FlowRepository;
 import com.daniel.infrastructure.persistence.repository.InvestmentTypeRepository;
 import com.daniel.infrastructure.persistence.repository.SnapshotRepository;
 
@@ -95,7 +94,6 @@ public final class DailyTrackingUseCase {
             }
         }
 
-        // Salvar investimentos
         for (var e : entry.investmentValuesCents().entrySet()) {
             InvestmentType type = e.getKey();
             Long cents = e.getValue();
@@ -149,9 +147,18 @@ public final class DailyTrackingUseCase {
         long totalInvCents = 0;
         long totalProfitCents = 0;
 
-        for (InvestmentType t : listTypes()) {
-            long todayCents = entry.investmentValuesCents().getOrDefault(t, 0L);
-            long yesterdayCents = prevEntry.investmentValuesCents().getOrDefault(t, 0L);
+        for (var entryMap : entry.investmentValuesCents().entrySet()) {
+            InvestmentType t = entryMap.getKey();
+            long todayCents = entryMap.getValue() != null ? entryMap.getValue() : 0L;
+
+            // Buscar valor de ontem
+            long yesterdayCents = 0L;
+            for (var prevMap : prevEntry.investmentValuesCents().entrySet()) {
+                if (prevMap.getKey().id() == t.id()) {
+                    yesterdayCents = prevMap.getValue() != null ? prevMap.getValue() : 0L;
+                    break;
+                }
+            }
 
             investmentTodayCents.put((long) t.id(), todayCents);
 
@@ -207,7 +214,15 @@ public final class DailyTrackingUseCase {
 
         for (InvestmentType t : listTypes()) {
             long todayCents = invMap.getOrDefault((long) t.id(), 0L);
-            long yesterdayCents = prevEntry.investmentValuesCents().getOrDefault(t, 0L);
+
+            // Buscar valor de ontem
+            long yesterdayCents = 0L;
+            for (var prevMap : prevEntry.investmentValuesCents().entrySet()) {
+                if (prevMap.getKey().id() == t.id()) {
+                    yesterdayCents = prevMap.getValue() != null ? prevMap.getValue() : 0L;
+                    break;
+                }
+            }
 
             List<Flow> flows = flowsFor(date);
             long flowsInCents = 0;
