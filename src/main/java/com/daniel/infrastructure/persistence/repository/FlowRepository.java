@@ -12,10 +12,6 @@ import java.util.List;
 
 public final class FlowRepository implements IFlowRepository {
 
-
-    public FlowRepository(Connection connection) {
-    }
-
     public List<Flow> listForDate(LocalDate date) {
         String sql = """
             SELECT id, date,
