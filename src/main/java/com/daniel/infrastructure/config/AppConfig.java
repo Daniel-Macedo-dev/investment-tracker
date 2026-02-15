@@ -19,9 +19,9 @@ public class AppConfig {
     public AppConfig() {
         this.connection = Database.open();
 
-        IFlowRepository flowRepo = new FlowRepository(connection);
-        IInvestmentTypeRepository invRepo = new InvestmentTypeRepository(connection);
-        ISnapshotRepository snapRepo = new SnapshotRepository(connection);
+        IFlowRepository flowRepo = new FlowRepository();
+        IInvestmentTypeRepository invRepo = new InvestmentTypeRepository();
+        ISnapshotRepository snapRepo = new SnapshotRepository();
 
         this.dailyTrackingUseCase = new DailyTrackingUseCase(flowRepo, invRepo, snapRepo);
     }
