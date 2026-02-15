@@ -1,23 +1,19 @@
 package com.daniel.infrastructure.persistence.repository;
 
+import com.daniel.core.domain.entity.Enums.FlowKind;
 import com.daniel.core.domain.entity.Flow;
-import com.daniel.core.domain.entity.FlowKind;
 import com.daniel.core.domain.repository.IFlowRepository;
+import com.daniel.infrastructure.persistence.config.Database;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 public final class FlowRepository implements IFlowRepository {
 
-    private final Connection conn;
 
-    public FlowRepository(Connection conn) {
-        this.conn = conn;
+    public FlowRepository(Connection connection) {
     }
 
     public List<Flow> listForDate(LocalDate date) {
@@ -32,7 +28,8 @@ public final class FlowRepository implements IFlowRepository {
             """;
 
         List<Flow> out = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = Database.open();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, date.toString());
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -59,7 +56,6 @@ public final class FlowRepository implements IFlowRepository {
 
     @Override
     public void save(Flow flow) {
-
     }
 
     public long create(Flow f) {
@@ -68,7 +64,8 @@ public final class FlowRepository implements IFlowRepository {
             VALUES(?, ?, ?, ?, ?, ?, ?)
             """;
 
-        try (PreparedStatement ps = conn.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = Database.open();
+             PreparedStatement ps = conn.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, f.date().toString());
             ps.setString(2, f.fromKind().name());
             if (f.fromInvestmentTypeId() == null) ps.setNull(3, java.sql.Types.INTEGER);
@@ -93,7 +90,8 @@ public final class FlowRepository implements IFlowRepository {
     }
 
     public void delete(long id) {
-        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM flows WHERE id = ?")) {
+        try (Connection conn = Database.open();
+             PreparedStatement ps = conn.prepareStatement("DELETE FROM flows WHERE id = ?")) {
             ps.setLong(1, id);
             ps.executeUpdate();
         } catch (SQLException e) {
