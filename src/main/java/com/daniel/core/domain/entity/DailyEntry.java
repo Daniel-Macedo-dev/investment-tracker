@@ -6,5 +6,10 @@ import java.util.Map;
 public record DailyEntry(
         LocalDate date,
         long cashCents,
-        Map<Long, Long> investmentValuesCents
-) {}
+        Map<InvestmentType, Long> investmentValuesCents
+) {
+    public Map<Object, Object> investments() {
+
+        return Map.of();
+    }
+}
