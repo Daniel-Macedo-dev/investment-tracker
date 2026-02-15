@@ -12,9 +12,6 @@ import java.util.List;
 
 public final class InvestmentTypeRepository implements IInvestmentTypeRepository {
 
-    public InvestmentTypeRepository(Connection connection) {
-    }
-
     @Override
     public List<InvestmentType> listAll() {
         String sql = "SELECT * FROM investment_type ORDER BY name";
