@@ -6,6 +6,7 @@ import java.util.List;
 
 public interface IInvestmentTypeRepository {
     List<InvestmentType> listAll();
-    void save(InvestmentType type);
+    void save(String name);
+    void rename(int id, String newName);
     void delete(long id);
 }

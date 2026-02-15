@@ -2,72 +2,139 @@ package com.daniel.infrastructure.persistence.repository;
 
 import com.daniel.core.domain.entity.InvestmentType;
 import com.daniel.core.domain.repository.IInvestmentTypeRepository;
+import com.daniel.infrastructure.persistence.config.Database;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
+import java.math.BigDecimal;
+import java.sql.*;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 public final class InvestmentTypeRepository implements IInvestmentTypeRepository {
-    private final Connection conn;
 
-    public InvestmentTypeRepository(Connection conn) {
-        this.conn = conn;
+    public InvestmentTypeRepository(Connection connection) {
     }
 
+    @Override
     public List<InvestmentType> listAll() {
-        String sql = "SELECT id, name FROM investment_types ORDER BY name ASC";
-        try (PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            List<InvestmentType> list = new ArrayList<>();
-            while (rs.next()) list.add(new InvestmentType(rs.getLong("id"), rs.getString("name")));
+        String sql = "SELECT * FROM investment_type ORDER BY name";
+
+        List<InvestmentType> list = new ArrayList<>();
+        try (Connection conn = Database.open();
+             Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+
+            while (rs.next()) {
+                list.add(mapRow(rs));
+            }
             return list;
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to list investment types", e);
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao buscar tipos: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public void save(InvestmentType type) {
+    public void save(String name) {
+        String sql = "INSERT INTO investment_type (name) VALUES (?)";
 
-    }
-
-    public long create(String name) {
-        if (name == null || name.trim().isBlank()) throw new IllegalArgumentException("Nome inválido.");
-        String sql = "INSERT INTO investment_types(name) VALUES(?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, name.trim());
+        try (Connection conn = Database.open();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, name);
             ps.executeUpdate();
-            try (ResultSet rs = ps.getGeneratedKeys()) {
-                if (rs.next()) return rs.getLong(1);
-                throw new RuntimeException("Failed to get generated id");
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to create investment type", e);
+        } catch (SQLException e) {
+            throw new RuntimeException("Tipo já existe ou erro ao criar: " + e.getMessage(), e);
         }
     }
 
-    public void rename(long id, String newName) {
-        if (newName == null || newName.trim().isBlank()) throw new IllegalArgumentException("Nome inválido.");
-        String sql = "UPDATE investment_types SET name = ? WHERE id = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, newName.trim());
-            ps.setLong(2, id);
+    public void createFull(String name, String category, String liquidity,
+                           LocalDate investmentDate, BigDecimal profitability,
+                           BigDecimal investedValue) {
+        String sql = """
+            INSERT INTO investment_type 
+            (name, category, liquidity, investment_date, profitability, invested_value) 
+            VALUES (?, ?, ?, ?, ?, ?)
+            """;
+
+        try (Connection conn = Database.open();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, name);
+            ps.setString(2, category);
+            ps.setString(3, liquidity);
+            ps.setString(4, investmentDate != null ? investmentDate.toString() : null);
+            ps.setBigDecimal(5, profitability);
+            ps.setBigDecimal(6, investedValue);
             ps.executeUpdate();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to rename investment type", e);
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao criar tipo: " + e.getMessage(), e);
         }
     }
 
+    public void updateFull(int id, String name, String category, String liquidity,
+                           LocalDate investmentDate, BigDecimal profitability,
+                           BigDecimal investedValue) {
+        String sql = """
+            UPDATE investment_type 
+            SET name = ?, category = ?, liquidity = ?, 
+                investment_date = ?, profitability = ?, invested_value = ? 
+            WHERE id = ?
+            """;
+
+        try (Connection conn = Database.open();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, name);
+            ps.setString(2, category);
+            ps.setString(3, liquidity);
+            ps.setString(4, investmentDate != null ? investmentDate.toString() : null);
+            ps.setBigDecimal(5, profitability);
+            ps.setBigDecimal(6, investedValue);
+            ps.setInt(7, id);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao atualizar: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void rename(int id, String newName) {
+        String sql = "UPDATE investment_type SET name = ? WHERE id = ?";
+
+        try (Connection conn = Database.open();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newName);
+            ps.setInt(2, id);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao renomear: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
     public void delete(long id) {
-        String sql = "DELETE FROM investment_types WHERE id = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        String sql = "DELETE FROM investment_type WHERE id = ?";
+
+        try (Connection conn = Database.open();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, id);
             ps.executeUpdate();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to delete investment type", e);
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao deletar: " + e.getMessage(), e);
         }
+    }
+
+    private InvestmentType mapRow(ResultSet rs) throws SQLException {
+        int id = rs.getInt("id");
+        String name = rs.getString("name");
+        String category = rs.getString("category");
+        String liquidity = rs.getString("liquidity");
+
+        String dateStr = rs.getString("investment_date");
+        LocalDate investmentDate = dateStr != null && !dateStr.isBlank() ?
+                LocalDate.parse(dateStr) : null;
+
+        BigDecimal profitability = rs.getBigDecimal("profitability");
+        BigDecimal investedValue = rs.getBigDecimal("invested_value");
+
+        return new InvestmentType(id, name, category, liquidity,
+                investmentDate, profitability, investedValue);
     }
 }
