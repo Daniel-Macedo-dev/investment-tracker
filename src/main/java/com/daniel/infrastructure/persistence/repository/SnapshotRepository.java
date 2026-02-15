@@ -9,10 +9,6 @@ import java.util.*;
 
 public final class SnapshotRepository implements ISnapshotRepository {
 
-
-    public SnapshotRepository(Connection connection) {
-    }
-
     public long getCash(LocalDate date) {
         try {
             return querySingleLong(
@@ -31,7 +27,6 @@ public final class SnapshotRepository implements ISnapshotRepository {
 
     @Override
     public void setCash(LocalDate date) {
-        // Implementar se necessário
     }
 
     @Override
