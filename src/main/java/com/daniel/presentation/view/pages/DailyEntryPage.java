@@ -1,6 +1,7 @@
 package com.daniel.presentation.view.pages;
 
 import com.daniel.core.domain.entity.*;
+import com.daniel.core.domain.entity.Enums.FlowKind;
 import com.daniel.core.service.DailyTrackingUseCase;
 import com.daniel.presentation.view.util.Dialogs;
 import com.daniel.presentation.view.components.MoneyEditingCell;
