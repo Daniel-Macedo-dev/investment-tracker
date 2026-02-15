@@ -357,10 +357,22 @@ public final class DailyEntryPage implements Page {
 
         long cashCents = Money.textToCentsSafe(cashField.getText());
 
-        Map<Long, Long> invMap = new HashMap<>();
-        for (InvestmentValueRow r : invRows) invMap.put(r.getInvestmentTypeId(), r.getValueCents());
+        Map<InvestmentType, Long> investments = new LinkedHashMap<>();
 
-        DailyEntry entry = new DailyEntry(currentDate, cashCents, invMap);
+        Map<Long, InvestmentType> typeById = new HashMap<>();
+        for (InvestmentType t : daily.listTypes()) {
+            typeById.put((long) t.id(), t);
+        }
+
+        for (InvestmentValueRow r : invRows) {
+            long typeId = r.getInvestmentTypeId();
+            InvestmentType type = typeById.get(typeId);
+            if (type != null) {
+                investments.put(type, r.getValueCents());
+            }
+        }
+
+        DailyEntry entry = new DailyEntry(currentDate, cashCents, investments);
         daily.saveEntry(entry);
 
         dirty = false;
