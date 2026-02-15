@@ -431,7 +431,7 @@ public final class DailyEntryPage implements Page {
         // ✅ FIX AQUI: Long null-safe
         public static FlowRow fromFlow(Flow f, List<InvestmentType> types, DailyTrackingUseCase daily) {
             Map<Long, String> nameById = new HashMap<>();
-            for (InvestmentType t : types) nameById.put(t.id(), t.name());
+            for (InvestmentType t : types) nameById.put((long) t.id(), t.name());
 
             FlowRow r = new FlowRow(f.id());
 

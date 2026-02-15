@@ -2,9 +2,12 @@ package com.daniel.core.service;
 
 import com.daniel.core.domain.entity.*;
 import com.daniel.core.domain.repository.*;
+import com.daniel.infrastructure.persistence.repository.FlowRepository;
 import com.daniel.infrastructure.persistence.repository.InvestmentTypeRepository;
+import com.daniel.infrastructure.persistence.repository.SnapshotRepository;
 
 import java.math.BigDecimal;
+import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -13,6 +16,8 @@ public final class DailyTrackingUseCase {
     private final IFlowRepository flowRepo;
     private final IInvestmentTypeRepository typeRepo;
     private final ISnapshotRepository snapshotRepo;
+
+    private static final NumberFormat BRL = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
 
     public DailyTrackingUseCase(
             IFlowRepository flowRepo,
@@ -85,19 +90,19 @@ public final class DailyTrackingUseCase {
 
         // Salvar caixa
         if (entry.cashCents() >= 0) {
-            if (snapshotRepo instanceof com.daniel.infrastructure.persistence.repository.SnapshotRepository repo) {
+            if (snapshotRepo instanceof SnapshotRepository repo) {
                 repo.upsertCash(entry.date(), entry.cashCents());
             }
         }
 
         // Salvar investimentos
-        for (var e : entry.investments().entrySet()) {
-            InvestmentType type = (InvestmentType) e.getKey();
-            Long cents = (Long) e.getValue();
+        for (var e : entry.investmentValuesCents().entrySet()) {
+            InvestmentType type = e.getKey();
+            Long cents = e.getValue();
             if (cents != null && cents >= 0) {
                 snapshotRepo.setInvestimentValue(entry.date(), type.id(), cents);
 
-                if (snapshotRepo instanceof com.daniel.infrastructure.persistence.repository.SnapshotRepository repo) {
+                if (snapshotRepo instanceof SnapshotRepository repo) {
                     repo.upsertInvestment(entry.date(), type.id(), cents, null);
                 }
             }
@@ -106,86 +111,183 @@ public final class DailyTrackingUseCase {
 
     // ========== FLOWS ==========
 
-    public List<Flow> listFlows(LocalDate date) {
-        if (flowRepo instanceof com.daniel.infrastructure.persistence.repository.FlowRepository repo) {
-            return repo.listForDate(date);
-        }
-        return Collections.emptyList();
+    public List<Flow> flowsFor(LocalDate date) {
+        return flowRepo.listForDate(date);
     }
 
     public void createFlow(Flow flow) {
-        if (flowRepo instanceof com.daniel.infrastructure.persistence.repository.FlowRepository repo) {
-            repo.create(flow);
-        } else {
-            flowRepo.save(flow);
-        }
+        flowRepo.save(flow);
     }
 
     public void deleteFlow(long flowId) {
-        if (flowRepo instanceof com.daniel.infrastructure.persistence.repository.FlowRepository repo) {
-            repo.delete(flowId);
-        }
+        flowRepo.delete(flowId);
     }
 
     // ========== SUMMARY ==========
 
-    public DailySummary calculateSummary(LocalDate date) {
+    public boolean hasAnyDataPublic(LocalDate date) {
+        DailyEntry entry = loadEntry(date);
+        return entry.cashCents() > 0 ||
+                entry.investmentValuesCents().values().stream()
+                        .anyMatch(v -> v != null && v > 0);
+    }
+
+    public DailySummary summaryFor(LocalDate date) {
         DailyEntry entry = loadEntry(date);
 
-        long totalInvestmentsCents = entry.investments().values().stream()
-                .filter(Objects::nonNull)
-                .mapToLong(Long::longValue)
-                .sum();
+        // Buscar dia anterior para calcular delta e lucro
+        LocalDate prev = date.minusDays(1);
+        DailyEntry prevEntry = loadEntry(prev);
 
-        long totalCents = entry.cashCents() + totalInvestmentsCents;
+        long cashCents = entry.cashCents();
+        long prevCashCents = prevEntry.cashCents();
+        long cashDeltaCents = cashCents - prevCashCents;
+
+        Map<Long, Long> investmentTodayCents = new HashMap<>();
+        Map<Long, Long> investmentProfitTodayCents = new HashMap<>();
+
+        long totalInvCents = 0;
+        long totalProfitCents = 0;
+
+        for (InvestmentType t : listTypes()) {
+            long todayCents = entry.investmentValuesCents().getOrDefault(t, 0L);
+            long yesterdayCents = prevEntry.investmentValuesCents().getOrDefault(t, 0L);
+
+            investmentTodayCents.put((long) t.id(), todayCents);
+
+            // Calcular lucro considerando fluxos
+            List<Flow> flows = flowsFor(date);
+            long flowsInCents = 0;
+            long flowsOutCents = 0;
+
+            for (Flow f : flows) {
+                // Fluxo para este investimento
+                if (f.toInvestmentTypeId() != null && f.toInvestmentTypeId() == t.id()) {
+                    flowsInCents += f.amountCents();
+                }
+                // Fluxo saindo deste investimento
+                if (f.fromInvestmentTypeId() != null && f.fromInvestmentTypeId() == t.id()) {
+                    flowsOutCents += f.amountCents();
+                }
+            }
+
+            long profitCents = todayCents - yesterdayCents - flowsInCents + flowsOutCents;
+            investmentProfitTodayCents.put((long) t.id(), profitCents);
+
+            totalInvCents += todayCents;
+            totalProfitCents += profitCents;
+        }
+
+        long totalTodayCents = cashCents + totalInvCents;
 
         return new DailySummary(
                 date,
-                entry.cashCents(),
-                totalInvestmentsCents,
-                totalCents
+                totalTodayCents,
+                totalProfitCents,
+                cashCents,
+                cashDeltaCents,
+                investmentTodayCents,
+                investmentProfitTodayCents
+        );
+    }
+
+    public DailySummary previewSummary(LocalDate date, long cashCents, Map<Long, Long> invMap) {
+        // Preview sem salvar - para UI em tempo real
+        LocalDate prev = date.minusDays(1);
+        DailyEntry prevEntry = loadEntry(prev);
+
+        long prevCashCents = prevEntry.cashCents();
+        long cashDeltaCents = cashCents - prevCashCents;
+
+        Map<Long, Long> investmentTodayCents = new HashMap<>(invMap);
+        Map<Long, Long> investmentProfitTodayCents = new HashMap<>();
+
+        long totalInvCents = 0;
+        long totalProfitCents = 0;
+
+        for (InvestmentType t : listTypes()) {
+            long todayCents = invMap.getOrDefault((long) t.id(), 0L);
+            long yesterdayCents = prevEntry.investmentValuesCents().getOrDefault(t, 0L);
+
+            List<Flow> flows = flowsFor(date);
+            long flowsInCents = 0;
+            long flowsOutCents = 0;
+
+            for (Flow f : flows) {
+                if (f.toInvestmentTypeId() != null && f.toInvestmentTypeId() == t.id()) {
+                    flowsInCents += f.amountCents();
+                }
+                if (f.fromInvestmentTypeId() != null && f.fromInvestmentTypeId() == t.id()) {
+                    flowsOutCents += f.amountCents();
+                }
+            }
+
+            long profitCents = todayCents - yesterdayCents - flowsInCents + flowsOutCents;
+            investmentProfitTodayCents.put((long) t.id(), profitCents);
+
+            totalInvCents += todayCents;
+            totalProfitCents += profitCents;
+        }
+
+        long totalTodayCents = cashCents + totalInvCents;
+
+        return new DailySummary(
+                date,
+                totalTodayCents,
+                totalProfitCents,
+                cashCents,
+                cashDeltaCents,
+                investmentTodayCents,
+                investmentProfitTodayCents
         );
     }
 
     // ========== SERIES / CHARTS ==========
 
-    public Map<String, Long> getInvestmentSeries(long investmentTypeId) {
-        return snapshotRepo.seriesForInvestiments(investmentTypeId);
-    }
+    public record SeriesPoint(LocalDate date, long valueCents) {}
 
-    public Map<String, Long> getTotalSeries(LocalDate from, LocalDate to) {
-        // Implementar conforme necessário
-        Map<String, Long> series = new TreeMap<>();
+    public List<SeriesPoint> seriesForInvestment(int investmentTypeId) {
+        Map<String, Long> data = snapshotRepo.seriesForInvestiments(investmentTypeId);
+        List<SeriesPoint> points = new ArrayList<>();
 
-        LocalDate current = from;
-        while (!current.isAfter(to)) {
-            DailySummary summary = calculateSummary(current);
-            series.put(current.toString(), summary.totalCents());
-            current = current.plusDays(1);
+        for (var entry : data.entrySet()) {
+            LocalDate date = LocalDate.parse(entry.getKey());
+            points.add(new SeriesPoint(date, entry.getValue()));
         }
 
-        return series;
+        return points;
     }
 
-    // ========== VALIDATION ==========
+    // ========== RANGE SUMMARY ==========
 
-    public boolean hasDataForDate(LocalDate date) {
-        DailyEntry entry = loadEntry(date);
-        return entry.cashCents() > 0 ||
-                entry.investments().values().stream().anyMatch(v -> v != null && v > 0);
-    }
+    public record RangeSummary(
+            long totalProfitCents,
+            Map<Long, Long> profitByInvestmentCents
+    ) {}
 
-    public List<LocalDate> getDatesWithData(LocalDate from, LocalDate to) {
-        List<LocalDate> dates = new ArrayList<>();
-        LocalDate current = from;
+    public RangeSummary rangeSummary(LocalDate from, LocalDate to) {
+        DailySummary first = summaryFor(from);
+        DailySummary last = summaryFor(to);
 
-        while (!current.isAfter(to)) {
-            if (hasDataForDate(current)) {
-                dates.add(current);
-            }
-            current = current.plusDays(1);
+        long totalProfit = last.totalProfitTodayCents() - first.totalProfitTodayCents();
+
+        Map<Long, Long> profitByInv = new HashMap<>();
+        for (Long invId : last.investmentProfitTodayCents().keySet()) {
+            long lastProfit = last.investmentProfitTodayCents().getOrDefault(invId, 0L);
+            long firstProfit = first.investmentProfitTodayCents().getOrDefault(invId, 0L);
+            profitByInv.put(invId, lastProfit - firstProfit);
         }
 
-        return dates;
+        return new RangeSummary(totalProfit, profitByInv);
+    }
+
+    // ========== FORMATTING HELPERS ==========
+
+    public String brl(long cents) {
+        return BRL.format(cents / 100.0);
+    }
+
+    public String brlAbs(long cents) {
+        return BRL.format(Math.abs(cents) / 100.0).replace("-", "");
     }
 }
