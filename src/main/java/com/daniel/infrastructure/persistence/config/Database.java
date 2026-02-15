@@ -8,50 +8,49 @@ import java.sql.Statement;
 public final class Database {
 
     private static final String URL = "jdbc:sqlite:investment_tracker.db";
-    private static Connection connection;
+    private static Connection connection = null;
 
     private Database() {
         // Singleton
     }
 
-    public static Connection open() {
+    public static synchronized Connection open() {
         try {
-            if (connection == null || connection.isClosed()) {
+            if (connection == null) {
+                System.out.println("🔧 Criando conexão com o banco de dados...");
                 connection = DriverManager.getConnection(URL);
 
-                // Criar tabelas se não existirem
-                try (Statement stmt = connection.createStatement()) {
-                    stmt.execute(Schema.createTables());
-                }
-
-                // Aplicar migração se necessário
-                if (Schema.needsMigration(connection)) {
-                    System.out.println("🔄 Aplicando migração do banco de dados...");
-                    applyMigration(connection);
-                    System.out.println("✅ Migração concluída!");
-                }
+                // Criar tabelas
+                System.out.println("🔧 Criando tabelas...");
+                createTables();
+                System.out.println("✅ Banco de dados pronto!");
             }
+
+            if (connection.isClosed()) {
+                System.out.println("⚠️ Connection estava fechada, reabrindo...");
+                connection = DriverManager.getConnection(URL);
+            }
+
             return connection;
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao conectar ao banco: " + e.getMessage(), e);
         }
     }
 
-    private static void applyMigration(Connection conn) {
-        String[] migrations = Schema.migrationScript().split(";");
+    private static void createTables() {
+        try (Statement stmt = connection.createStatement()) {
+            String sql = Schema.createTables();
 
-        for (String migration : migrations) {
-            String trimmed = migration.trim();
-            if (trimmed.isEmpty()) continue;
-
-            try (Statement stmt = conn.createStatement()) {
-                stmt.execute(trimmed);
-            } catch (SQLException e) {
-                // Ignora erros de "coluna já existe"
-                if (!e.getMessage().toLowerCase().contains("duplicate column")) {
-                    System.err.println("⚠️  Erro na migração (ignorado): " + e.getMessage());
+            for (String statement : sql.split(";")) {
+                String trimmed = statement.trim();
+                if (!trimmed.isEmpty()) {
+                    stmt.execute(trimmed);
                 }
             }
+
+        } catch (SQLException e) {
+            System.err.println("⚠️ Erro ao criar tabelas: " + e.getMessage());
+            throw new RuntimeException("Erro ao criar tabelas: " + e.getMessage(), e);
         }
     }
 
@@ -59,6 +58,7 @@ public final class Database {
         try {
             if (connection != null && !connection.isClosed()) {
                 connection.close();
+                connection = null;
             }
         } catch (SQLException e) {
             e.printStackTrace();
