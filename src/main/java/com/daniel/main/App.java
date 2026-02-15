@@ -18,6 +18,7 @@ public class App extends Application {
     @Override
     public void init() {
         this.appConfig = new AppConfig();
+        Database.open();
     }
 
     @Override
