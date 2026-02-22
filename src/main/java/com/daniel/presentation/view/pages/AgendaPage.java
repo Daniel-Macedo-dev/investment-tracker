@@ -30,6 +30,8 @@ public final class AgendaPage implements Page {
         this.openDailyAt = openDailyAt;
 
         root.setPadding(new Insets(16));
+        root.getStyleClass().add("page");
+
         root.setTop(top());
         root.setCenter(center());
         buildTable();
@@ -46,6 +48,9 @@ public final class AgendaPage implements Page {
         Label h1 = new Label("Agenda");
         h1.getStyleClass().add("h1");
 
+        Label sub = new Label("Visão por dia do mês (duplo clique para abrir o registro).");
+        sub.getStyleClass().add("muted");
+
         monthPicker.getItems().setAll(
                 YearMonth.now().minusMonths(6),
                 YearMonth.now().minusMonths(5),
@@ -60,19 +65,23 @@ public final class AgendaPage implements Page {
         monthPicker.setValue(YearMonth.now());
         monthPicker.valueProperty().addListener((o,a,b) -> reload());
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox pick = new HBox(10, new Label("Mês:"), monthPicker);
+        pick.getStyleClass().add("card-soft");
 
-        HBox bar = new HBox(10, h1, spacer, new Label("Mês:"), monthPicker);
-        bar.getStyleClass().add("header-row");
-        return bar;
+        VBox header = new VBox(8, h1, sub, pick);
+        return header;
     }
 
     private Parent center() {
-        VBox box = new VBox(10);
+        VBox box = new VBox(12);
+
         Label tip = new Label("Dê duplo clique em um dia para abrir o Registro Diário nessa data.");
         tip.getStyleClass().add("muted");
-        box.getChildren().addAll(tip, table);
+
+        VBox tipCard = new VBox(6, new Label("Dica"), tip);
+        tipCard.getStyleClass().add("card-soft");
+
+        box.getChildren().addAll(tipCard, table);
         return box;
     }
 

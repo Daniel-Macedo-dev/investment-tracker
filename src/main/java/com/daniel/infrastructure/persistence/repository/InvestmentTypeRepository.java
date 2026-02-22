@@ -13,6 +13,8 @@ import java.util.List;
 public final class InvestmentTypeRepository implements IInvestmentTypeRepository {
 
     public InvestmentTypeRepository(Connection connection) {
+        // seu padrão atual abre conexão via Database.open()
+        // então esse ctor pode ficar vazio mesmo
     }
 
     @Override
@@ -50,8 +52,8 @@ public final class InvestmentTypeRepository implements IInvestmentTypeRepository
                            LocalDate investmentDate, BigDecimal profitability,
                            BigDecimal investedValue) {
         String sql = """
-            INSERT INTO investment_type 
-            (name, category, liquidity, investment_date, profitability, invested_value) 
+            INSERT INTO investment_type
+            (name, category, liquidity, investment_date, profitability, invested_value)
             VALUES (?, ?, ?, ?, ?, ?)
             """;
 
@@ -69,13 +71,13 @@ public final class InvestmentTypeRepository implements IInvestmentTypeRepository
         }
     }
 
-    public void updateFull(int id, String name, String category, String liquidity,
+    public void updateFull(long id, String name, String category, String liquidity,
                            LocalDate investmentDate, BigDecimal profitability,
                            BigDecimal investedValue) {
         String sql = """
-            UPDATE investment_type 
-            SET name = ?, category = ?, liquidity = ?, 
-                investment_date = ?, profitability = ?, invested_value = ? 
+            UPDATE investment_type
+            SET name = ?, category = ?, liquidity = ?,
+                investment_date = ?, profitability = ?, invested_value = ?
             WHERE id = ?
             """;
 
@@ -87,7 +89,7 @@ public final class InvestmentTypeRepository implements IInvestmentTypeRepository
             ps.setString(4, investmentDate != null ? investmentDate.toString() : null);
             ps.setBigDecimal(5, profitability);
             ps.setBigDecimal(6, investedValue);
-            ps.setInt(7, id);
+            ps.setLong(7, id);
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao atualizar: " + e.getMessage(), e);
@@ -95,13 +97,13 @@ public final class InvestmentTypeRepository implements IInvestmentTypeRepository
     }
 
     @Override
-    public void rename(int id, String newName) {
+    public void rename(long id, String newName) {
         String sql = "UPDATE investment_type SET name = ? WHERE id = ?";
 
         try (Connection conn = Database.open();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, newName);
-            ps.setInt(2, id);
+            ps.setLong(2, id);
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao renomear: " + e.getMessage(), e);
@@ -122,19 +124,20 @@ public final class InvestmentTypeRepository implements IInvestmentTypeRepository
     }
 
     private InvestmentType mapRow(ResultSet rs) throws SQLException {
-        int id = rs.getInt("id");
+        long id = rs.getLong("id");
         String name = rs.getString("name");
+
         String category = rs.getString("category");
         String liquidity = rs.getString("liquidity");
 
         String dateStr = rs.getString("investment_date");
-        LocalDate investmentDate = dateStr != null && !dateStr.isBlank() ?
-                LocalDate.parse(dateStr) : null;
+        LocalDate investmentDate = (dateStr != null && !dateStr.isBlank())
+                ? LocalDate.parse(dateStr)
+                : null;
 
         BigDecimal profitability = rs.getBigDecimal("profitability");
         BigDecimal investedValue = rs.getBigDecimal("invested_value");
 
-        return new InvestmentType(id, name, category, liquidity,
-                investmentDate, profitability, investedValue);
+        return new InvestmentType(id, name, category, liquidity, investmentDate, profitability, investedValue);
     }
 }

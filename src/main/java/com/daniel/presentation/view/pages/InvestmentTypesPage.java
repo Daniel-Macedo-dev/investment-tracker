@@ -18,9 +18,13 @@ public final class InvestmentTypesPage implements Page {
         this.daily = dailyTrackingUseCase;
 
         root.setPadding(new Insets(16));
+        root.getStyleClass().add("page");
 
         Label h1 = new Label("Tipos de Investimento");
         h1.getStyleClass().add("h1");
+
+        Label sub = new Label("Crie os tipos do seu jeito (ex.: CDB, Ações, Cripto, Tesouro...).");
+        sub.getStyleClass().add("muted");
 
         list.setCellFactory(lv -> new ListCell<>() {
             @Override protected void updateItem(InvestmentType item, boolean empty) {
@@ -32,6 +36,7 @@ public final class InvestmentTypesPage implements Page {
         Button add = new Button("+ Criar");
         Button rename = new Button("Renomear");
         Button delete = new Button("Excluir");
+        add.getStyleClass().add("primary-btn");
         delete.getStyleClass().add("danger-btn");
 
         add.setOnAction(e -> onAdd());
@@ -39,7 +44,10 @@ public final class InvestmentTypesPage implements Page {
         delete.setOnAction(e -> onDelete());
 
         HBox actions = new HBox(8, add, rename, delete);
-        root.getChildren().addAll(h1, new Label("Crie os tipos do seu jeito (ex: Renda fixa, Ações, Cripto, etc)."), actions, list);
+        VBox actionsCard = new VBox(10, actions);
+        actionsCard.getStyleClass().add("card");
+
+        root.getChildren().addAll(h1, sub, actionsCard, list);
 
         refresh();
     }

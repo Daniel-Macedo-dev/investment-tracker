@@ -20,6 +20,7 @@ import java.util.Map;
 public final class AppShell {
 
     private final StackPane content = new StackPane();
+    private final StackPane contentWrap = new StackPane(); // ✅ container com padding
     private final Map<String, Page> pages = new LinkedHashMap<>();
     private final Map<String, Button> nav = new LinkedHashMap<>();
 
@@ -38,8 +39,14 @@ public final class AppShell {
 
     public Parent build() {
         BorderPane root = new BorderPane();
+
+        contentWrap.getStyleClass().add("content-wrap");
+        contentWrap.setPadding(new Insets(18));
+        contentWrap.getChildren().add(content);
+
         root.setLeft(sidebar());
-        root.setCenter(content);
+        root.setCenter(contentWrap);
+
         go("Dashboard");
         return root;
     }
@@ -47,7 +54,6 @@ public final class AppShell {
     private Parent sidebar() {
         VBox box = new VBox(10);
         box.getStyleClass().add("sidebar");
-        box.setPadding(new Insets(14));
         box.setPrefWidth(280);
 
         Label title = new Label("Investment Tracker");
@@ -56,7 +62,10 @@ public final class AppShell {
         Label sub = new Label("Registro diário • lucro = (Δ) − fluxos");
         sub.getStyleClass().add("sidebar-sub");
 
-        box.getChildren().addAll(title, sub, new Separator());
+        VBox header = new VBox(4, title, sub);
+        header.setPadding(new Insets(2, 0, 8, 0));
+
+        box.getChildren().addAll(header, new Separator());
 
         for (String k : pages.keySet()) {
             Button b = new Button(k);

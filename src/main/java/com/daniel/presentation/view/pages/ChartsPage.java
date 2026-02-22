@@ -32,9 +32,13 @@ public final class ChartsPage implements Page {
         this.daily = dailyTrackingUseCase;
 
         root.setPadding(new Insets(16));
+        root.getStyleClass().add("page");
 
         Label h1 = new Label("Gráficos");
         h1.getStyleClass().add("h1");
+
+        Label sub = new Label("Evolução do valor por investimento (janela configurável).");
+        sub.getStyleClass().add("muted");
 
         picker.setItems(FXCollections.observableArrayList(daily.listTypes()));
         picker.setPromptText("Selecione um investimento...");
@@ -42,14 +46,17 @@ public final class ChartsPage implements Page {
         range.setItems(FXCollections.observableArrayList(30, 60, 90, 180, 365));
         range.setValue(90);
 
-        HBox top = new HBox(10, new Label("Investimento:"), picker, new Label("Janela (dias):"), range);
+        HBox top = new HBox(10,
+                new Label("Investimento:"), picker,
+                new Label("Janela (dias):"), range
+        );
         top.getStyleClass().add("card");
 
         chart.setAnimated(true);
         chart.setLegendVisible(false);
         chart.setCreateSymbols(true);
 
-        root.getChildren().addAll(h1, top, chart);
+        root.getChildren().addAll(h1, sub, top, chart);
 
         picker.valueProperty().addListener((o,a,b) -> reload());
         range.valueProperty().addListener((o,a,b) -> reload());
@@ -73,7 +80,6 @@ public final class ChartsPage implements Page {
         var points = daily.seriesForInvestment(t.id());
         int days = range.getValue() == null ? 90 : range.getValue();
 
-        // corta pra janela final
         if (points.size() > days) points = new ArrayList<>(points.subList(points.size() - days, points.size()));
 
         XYChart.Series<String, Number> s = new XYChart.Series<>();
@@ -84,12 +90,9 @@ public final class ChartsPage implements Page {
 
         chart.getData().setAll(s);
 
-        // tooltip por ponto
         for (var d : s.getData()) {
             d.nodeProperty().addListener((obs, oldN, n) -> {
-                if (n != null) {
-                    Tooltip.install(n, new Tooltip("R$ " + d.getYValue()));
-                }
+                if (n != null) Tooltip.install(n, new Tooltip("R$ " + d.getYValue()));
             });
         }
     }

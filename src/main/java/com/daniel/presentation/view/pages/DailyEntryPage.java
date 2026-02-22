@@ -95,6 +95,9 @@ public final class DailyEntryPage implements Page {
         Label h1 = new Label("Registro Diário");
         h1.getStyleClass().add("h1");
 
+        Label sub = new Label("Preencha o total do fim do dia e os fluxos (para separar aporte/resgate do lucro de mercado).");
+        sub.getStyleClass().add("muted");
+
         btnPrev.getStyleClass().add("icon-btn");
         btnNext.getStyleClass().add("icon-btn");
         btnToday.getStyleClass().add("ghost-btn");
@@ -112,12 +115,15 @@ public final class DailyEntryPage implements Page {
 
         HBox row = new HBox(10, h1, spacer, hint, datePicker, nav);
         row.getStyleClass().add("header-row");
-        return row;
+
+        VBox header = new VBox(6, row, sub);
+        return header;
     }
 
     private Parent buildTopCards() {
         VBox cashCard = new VBox(8);
         cashCard.getStyleClass().add("card");
+
         Label cashTitle = new Label("Dinheiro livre (CASH)");
         cashTitle.getStyleClass().add("card-title");
 
@@ -164,13 +170,24 @@ public final class DailyEntryPage implements Page {
         buildFlowTable();
 
         VBox left = new VBox(10);
-        left.getChildren().addAll(sectionTitle("Valores dos investimentos (TOTAL no fim do dia)"), invTable);
+        VBox leftCard = new VBox(10, sectionTitle("Valores dos investimentos (TOTAL no fim do dia)"), invTable);
+        leftCard.getStyleClass().add("card");
+        left.getChildren().add(leftCard);
 
         VBox right = new VBox(10);
-        HBox flowActions = new HBox(8, btnAddFlow, btnRemoveFlow);
         btnAddFlow.getStyleClass().add("primary-btn");
         btnRemoveFlow.getStyleClass().add("danger-btn");
-        right.getChildren().addAll(sectionTitle("Fluxos (CASH ↔ investimentos / investimento ↔ investimento)"), flowActions, flowTable);
+
+        HBox flowActions = new HBox(8, btnAddFlow, btnRemoveFlow);
+
+        VBox rightCard = new VBox(10,
+                sectionTitle("Fluxos (CASH ↔ investimentos / investimento ↔ investimento)"),
+                flowActions,
+                flowTable
+        );
+        rightCard.getStyleClass().add("card");
+
+        right.getChildren().add(rightCard);
 
         HBox row = new HBox(12, left, right);
         HBox.setHgrow(left, Priority.ALWAYS);
@@ -428,7 +445,6 @@ public final class DailyEntryPage implements Page {
         public javafx.beans.property.StringProperty amountTextProperty() { return amountText; }
         public javafx.beans.property.StringProperty noteProperty() { return note; }
 
-        // ✅ FIX AQUI: Long null-safe
         public static FlowRow fromFlow(Flow f, List<InvestmentType> types, DailyTrackingUseCase daily) {
             Map<Long, String> nameById = new HashMap<>();
             for (InvestmentType t : types) nameById.put(t.id(), t.name());

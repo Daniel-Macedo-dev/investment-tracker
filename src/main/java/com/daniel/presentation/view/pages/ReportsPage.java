@@ -28,6 +28,8 @@ public final class ReportsPage implements Page {
         this.daily = daily;
 
         root.setPadding(new Insets(16));
+        root.getStyleClass().add("page");
+
         root.setTop(top());
         root.setCenter(center());
         buildTable();
@@ -44,6 +46,9 @@ public final class ReportsPage implements Page {
         Label h1 = new Label("Relatórios");
         h1.getStyleClass().add("h1");
 
+        Label sub = new Label("Análise por mês (lucro de mercado e total do último dia com dado).");
+        sub.getStyleClass().add("muted");
+
         monthPicker.setItems(FXCollections.observableArrayList(
                 YearMonth.now().minusMonths(6),
                 YearMonth.now().minusMonths(5),
@@ -59,9 +64,11 @@ public final class ReportsPage implements Page {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        HBox bar = new HBox(10, h1, spacer, new Label("Mês:"), monthPicker);
-        bar.getStyleClass().add("header-row");
-        return bar;
+        HBox pick = new HBox(10, new Label("Mês:"), monthPicker);
+        pick.getStyleClass().add("card-soft");
+
+        VBox header = new VBox(8, h1, sub, new HBox(10, spacer, pick));
+        return header;
     }
 
     private Parent center() {
@@ -71,6 +78,9 @@ public final class ReportsPage implements Page {
                 card("Total (último dia do mês)", totalMonth),
                 card("Lucro/Prejuízo do mês (mercado)", profitMonth)
         );
+
+        HBox.setHgrow(cards.getChildren().get(0), Priority.ALWAYS);
+        HBox.setHgrow(cards.getChildren().get(1), Priority.ALWAYS);
 
         box.getChildren().addAll(cards, table);
         return box;

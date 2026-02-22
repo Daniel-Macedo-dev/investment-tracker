@@ -10,24 +10,20 @@ public final class Database {
     private static final String URL = "jdbc:sqlite:investment_tracker.db";
     private static Connection connection;
 
-    private Database() {
-        // Singleton
-    }
+    private Database() {}
 
     public static Connection open() {
         try {
             if (connection == null || connection.isClosed()) {
                 connection = DriverManager.getConnection(URL);
 
-                // Criar tabelas se não existirem
-                try (Statement stmt = connection.createStatement()) {
-                    stmt.execute(Schema.createTables());
-                }
+                // ✅ cria tabelas (script multi-statement) corretamente
+                executeSqlScript(connection, Schema.createTables());
 
-                // Aplicar migração se necessário
+                // ✅ migração (se necessário)
                 if (Schema.needsMigration(connection)) {
                     System.out.println("🔄 Aplicando migração do banco de dados...");
-                    applyMigration(connection);
+                    executeSqlScript(connection, Schema.migrationScript());
                     System.out.println("✅ Migração concluída!");
                 }
             }
@@ -37,29 +33,44 @@ public final class Database {
         }
     }
 
-    private static void applyMigration(Connection conn) {
-        String[] migrations = Schema.migrationScript().split(";");
+    /**
+     * Executa script SQL com múltiplos comandos separados por ';'
+     * e remove linhas de comentário iniciadas por '--'.
+     */
+    private static void executeSqlScript(Connection conn, String script) {
+        if (script == null || script.isBlank()) return;
 
-        for (String migration : migrations) {
-            String trimmed = migration.trim();
-            if (trimmed.isEmpty()) continue;
+        String[] parts = script.split(";");
+
+        for (String part : parts) {
+            String sql = stripSqlComments(part).trim();
+            if (sql.isEmpty()) continue;
 
             try (Statement stmt = conn.createStatement()) {
-                stmt.execute(trimmed);
+                stmt.execute(sql);
             } catch (SQLException e) {
-                // Ignora erros de "coluna já existe"
-                if (!e.getMessage().toLowerCase().contains("duplicate column")) {
-                    System.err.println("⚠️  Erro na migração (ignorado): " + e.getMessage());
-                }
+                // se algum comando falhar, loga e segue
+                System.err.println("⚠️ Erro ao executar SQL (ignorado): " + e.getMessage());
             }
         }
     }
 
+    private static String stripSqlComments(String raw) {
+        if (raw == null || raw.isBlank()) return "";
+        StringBuilder sb = new StringBuilder();
+        String[] lines = raw.split("\\R"); // qualquer quebra de linha
+        for (String line : lines) {
+            String t = line.trim();
+            if (t.startsWith("--")) continue;
+            if (t.isEmpty()) continue;
+            sb.append(line).append("\n");
+        }
+        return sb.toString();
+    }
+
     public static void close() {
         try {
-            if (connection != null && !connection.isClosed()) {
-                connection.close();
-            }
+            if (connection != null && !connection.isClosed()) connection.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }

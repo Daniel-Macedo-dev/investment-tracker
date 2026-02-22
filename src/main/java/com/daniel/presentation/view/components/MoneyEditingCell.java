@@ -11,6 +11,7 @@ public final class MoneyEditingCell<S> extends TableCell<S, Long> {
     private boolean committing;
 
     public MoneyEditingCell() {
+        field.getStyleClass().add("money-field");
         field.setTextFormatter(Money.currencyFormatterEditable());
         field.setPromptText("R$ 0,00");
         Money.applyFormatOnBlur(field);

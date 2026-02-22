@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record InvestmentType(
-        int id,
+        long id,
         String name,
 
         String category,
@@ -13,7 +13,7 @@ public record InvestmentType(
         BigDecimal profitability,
         BigDecimal investedValue
 ) {
-    public InvestmentType(int id, String name) {
+    public InvestmentType(long id, String name) {
         this(id, name, null, null, null, null, null);
     }
 
