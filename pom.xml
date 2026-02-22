@@ -18,6 +18,7 @@
         <sqlite.jdbc.version>3.51.2.0</sqlite.jdbc.version>
     </properties>
 
+
     <dependencies>
         <!-- JavaFX -->
         <dependency>
