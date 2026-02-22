@@ -29,9 +29,10 @@ public final class AppShell {
         this.dailyEntryPage = new DailyEntryPage(dailyTrackingUseCase);
 
         pages.put("Dashboard", new DashboardPage(dailyTrackingUseCase));
-        pages.put("Agenda", new AgendaPage(dailyTrackingUseCase, this::goToDaily));
         pages.put("Registro Diário", dailyEntryPage);
         pages.put("Tipos de Investimento", new InvestmentTypesPage(dailyTrackingUseCase));
+        pages.put("Diversificação", new DiversificationPage(dailyTrackingUseCase));
+        pages.put("Simulação", new SimulationPage());
         pages.put("Gráficos", new ChartsPage(dailyTrackingUseCase));
         pages.put("Relatórios", new ReportsPage(dailyTrackingUseCase));
     }

@@ -234,7 +234,13 @@ public final class InvestmentTypesPage implements Page {
                 sel.liquidity(),
                 sel.investmentDate(),
                 sel.profitability(),
-                sel.investedValue()
+                sel.investedValue(),
+                sel.typeOfInvestment(),
+                sel.indexType(),
+                sel.indexPercentage(),
+                sel.ticker(),
+                sel.purchasePrice(),
+                sel.quantity()
         );
 
         InvestmentTypeDialog dialog = new InvestmentTypeDialog("Editar Investimento", existing);

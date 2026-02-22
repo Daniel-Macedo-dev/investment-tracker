@@ -2,7 +2,8 @@ package com.daniel.core.domain.entity.Enums;
 
 public enum CategoryEnum {
     RENDA_FIXA("Renda Fixa", "#3b82f6"),
-    RENDA_VARIAVEL("Renda Variável", "#22c55e"),
+    ACOES("Ações", "#22c55e"),
+    FUNDOS_IMOBILIARIOS("Fundos Imobiliários", "#10b981"),
     FUNDOS("Fundos de Investimento", "#f59e0b"),
     PREVIDENCIA("Previdência", "#8b5cf6"),
     CRIPTOMOEDAS("Criptomoedas", "#ec4899"),

@@ -8,8 +8,10 @@ import javafx.scene.Parent;
 import javafx.scene.chart.*;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.*;
+import javafx.util.StringConverter;
 
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -39,6 +41,34 @@ public final class ChartsPage implements Page {
         picker.setItems(FXCollections.observableArrayList(daily.listTypes()));
         picker.setPromptText("Selecione um investimento...");
 
+        picker.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(InvestmentType t) {
+                return t == null ? "" : t.name();
+            }
+
+            @Override
+            public InvestmentType fromString(String string) {
+                return null;
+            }
+        });
+
+        picker.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(InvestmentType item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : item.name());
+            }
+        });
+
+        picker.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(InvestmentType item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : item.name());
+            }
+        });
+
         range.setItems(FXCollections.observableArrayList(30, 60, 90, 180, 365));
         range.setValue(90);
 
@@ -51,15 +81,21 @@ public final class ChartsPage implements Page {
 
         root.getChildren().addAll(h1, top, chart);
 
-        picker.valueProperty().addListener((o,a,b) -> reload());
-        range.valueProperty().addListener((o,a,b) -> reload());
+        picker.valueProperty().addListener((o, a, b) -> reload());
+        range.valueProperty().addListener((o, a, b) -> reload());
     }
 
-    @Override public Parent view() { return root; }
+    @Override
+    public Parent view() {
+        return root;
+    }
 
-    @Override public void onShow() {
+    @Override
+    public void onShow() {
         picker.setItems(FXCollections.observableArrayList(daily.listTypes()));
-        if (!picker.getItems().isEmpty() && picker.getValue() == null) picker.setValue(picker.getItems().get(0));
+        if (!picker.getItems().isEmpty() && picker.getValue() == null) {
+            picker.setValue(picker.getItems().get(0));
+        }
         reload();
     }
 
@@ -73,10 +109,13 @@ public final class ChartsPage implements Page {
         var points = daily.seriesForInvestment(t.id());
         int days = range.getValue() == null ? 90 : range.getValue();
 
-        // corta pra janela final
-        if (points.size() > days) points = new ArrayList<>(points.subList(points.size() - days, points.size()));
+        if (points.size() > days) {
+            points = new ArrayList<>(points.subList(points.size() - days, points.size()));
+        }
 
         XYChart.Series<String, Number> s = new XYChart.Series<>();
+        s.setName(t.name());
+
         for (var p : points) {
             var node = new XYChart.Data<String, Number>(DMY.format(p.date()), p.valueCents() / 100.0);
             s.getData().add(node);
@@ -84,7 +123,6 @@ public final class ChartsPage implements Page {
 
         chart.getData().setAll(s);
 
-        // tooltip por ponto
         for (var d : s.getData()) {
             d.nodeProperty().addListener((obs, oldN, n) -> {
                 if (n != null) {

@@ -9,7 +9,7 @@ public final class ARCADiversificationStrategy {
     // Perfil ARCA (Primo Rico)
     private static final Map<CategoryEnum, Double> ARCA_PROFILE = Map.of(
             CategoryEnum.RENDA_FIXA, 0.40,        // 40%
-            CategoryEnum.RENDA_VARIAVEL, 0.30,    // 30%
+            CategoryEnum.ACOES, 0.30,    // 30%
             CategoryEnum.OUTROS, 0.25,            // 25% (Ativos Reais)
             CategoryEnum.CRIPTOMOEDAS, 0.05       // 5%
     );
@@ -22,7 +22,7 @@ public final class ARCADiversificationStrategy {
     ) {}
 
     /**
-     * Calcula sugestões baseadas no método ARCA
+     * Calcula sugestões baseadas no metodo ARCA
      */
     public static List<DiversificationSuggestion> calculateSuggestions(
             long totalPatrimonyCents,

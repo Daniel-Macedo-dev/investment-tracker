@@ -1,6 +1,7 @@
 package com.daniel.core.service;
 
 import com.daniel.core.domain.entity.*;
+import com.daniel.core.domain.entity.Enums.InvestmentTypeEnum;
 import com.daniel.core.domain.repository.*;
 import com.daniel.infrastructure.persistence.repository.InvestmentTypeRepository;
 import com.daniel.infrastructure.persistence.repository.SnapshotRepository;
@@ -65,6 +66,97 @@ public final class DailyTrackingUseCase {
         } else {
             throw new UnsupportedOperationException("Repository não suporta updateFull");
         }
+    }
+
+    // ========== CÁLCULO AUTOMÁTICO DE VALOR ATUAL ==========
+
+    /**
+     * Calcula o valor atual de um investimento baseado em:
+     * - Valor investido
+     * - Rentabilidade
+     * - Tempo desde a data de investimento
+     */
+    public long calculateCurrentValue(InvestmentType investment, LocalDate today) {
+        if (investment.investedValue() == null || investment.profitability() == null) {
+            return 0L;
+        }
+
+        // Para ações, usa preço atual * quantidade
+        if (investment.getInvestmentTypeEnum() == InvestmentTypeEnum.ACAO) {
+            if (investment.quantity() != null && investment.currentPrice() != null) {
+                long quantity = investment.quantity();
+                long priceCents = investment.currentPrice().multiply(BigDecimal.valueOf(100)).longValue();
+                return quantity * priceCents;
+            }
+
+            // Se não tem preço atual, usa preço de compra
+            if (investment.quantity() != null && investment.purchasePrice() != null) {
+                long quantity = investment.quantity();
+                long priceCents = investment.purchasePrice().multiply(BigDecimal.valueOf(100)).longValue();
+                return quantity * priceCents;
+            }
+        }
+
+        // Para outros tipos, calcula baseado em rentabilidade
+        if (investment.investmentDate() == null) {
+            // Se não tem data, retorna valor investido
+            return investment.investedValue().multiply(BigDecimal.valueOf(100)).longValue();
+        }
+
+        // Calcular tempo em anos
+        long daysSince = java.time.temporal.ChronoUnit.DAYS.between(investment.investmentDate(), today);
+        double years = daysSince / 365.0;
+
+        // Calcular valor com juros compostos
+        double rate = investment.profitability().doubleValue() / 100.0;
+        double investedValue = investment.investedValue().doubleValue();
+        double currentValue = investedValue * Math.pow(1 + rate, years);
+
+        return Math.round(currentValue * 100);
+    }
+
+    /**
+     * Obtém todos os valores atuais calculados automaticamente
+     */
+    public Map<Long, Long> getAllCurrentValues(LocalDate today) {
+        Map<Long, Long> values = new HashMap<>();
+
+        for (InvestmentType inv : listTypes()) {
+            long currentValue = calculateCurrentValue(inv, today);
+            values.put((long) inv.id(), currentValue);
+        }
+
+        return values;
+    }
+
+    /**
+     * Calcula o patrimônio total atual (sem depender de snapshots)
+     */
+    public long getTotalPatrimony(LocalDate today) {
+        long total = 0L;
+
+        for (InvestmentType inv : listTypes()) {
+            total += calculateCurrentValue(inv, today);
+        }
+
+        return total;
+    }
+
+    /**
+     * Calcula o lucro/prejuízo total atual
+     */
+    public long getTotalProfit(LocalDate today) {
+        long totalInvested = 0L;
+        long totalCurrent = 0L;
+
+        for (InvestmentType inv : listTypes()) {
+            if (inv.investedValue() != null) {
+                totalInvested += inv.investedValue().multiply(BigDecimal.valueOf(100)).longValue();
+            }
+            totalCurrent += calculateCurrentValue(inv, today);
+        }
+
+        return totalCurrent - totalInvested;
     }
 
     // ========== DAILY ENTRY ==========
