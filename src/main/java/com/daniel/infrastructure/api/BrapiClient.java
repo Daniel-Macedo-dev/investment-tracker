@@ -4,14 +4,14 @@ import okhttp3.*;
 import com.google.gson.*;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 public final class BrapiClient {
 
     private static final String BASE_URL = "https://brapi.dev/api";
     private static final String QUOTE_ENDPOINT = "/quote";
+    private static final String AVAILABLE_ENDPOINT = "/available";
 
     private static final OkHttpClient client = new OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
@@ -35,6 +35,7 @@ public final class BrapiClient {
             double fiftyTwoWeekLow,
             double twoHundredDayAverage,
             String currency,
+            double dividendYield,
             String error
     ) {
         public boolean hasError() {
@@ -46,16 +47,32 @@ public final class BrapiClient {
         }
     }
 
+    // Sugestão de ticker
+    public record TickerSuggestion(
+            String ticker,
+            String name,
+            String type  // "stock", "fund", "fii"
+    ) {}
+
+    // Histórico de dividendos
+    public record DividendHistory(
+            String ticker,
+            double averageYield,  // Média de dividend yield
+            double lastYearTotal,  // Total pago no último ano
+            List<DividendPayment> payments
+    ) {}
+
+    public record DividendPayment(
+            String date,
+            double value
+    ) {}
+
     /**
      * Busca dados de uma ação específica
-     *
-     * @param ticker Código da ação (ex: PETR4, VALE3, ITUB4)
-     * @return StockData com informações da ação
-     * @throws IOException em caso de erro de rede
      */
     public static StockData fetchStockData(String ticker) throws IOException {
         if (ticker == null || ticker.isBlank()) {
-            return new StockData(ticker, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, "Ticker inválido");
+            return new StockData(ticker, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, "Ticker inválido");
         }
 
         String url = BASE_URL + QUOTE_ENDPOINT + "/" + ticker.toUpperCase().trim();
@@ -68,23 +85,21 @@ public final class BrapiClient {
 
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
-                return new StockData(ticker, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null,
+                return new StockData(ticker, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0,
                         "Erro HTTP: " + response.code());
             }
 
             String jsonResponse = response.body().string();
             JsonObject root = gson.fromJson(jsonResponse, JsonObject.class);
 
-            // Verificar se há erro na resposta
             if (root.has("error")) {
                 String errorMsg = root.get("error").getAsString();
-                return new StockData(ticker, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, errorMsg);
+                return new StockData(ticker, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, errorMsg);
             }
 
-            // Parsear resultado
             JsonArray results = root.getAsJsonArray("results");
             if (results == null || results.size() == 0) {
-                return new StockData(ticker, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null,
+                return new StockData(ticker, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0,
                         "Ação não encontrada");
             }
 
@@ -105,23 +120,86 @@ public final class BrapiClient {
                     getDoubleOrZero(stock, "fiftyTwoWeekLow"),
                     getDoubleOrZero(stock, "twoHundredDayAverage"),
                     getStringOrNull(stock, "currency"),
+                    getDoubleOrZero(stock, "dividendYield"),
                     null
             );
 
         } catch (JsonSyntaxException e) {
-            return new StockData(ticker, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null,
+            return new StockData(ticker, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0,
                     "Erro ao parsear JSON: " + e.getMessage());
         } catch (Exception e) {
-            return new StockData(ticker, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null,
+            return new StockData(ticker, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0,
                     "Erro: " + e.getMessage());
         }
     }
 
     /**
+     * Busca tickers por nome/código (autocomplete)
+     */
+    public static List<TickerSuggestion> searchTickers(String query) throws IOException {
+        if (query == null || query.isBlank() || query.length() < 2) {
+            return new ArrayList<>();
+        }
+
+        String url = BASE_URL + AVAILABLE_ENDPOINT;
+
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .addHeader("User-Agent", "Investment-Tracker/1.0")
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                return new ArrayList<>();
+            }
+
+            String jsonResponse = response.body().string();
+            JsonObject root = gson.fromJson(jsonResponse, JsonObject.class);
+
+            List<TickerSuggestion> suggestions = new ArrayList<>();
+
+            if (root.has("stocks")) {
+                JsonArray stocks = root.getAsJsonArray("stocks");
+                for (JsonElement element : stocks) {
+                    String ticker = element.getAsString();
+                    if (ticker.toLowerCase().contains(query.toLowerCase())) {
+                        suggestions.add(new TickerSuggestion(ticker, ticker, "stock"));
+                    }
+                }
+            }
+
+            // Limitar a 10 sugestões
+            return suggestions.size() > 10 ? suggestions.subList(0, 10) : suggestions;
+
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Calcula média de dividendos com base no dividend yield
+     */
+    public static DividendHistory estimateDividends(String ticker) throws IOException {
+        StockData data = fetchStockData(ticker);
+
+        if (!data.isValid() || data.dividendYield() <= 0) {
+            return new DividendHistory(ticker, 0, 0, new ArrayList<>());
+        }
+
+        // Estimar dividendos anuais baseado no yield e preço atual
+        double estimatedAnnualDividend = data.regularMarketPrice() * (data.dividendYield() / 100.0);
+
+        return new DividendHistory(
+                ticker,
+                data.dividendYield(),
+                estimatedAnnualDividend,
+                new ArrayList<>()  // API pública não retorna histórico detalhado
+        );
+    }
+
+    /**
      * Busca múltiplas ações de uma vez
-     *
-     * @param tickers Lista de tickers separados por vírgula (ex: "PETR4,VALE3,ITUB4")
-     * @return Map com ticker → StockData
      */
     public static Map<String, StockData> fetchMultipleStocks(String tickers) throws IOException {
         Map<String, StockData> results = new HashMap<>();
@@ -171,6 +249,7 @@ public final class BrapiClient {
                             getDoubleOrZero(stock, "fiftyTwoWeekLow"),
                             getDoubleOrZero(stock, "twoHundredDayAverage"),
                             getStringOrNull(stock, "currency"),
+                            getDoubleOrZero(stock, "dividendYield"),
                             null
                     );
 
@@ -215,8 +294,6 @@ public final class BrapiClient {
             return 0L;
         }
     }
-
-    //Testa a conexão com a API
 
     public static boolean testConnection() {
         try {
