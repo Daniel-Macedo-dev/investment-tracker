@@ -13,7 +13,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
 import javafx.scene.layout.*;
 
-import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -23,14 +22,9 @@ public final class AppShell {
     private final Map<String, Page> pages = new LinkedHashMap<>();
     private final Map<String, Button> nav = new LinkedHashMap<>();
 
-    private final DailyEntryPage dailyEntryPage;
-
     public AppShell(DailyTrackingUseCase dailyTrackingUseCase) {
-        this.dailyEntryPage = new DailyEntryPage(dailyTrackingUseCase);
-
         pages.put("Dashboard", new DashboardPage(dailyTrackingUseCase));
-        pages.put("Registro Diário", dailyEntryPage);
-        pages.put("Tipos de Investimento", new InvestmentTypesPage(dailyTrackingUseCase));
+        pages.put("Cadastrar Investimento", new InvestmentTypesPage(dailyTrackingUseCase));
         pages.put("Diversificação", new DiversificationPage(dailyTrackingUseCase));
         pages.put("Simulação", new SimulationPage());
         pages.put("Gráficos", new ChartsPage(dailyTrackingUseCase));
@@ -54,7 +48,7 @@ public final class AppShell {
         Label title = new Label("Investment Tracker");
         title.getStyleClass().add("sidebar-title");
 
-        Label sub = new Label("Registro diário • lucro = (Δ) − fluxos");
+        Label sub = new Label("Controle inteligente de investimentos");
         sub.getStyleClass().add("sidebar-sub");
 
         box.getChildren().addAll(title, sub, new Separator());
@@ -63,12 +57,7 @@ public final class AppShell {
             Button b = new Button(k);
             b.setMaxWidth(Double.MAX_VALUE);
             b.getStyleClass().add("nav-btn");
-
-            if ("Registro Diário".equals(k)) {
-                b.setOnAction(e -> goToDaily(LocalDate.now()));
-            } else {
-                b.setOnAction(e -> go(k));
-            }
+            b.setOnAction(e -> go(k));
 
             nav.put(k, b);
             box.getChildren().add(b);
@@ -77,7 +66,7 @@ public final class AppShell {
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
-        Label footer = new Label("v0.4.0");
+        Label footer = new Label("v0.5.0");
         footer.getStyleClass().add("sidebar-footer");
 
         box.getChildren().addAll(spacer, footer);
@@ -95,12 +84,6 @@ public final class AppShell {
         swapWithAnimation(view);
 
         p.onShow();
-    }
-
-    public void goToDaily(LocalDate date) {
-        if (date == null) date = LocalDate.now();
-        dailyEntryPage.setDate(date);
-        go("Registro Diário");
     }
 
     private void swapWithAnimation(Node newNode) {
