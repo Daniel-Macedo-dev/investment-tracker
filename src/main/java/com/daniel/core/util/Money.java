@@ -21,6 +21,7 @@ public final class Money {
 
     public static long textToCentsOrZero(String input) {
         if (input == null) return 0L;
+
         String s = input.trim();
         if (s.isEmpty()) return 0L;
 
