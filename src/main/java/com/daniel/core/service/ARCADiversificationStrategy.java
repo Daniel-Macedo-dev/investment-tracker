@@ -6,19 +6,19 @@ import java.util.*;
 
 public final class ARCADiversificationStrategy {
 
-    // Perfil ARCA (Primo Rico)
     private static final Map<CategoryEnum, Double> ARCA_PROFILE = Map.of(
-            CategoryEnum.RENDA_FIXA, 0.40,        // 40%
-            CategoryEnum.ACOES, 0.30,    // 30%
-            CategoryEnum.OUTROS, 0.25,            // 25% (Ativos Reais)
-            CategoryEnum.CRIPTOMOEDAS, 0.05       // 5%
+            CategoryEnum.RENDA_FIXA, 0.40,
+            CategoryEnum.ACOES, 0.30,
+            CategoryEnum.OUTROS, 0.25,
+            CategoryEnum.CRIPTOMOEDAS, 0.05
     );
 
     public record DiversificationSuggestion(
             CategoryEnum category,
             long currentCents,
             long idealCents,
-            long differenceCents  // positivo = investir, negativo = reduzir
+            long differenceCents,
+            long aporteNecessarioCents
     ) {}
 
     /**
@@ -29,6 +29,88 @@ public final class ARCADiversificationStrategy {
             Map<CategoryEnum, Long> currentAllocation
     ) {
         return calculateSuggestionsCustom(totalPatrimonyCents, currentAllocation, ARCA_PROFILE);
+    }
+
+    /**
+     * Calcula sugestões POR APORTE (sem vender nada)
+     */
+    public static List<DiversificationSuggestion> calculateSuggestionsByContribution(
+            long currentPatrimonyCents,
+            Map<CategoryEnum, Long> currentAllocation,
+            Map<CategoryEnum, Double> targetProfile
+    ) {
+        List<DiversificationSuggestion> suggestions = new ArrayList<>();
+
+        // Calcular quanto precisa aportar em cada categoria
+        for (CategoryEnum category : CategoryEnum.values()) {
+            long currentCents = currentAllocation.getOrDefault(category, 0L);
+            double targetPercentage = targetProfile.getOrDefault(category, 0.0);
+
+            // Calcular o valor ideal ATUAL (sem aporte adicional)
+            long idealCurrentCents = Math.round(currentPatrimonyCents * targetPercentage);
+
+            // Diferença = quanto está abaixo do ideal
+            long difference = idealCurrentCents - currentCents;
+
+            // Só sugerir aporte se estiver ABAIXO do ideal
+            long aporteNecessario = Math.max(0, difference);
+
+            suggestions.add(new DiversificationSuggestion(
+                    category,
+                    currentCents,
+                    idealCurrentCents,
+                    difference,
+                    aporteNecessario
+            ));
+        }
+
+        suggestions.sort((a, b) -> Long.compare(b.aporteNecessarioCents(), a.aporteNecessarioCents()));
+
+        return suggestions;
+    }
+
+    /**
+     * Calcula sugestões baseadas em PATRIMÔNIO ALVO
+     */
+    public static List<DiversificationSuggestion> calculateSuggestionsByTarget(
+            long currentPatrimonyCents,
+            long targetPatrimonyCents,
+            Map<CategoryEnum, Long> currentAllocation,
+            Map<CategoryEnum, Double> targetProfile
+    ) {
+        List<DiversificationSuggestion> suggestions = new ArrayList<>();
+
+        // Calcular quanto aportar no total
+        long totalAporteNecessario = targetPatrimonyCents - currentPatrimonyCents;
+
+        if (totalAporteNecessario <= 0) {
+            // Se já atingiu o alvo, não precisa aportar
+            return calculateSuggestionsByContribution(currentPatrimonyCents, currentAllocation, targetProfile);
+        }
+
+        for (CategoryEnum category : CategoryEnum.values()) {
+            long currentCents = currentAllocation.getOrDefault(category, 0L);
+            double targetPercentage = targetProfile.getOrDefault(category, 0.0);
+
+            // Calcular o valor ideal NO PATRIMÔNIO ALVO
+            long idealTargetCents = Math.round(targetPatrimonyCents * targetPercentage);
+
+            // Quanto precisa aportar nesta categoria
+            long aporteNecessario = Math.max(0, idealTargetCents - currentCents);
+
+            suggestions.add(new DiversificationSuggestion(
+                    category,
+                    currentCents,
+                    idealTargetCents,
+                    idealTargetCents - currentCents,
+                    aporteNecessario
+            ));
+        }
+
+        // Ordenar por aporte necessário
+        suggestions.sort((a, b) -> Long.compare(b.aporteNecessarioCents(), a.aporteNecessarioCents()));
+
+        return suggestions;
     }
 
     /**
@@ -43,21 +125,20 @@ public final class ARCADiversificationStrategy {
 
         for (CategoryEnum category : CategoryEnum.values()) {
             long currentCents = currentAllocation.getOrDefault(category, 0L);
-
             double targetPercentage = targetProfile.getOrDefault(category, 0.0);
             long idealCents = Math.round(totalPatrimonyCents * targetPercentage);
-
             long difference = idealCents - currentCents;
+            long aporteNecessario = Math.max(0, difference);
 
             suggestions.add(new DiversificationSuggestion(
                     category,
                     currentCents,
                     idealCents,
-                    difference
+                    difference,
+                    aporteNecessario
             ));
         }
 
-        // Ordenar por diferença absoluta (maiores primeiro)
         suggestions.sort((a, b) -> Long.compare(
                 Math.abs(b.differenceCents()),
                 Math.abs(a.differenceCents())
@@ -66,18 +147,12 @@ public final class ARCADiversificationStrategy {
         return suggestions;
     }
 
-    /**
-     * Retorna o perfil ARCA padrão
-     */
     public static Map<CategoryEnum, Double> getARCAProfile() {
         return new HashMap<>(ARCA_PROFILE);
     }
 
-    /**
-     * Valida se um perfil customizado soma 100%
-     */
     public static boolean isValidProfile(Map<CategoryEnum, Double> profile) {
         double total = profile.values().stream().mapToDouble(Double::doubleValue).sum();
-        return Math.abs(total - 1.0) < 0.001; // Tolerância de 0.1%
+        return Math.abs(total - 1.0) < 0.001;
     }
 }
