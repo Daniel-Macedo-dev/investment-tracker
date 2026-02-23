@@ -5,6 +5,10 @@ import com.daniel.core.domain.entity.Enums.LiquidityEnum;
 import com.daniel.core.domain.entity.Enums.InvestmentTypeEnum;
 import com.daniel.core.domain.entity.Enums.IndexTypeEnum;
 import com.daniel.core.util.Money;
+import com.daniel.infrastructure.api.BrapiClient;
+import com.daniel.presentation.view.components.TickerAutocompleteField;
+
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -13,20 +17,42 @@ import javafx.scene.shape.Circle;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.concurrent.CompletableFuture;
 
 public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.InvestmentTypeData> {
+
+    private enum RentabilityMode {
+        FIXED_RATE("Taxa Fixa (% a.a.)"),
+        BENCHMARK_PERCENT("% do Benchmark"),
+        HYBRID("Híbrida (Índice + Taxa)");
+
+        private final String display;
+        RentabilityMode(String display) { this.display = display; }
+        public String getDisplay() { return display; }
+    }
 
     private final TextField nameField = new TextField();
     private final ComboBox<CategoryEnum> categoryCombo = new ComboBox<>();
     private final ComboBox<LiquidityEnum> liquidityCombo = new ComboBox<>();
     private final DatePicker datePicker = new DatePicker();
+
+    // Modalidade de rentabilidade
+    private final ComboBox<RentabilityMode> rentabilityModeCombo = new ComboBox<>();
+    private RentabilityMode currentRentabilityMode = RentabilityMode.FIXED_RATE;
+
     private final TextField profitabilityField = new TextField();
+    private final ComboBox<String> benchmarkCombo = new ComboBox<>();
+    private final TextField benchmarkPercentField = new TextField();
+    private final TextField hybridFixedField = new TextField();
+    private final TextField hybridIndexField = new TextField();
+
     private final TextField investedValueField = new TextField();
 
     private final ComboBox<InvestmentTypeEnum> typeCombo = new ComboBox<>();
     private final ComboBox<IndexTypeEnum> indexCombo = new ComboBox<>();
     private final TextField indexPercentageField = new TextField();
-    private final TextField tickerField = new TextField();
+
+    private final TickerAutocompleteField tickerField = new TickerAutocompleteField();
     private final TextField purchasePriceField = new TextField();
     private final TextField quantityField = new TextField();
 
@@ -54,8 +80,8 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         tabPane.getTabs().addAll(tab1, tab2, tab3, tab4);
 
         getDialogPane().setContent(tabPane);
-        getDialogPane().setMinWidth(650);
-        getDialogPane().setMinHeight(550);
+        getDialogPane().setMinWidth(700);
+        getDialogPane().setMinHeight(600);
 
         if (existing != null) {
             fillExistingData(existing);
@@ -70,8 +96,21 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
             updatePreview();
         });
 
+        categoryCombo.valueProperty().addListener((o, a, b) -> updateRentabilityVisibility());
+
         purchasePriceField.textProperty().addListener((o, a, b) -> updateInvestedValueForStock());
         quantityField.textProperty().addListener((o, a, b) -> updateInvestedValueForStock());
+
+        tickerField.textProperty().addListener((obs, old, newVal) -> {
+            if (newVal != null && newVal.length() >= 4) {
+                loadStockDataFromBrapi(newVal);
+            }
+        });
+
+        rentabilityModeCombo.valueProperty().addListener((obs, old, newVal) -> {
+            currentRentabilityMode = newVal;
+            updateRentabilityModeInputs();
+        });
 
         setResultConverter(buttonType -> {
             if (buttonType == confirmButton) {
@@ -88,6 +127,7 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         });
 
         updateTypeVisibility();
+        updateRentabilityVisibility();
     }
 
     private VBox buildBasicTab() {
@@ -144,17 +184,57 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         indexPercentLabel.setStyle("-fx-font-weight: bold;");
         indexPercentageField.setPromptText("1.0 = 100%, 1.05 = 105%");
 
+        // Modalidade de rentabilidade
+        Label modeLabel = new Label("Modalidade de Rentabilidade:");
+        modeLabel.setStyle("-fx-font-weight: bold;");
+        rentabilityModeCombo.getItems().addAll(RentabilityMode.values());
+        rentabilityModeCombo.setValue(RentabilityMode.FIXED_RATE);
+        rentabilityModeCombo.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(RentabilityMode item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : item.getDisplay());
+            }
+        });
+        rentabilityModeCombo.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(RentabilityMode item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : item.getDisplay());
+            }
+        });
+
+        // Taxa Fixa
         Label profitLabel = new Label("Rentabilidade Anual (%)");
         profitLabel.setStyle("-fx-font-weight: bold;");
-        profitabilityField.setPromptText("Ex: 13.75 (opcional para ações)");
+        profitabilityField.setPromptText("Ex: 13.75");
         profitabilityField.setTextFormatter(createDecimalFormatter());
 
         Label profitHint = new Label("💡 Opcional para Ações, Fundos Imobiliários e Fundos de Investimento");
         profitHint.setStyle("-fx-font-size: 11px; -fx-opacity: 0.7;");
 
-        Label tickerLabel = new Label("Ticker (para ações)");
+        // Benchmark
+        Label benchmarkLabel = new Label("Benchmark:");
+        benchmarkLabel.setStyle("-fx-font-weight: bold;");
+        benchmarkCombo.getItems().addAll("CDI", "SELIC", "IPCA");
+        benchmarkCombo.setValue("CDI");
+
+        Label benchmarkPercentLabel = new Label("Percentual do Benchmark:");
+        benchmarkPercentLabel.setStyle("-fx-font-weight: bold;");
+        benchmarkPercentField.setPromptText("110 (= 110% do CDI)");
+
+        // Híbrido
+        Label hybridFixedLabel = new Label("Taxa Fixa (Híbrido):");
+        hybridFixedLabel.setStyle("-fx-font-weight: bold;");
+        hybridFixedField.setPromptText("5.0");
+
+        Label hybridIndexLabel = new Label("Taxa do Índice:");
+        hybridIndexLabel.setStyle("-fx-font-weight: bold;");
+        hybridIndexField.setPromptText("4.5 (IPCA)");
+
+        // Ações
+        Label tickerLabel = new Label("Ticker (para ações/FIIs)");
         tickerLabel.setStyle("-fx-font-weight: bold;");
-        tickerField.setPromptText("PETR4, VALE3, ITUB4...");
 
         Label purchaseLabel = new Label("Preço de Compra");
         purchaseLabel.setStyle("-fx-font-weight: bold;");
@@ -169,7 +249,12 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
                 typeLabel, typeCombo,
                 indexLabel, indexCombo,
                 indexPercentLabel, indexPercentageField,
+                modeLabel, rentabilityModeCombo,
                 profitLabel, profitabilityField, profitHint,
+                benchmarkLabel, benchmarkCombo,
+                benchmarkPercentLabel, benchmarkPercentField,
+                hybridFixedLabel, hybridFixedField,
+                hybridIndexLabel, hybridIndexField,
                 tickerLabel, tickerField,
                 purchaseLabel, purchasePriceField,
                 qtyLabel, quantityField
@@ -248,6 +333,67 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         }
     }
 
+    private void updateRentabilityVisibility() {
+        CategoryEnum cat = categoryCombo.getValue();
+        if (cat == null) return;
+
+        boolean isVariableIncome = cat == CategoryEnum.ACOES ||
+                cat == CategoryEnum.FUNDOS_IMOBILIARIOS ||
+                cat == CategoryEnum.FUNDOS;
+
+        rentabilityModeCombo.setVisible(!isVariableIncome);
+        rentabilityModeCombo.setManaged(!isVariableIncome);
+
+        if (isVariableIncome) {
+            profitabilityField.setVisible(false);
+            profitabilityField.setManaged(false);
+            benchmarkCombo.setVisible(false);
+            benchmarkCombo.setManaged(false);
+            benchmarkPercentField.setVisible(false);
+            benchmarkPercentField.setManaged(false);
+            hybridFixedField.setVisible(false);
+            hybridFixedField.setManaged(false);
+            hybridIndexField.setVisible(false);
+            hybridIndexField.setManaged(false);
+        } else {
+            updateRentabilityModeInputs();
+        }
+    }
+
+    private void updateRentabilityModeInputs() {
+        profitabilityField.setVisible(false);
+        profitabilityField.setManaged(false);
+        benchmarkCombo.setVisible(false);
+        benchmarkCombo.setManaged(false);
+        benchmarkPercentField.setVisible(false);
+        benchmarkPercentField.setManaged(false);
+        hybridFixedField.setVisible(false);
+        hybridFixedField.setManaged(false);
+        hybridIndexField.setVisible(false);
+        hybridIndexField.setManaged(false);
+
+        if (currentRentabilityMode == null) return;
+
+        switch (currentRentabilityMode) {
+            case FIXED_RATE -> {
+                profitabilityField.setVisible(true);
+                profitabilityField.setManaged(true);
+            }
+            case BENCHMARK_PERCENT -> {
+                benchmarkCombo.setVisible(true);
+                benchmarkCombo.setManaged(true);
+                benchmarkPercentField.setVisible(true);
+                benchmarkPercentField.setManaged(true);
+            }
+            case HYBRID -> {
+                hybridFixedField.setVisible(true);
+                hybridFixedField.setManaged(true);
+                hybridIndexField.setVisible(true);
+                hybridIndexField.setManaged(true);
+            }
+        }
+    }
+
     private void updateInvestedValueForStock() {
         try {
             String priceText = purchasePriceField.getText();
@@ -264,9 +410,25 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
 
             investedValueField.setText(Money.centsToText(totalCents));
 
-        } catch (Exception ignored) {
-            // Ignorar erros
-        }
+        } catch (Exception ignored) {}
+    }
+
+    private void loadStockDataFromBrapi(String ticker) {
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return BrapiClient.fetchStockData(ticker);
+            } catch (Exception e) {
+                return null;
+            }
+        }).thenAcceptAsync(data -> {
+            if (data != null && data.isValid()) {
+                Platform.runLater(() -> {
+                    if (purchasePriceField.getText().isBlank()) {
+                        purchasePriceField.setText(Money.centsToText((long)(data.regularMarketPrice() * 100)));
+                    }
+                });
+            }
+        });
     }
 
     private void updatePreview() {
@@ -306,7 +468,7 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
             previewLabel.setText(preview.toString());
 
         } catch (Exception e) {
-            previewLabel.setText("Erro ao calcular. Verifique os valores.");
+            previewLabel.setText("Preencha os campos corretamente.");
         }
     }
 
@@ -393,7 +555,8 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
                     selectedCategory == CategoryEnum.FUNDOS_IMOBILIARIOS ||
                     selectedCategory == CategoryEnum.FUNDOS;
 
-            if (!isVariableIncome && profitabilityField.getText().isBlank()) {
+            if (!isVariableIncome && profitabilityField.getText().isBlank() &&
+                    currentRentabilityMode == RentabilityMode.FIXED_RATE) {
                 errors.append("• Rentabilidade é obrigatória para " + selectedCategory.getDisplayName() + "\n");
             }
         }
