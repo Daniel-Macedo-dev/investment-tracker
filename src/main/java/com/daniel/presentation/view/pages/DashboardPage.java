@@ -7,18 +7,25 @@ import com.daniel.core.service.DiversificationCalculator;
 import com.daniel.core.service.DiversificationCalculator.*;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.geometry.Side;
 import javafx.scene.Parent;
 import javafx.scene.chart.*;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Separator;
 import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public final class DashboardPage implements Page {
 
     private final DailyTrackingUseCase daily;
+    private final ScrollPane scrollPane = new ScrollPane();
     private final VBox root = new VBox(16);
 
     private final Label dateLabel = new Label("—");
@@ -28,6 +35,8 @@ public final class DashboardPage implements Page {
 
     private final PieChart pieChart = new PieChart();
     private final BarChart<String, Number> waterfallChart;
+
+    private final VBox investmentsByCategoryContainer = new VBox(16);
 
     public DashboardPage(DailyTrackingUseCase dailyTrackingUseCase) {
         this.daily = dailyTrackingUseCase;
@@ -76,12 +85,16 @@ public final class DashboardPage implements Page {
 
         chartsRow.getChildren().addAll(pieBox, waterfallBox);
 
-        root.getChildren().addAll(h1, cards, h2, chartsRow);
+        root.getChildren().addAll(h1, cards, h2, chartsRow, investmentsByCategoryContainer);
+
+        scrollPane.setContent(root);
+        scrollPane.setFitToWidth(true);
+        scrollPane.getStyleClass().add("scroll-pane");
     }
 
     @Override
     public Parent view() {
-        return root;
+        return scrollPane;
     }
 
     @Override
@@ -101,6 +114,7 @@ public final class DashboardPage implements Page {
             cdiComparisonLabel.setText("—");
             pieChart.getData().clear();
             waterfallChart.getData().clear();
+            investmentsByCategoryContainer.getChildren().clear();
             return;
         }
 
@@ -108,7 +122,6 @@ public final class DashboardPage implements Page {
         long totalPatrimony = daily.getTotalPatrimony(today);
         long totalProfit = daily.getTotalProfit(today);
 
-        // Atualizar cards
         totalLabel.setText(daily.brl(totalPatrimony));
 
         profitLabel.setText(totalProfit == 0 ? "—" :
@@ -120,12 +133,10 @@ public final class DashboardPage implements Page {
             profitLabel.getStyleClass().add(totalProfit >= 0 ? "pos" : "neg");
         }
 
-        // Comparação CDI
         updateCDIComparison(today, investments, totalPatrimony);
-
-        // Gráficos
         updatePieChart(investments, currentValues);
         updateWaterfallChart(investments, currentValues);
+        updateInvestmentsByCategory(investments, currentValues, totalPatrimony);
     }
 
     private void updateCDIComparison(LocalDate today, List<InvestmentType> investments, long totalPatrimony) {
@@ -234,14 +245,256 @@ public final class DashboardPage implements Page {
 
         waterfallChart.getData().add(series);
 
-        for (int i = 0; i < series.getData().size(); i++) {
-            XYChart.Data<String, Number> data = series.getData().get(i);
+        for (XYChart.Data<String, Number> data : series.getData()) {
             data.nodeProperty().addListener((obs, oldNode, newNode) -> {
                 if (newNode != null) {
                     newNode.setStyle("-fx-bar-fill: #16a34a;");
                 }
             });
         }
+    }
+
+    private void updateInvestmentsByCategory(List<InvestmentType> investments,
+                                             Map<Long, Long> currentValues,
+                                             long totalPatrimony) {
+        investmentsByCategoryContainer.getChildren().clear();
+
+        Label title = new Label("Investimentos por Categoria");
+        title.getStyleClass().add("section-title");
+        title.setStyle("-fx-font-size: 16px; -fx-padding: 16 0 8 0;");
+
+        investmentsByCategoryContainer.getChildren().add(title);
+
+        Map<CategoryEnum, List<InvestmentType>> byCategory = new LinkedHashMap<>();
+        for (InvestmentType inv : investments) {
+            if (inv.category() != null) {
+                try {
+                    CategoryEnum cat = CategoryEnum.valueOf(inv.category());
+                    byCategory.computeIfAbsent(cat, k -> new ArrayList<>()).add(inv);
+                } catch (Exception ignored) {}
+            }
+        }
+
+        List<Map.Entry<CategoryEnum, List<InvestmentType>>> sortedCategories = new ArrayList<>(byCategory.entrySet());
+        sortedCategories.sort((a, b) -> {
+            long totalA = a.getValue().stream()
+                    .mapToLong(inv -> currentValues.getOrDefault((long)inv.id(), 0L)).sum();
+            long totalB = b.getValue().stream()
+                    .mapToLong(inv -> currentValues.getOrDefault((long)inv.id(), 0L)).sum();
+            return Long.compare(totalB, totalA);
+        });
+
+        for (var entry : sortedCategories) {
+            CategoryEnum category = entry.getKey();
+            List<InvestmentType> categoryInvestments = entry.getValue();
+
+            long categoryTotal = categoryInvestments.stream()
+                    .mapToLong(inv -> currentValues.getOrDefault((long)inv.id(), 0L)).sum();
+
+            if (categoryTotal == 0) continue;
+
+            double categoryPercent = (categoryTotal * 100.0) / totalPatrimony;
+
+            VBox categorySection = buildCategorySection(category, categoryInvestments,
+                    currentValues, categoryPercent,
+                    categoryTotal, totalPatrimony);
+            investmentsByCategoryContainer.getChildren().add(categorySection);
+        }
+    }
+
+    private VBox buildCategorySection(CategoryEnum category, List<InvestmentType> investments,
+                                      Map<Long, Long> currentValues, double categoryPercent,
+                                      long categoryTotal, long totalPatrimony) {
+        VBox section = new VBox(12);
+        section.getStyleClass().add("card");
+
+        HBox header = new HBox(12);
+        header.setAlignment(Pos.CENTER_LEFT);
+
+        Circle circle = new Circle(6);
+        circle.setFill(Color.web(category.getColor()));
+
+        Label categoryName = new Label(category.getDisplayName());
+        categoryName.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
+
+        Label categoryPercentLabel = new Label(String.format("%.1f%% • %s",
+                categoryPercent, daily.brl(categoryTotal)));
+        categoryPercentLabel.setStyle("-fx-font-size: 13px; -fx-opacity: 0.7;");
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        header.getChildren().addAll(circle, categoryName, spacer, categoryPercentLabel);
+
+        VBox investmentsList = new VBox(8);
+
+        investments.sort((a, b) -> {
+            long valA = currentValues.getOrDefault((long)a.id(), 0L);
+            long valB = currentValues.getOrDefault((long)b.id(), 0L);
+            return Long.compare(valB, valA);
+        });
+
+        for (InvestmentType inv : investments) {
+            long currentValue = currentValues.getOrDefault((long)inv.id(), 0L);
+            if (currentValue == 0) continue;
+
+            HBox invRow = buildInvestmentRow(inv, currentValue, totalPatrimony);
+            investmentsList.getChildren().add(invRow);
+        }
+
+        section.getChildren().addAll(header, new Separator(), investmentsList);
+        return section;
+    }
+
+    private HBox buildInvestmentRow(InvestmentType inv, long currentValueCents, long totalPatrimony) {
+        HBox row = new HBox(16);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setStyle("-fx-padding: 12; -fx-background-color: rgba(255,255,255,0.04); " +
+                "-fx-background-radius: 8;");
+
+        VBox mainInfo = new VBox(4);
+        Label nameLabel = new Label(inv.name());
+        nameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+
+        if (inv.typeOfInvestment() != null) {
+            Label typeLabel = new Label(getTypeDisplayName(inv.typeOfInvestment()));
+            typeLabel.setStyle("-fx-font-size: 11px; -fx-opacity: 0.6;");
+            mainInfo.getChildren().addAll(nameLabel, typeLabel);
+        } else {
+            mainInfo.getChildren().add(nameLabel);
+        }
+        row.getChildren().add(mainInfo);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        row.getChildren().add(spacer);
+
+        if (inv.ticker() != null && !inv.ticker().isBlank()) {
+            row.getChildren().addAll(buildStockInfo(inv, currentValueCents, totalPatrimony));
+        } else if (inv.category() != null && inv.category().equals("RENDA_FIXA")) {
+            row.getChildren().addAll(buildRendaFixaInfo(inv, currentValueCents, totalPatrimony));
+        } else {
+            row.getChildren().addAll(buildGenericInfo(inv, currentValueCents, totalPatrimony));
+        }
+
+        return row;
+    }
+
+    private List<javafx.scene.Node> buildStockInfo(InvestmentType inv, long currentValueCents, long totalPatrimony) {
+        List<javafx.scene.Node> nodes = new ArrayList<>();
+
+        VBox tickerBox = new VBox(2);
+        tickerBox.setAlignment(Pos.CENTER_RIGHT);
+        Label tickerLabel = new Label(inv.ticker());
+        tickerLabel.setStyle("-fx-font-family: 'Courier New'; -fx-font-weight: bold; -fx-font-size: 12px;");
+        Label tickerHint = new Label("Ticker");
+        tickerHint.setStyle("-fx-font-size: 10px; -fx-opacity: 0.5;");
+        tickerBox.getChildren().addAll(tickerLabel, tickerHint);
+        nodes.add(tickerBox);
+
+        if (inv.quantity() != null && inv.purchasePrice() != null) {
+            int qtdTotal = inv.quantity();
+            double precoMedio = inv.purchasePrice().doubleValue();
+            double posicao = currentValueCents / 100.0;
+            double ultimoPreco = posicao / qtdTotal;
+            double rentabilidade = ((ultimoPreco - precoMedio) / precoMedio) * 100;
+            double alocacao = (currentValueCents * 100.0) / totalPatrimony;
+
+            nodes.add(createInfoBox("Posição", daily.brl(currentValueCents)));
+            nodes.add(createInfoBox("% Alocação", String.format("%.1f%%", alocacao)));
+
+            Label rentLabel = new Label(String.format("%+.1f%%", rentabilidade));
+            rentLabel.setStyle((rentabilidade >= 0 ? "-fx-text-fill: #22c55e;" : "-fx-text-fill: #ef4444;") +
+                    " -fx-font-weight: bold; -fx-font-size: 12px;");
+            nodes.add(createInfoBox("Rentabilidade", rentLabel));
+
+            nodes.add(createInfoBox("Preço Médio", String.format("R$ %.2f", precoMedio)));
+            nodes.add(createInfoBox("Último Preço", String.format("R$ %.2f", ultimoPreco)));
+            nodes.add(createInfoBox("Qtd Total", String.valueOf(qtdTotal)));
+        }
+
+        return nodes;
+    }
+
+    private List<javafx.scene.Node> buildRendaFixaInfo(InvestmentType inv, long currentValueCents, long totalPatrimony) {
+        List<javafx.scene.Node> nodes = new ArrayList<>();
+
+        double alocacao = (currentValueCents * 100.0) / totalPatrimony;
+
+        nodes.add(createInfoBox("Posição", daily.brl(currentValueCents)));
+        nodes.add(createInfoBox("% Alocação", String.format("%.1f%%", alocacao)));
+
+        if (inv.investedValue() != null) {
+            long aplicado = inv.investedValue().multiply(java.math.BigDecimal.valueOf(100)).longValue();
+            nodes.add(createInfoBox("Valor Aplicado", daily.brl(aplicado)));
+        }
+
+        if (inv.profitability() != null) {
+            String taxa = String.format("%.2f%% a.a.", inv.profitability());
+            nodes.add(createInfoBox("Taxa", taxa));
+        }
+
+        if (inv.investmentDate() != null) {
+            nodes.add(createInfoBox("Data Aplicação",
+                    inv.investmentDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))));
+        }
+
+        return nodes;
+    }
+
+    private List<javafx.scene.Node> buildGenericInfo(InvestmentType inv, long currentValueCents, long totalPatrimony) {
+        List<javafx.scene.Node> nodes = new ArrayList<>();
+
+        double alocacao = (currentValueCents * 100.0) / totalPatrimony;
+
+        nodes.add(createInfoBox("Posição", daily.brl(currentValueCents)));
+        nodes.add(createInfoBox("% Alocação", String.format("%.1f%%", alocacao)));
+
+        if (inv.investmentDate() != null) {
+            nodes.add(createInfoBox("Data",
+                    inv.investmentDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))));
+        }
+
+        return nodes;
+    }
+
+    private VBox createInfoBox(String label, String value) {
+        VBox box = new VBox(2);
+        box.setAlignment(Pos.CENTER_RIGHT);
+        box.setStyle("-fx-min-width: 90;");
+
+        Label valueLabel = new Label(value);
+        valueLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+
+        Label labelLabel = new Label(label);
+        labelLabel.setStyle("-fx-font-size: 10px; -fx-opacity: 0.5;");
+
+        box.getChildren().addAll(valueLabel, labelLabel);
+        return box;
+    }
+
+    private VBox createInfoBox(String label, Label customLabel) {
+        VBox box = new VBox(2);
+        box.setAlignment(Pos.CENTER_RIGHT);
+        box.setStyle("-fx-min-width: 90;");
+
+        customLabel.setStyle("-fx-font-size: 12px;");
+
+        Label labelLabel = new Label(label);
+        labelLabel.setStyle("-fx-font-size: 10px; -fx-opacity: 0.5;");
+
+        box.getChildren().addAll(customLabel, labelLabel);
+        return box;
+    }
+
+    private String getTypeDisplayName(String type) {
+        return switch (type) {
+            case "PREFIXADO" -> "Prefixado";
+            case "POS_FIXADO" -> "Pós-fixado";
+            case "HIBRIDO" -> "Híbrido";
+            case "ACAO" -> "Ação";
+            default -> type;
+        };
     }
 
     private VBox card(String title, Label value) {
@@ -256,7 +509,7 @@ public final class DashboardPage implements Page {
     }
 
     private String formatDate(LocalDate date) {
-        return date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        return date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
     }
 
     private String truncateName(String name, int maxLength) {
