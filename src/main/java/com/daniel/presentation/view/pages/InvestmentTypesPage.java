@@ -33,7 +33,7 @@ public final class InvestmentTypesPage implements Page {
 
         root.setPadding(new Insets(16));
 
-        Label h1 = new Label("Tipos de Investimento");
+        Label h1 = new Label("Cadastrar Novo Investimento");
         h1.getStyleClass().add("h1");
 
         buildTable();
@@ -41,9 +41,9 @@ public final class InvestmentTypesPage implements Page {
         Button add = new Button("+ Criar Investimento");
         add.getStyleClass().add("primary-btn");
 
-        Button edit = new Button("✏️ Editar");
+        Button edit = new Button("✏️ Editar Investimento");
 
-        Button delete = new Button("🗑️ Excluir");
+        Button delete = new Button("🗑️ Excluir Investimento");
         delete.getStyleClass().add("danger-btn");
 
         add.setOnAction(e -> onCreate());
