@@ -36,7 +36,6 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
     private final ComboBox<LiquidityEnum> liquidityCombo = new ComboBox<>();
     private final DatePicker datePicker = new DatePicker();
 
-    // Modalidade de rentabilidade
     private final ComboBox<RentabilityMode> rentabilityModeCombo = new ComboBox<>();
     private RentabilityMode currentRentabilityMode = RentabilityMode.FIXED_RATE;
 
@@ -56,8 +55,6 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
     private final TextField purchasePriceField = new TextField();
     private final TextField quantityField = new TextField();
 
-    private final Label previewLabel = new Label();
-
     private final boolean isEdit;
 
     public InvestmentTypeDialog(String title, InvestmentTypeData existing) {
@@ -74,10 +71,8 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
 
         Tab tab1 = new Tab("Dados Básicos", buildBasicTab());
         Tab tab2 = new Tab("Tipo & Rentabilidade", buildTypeTab());
-        Tab tab3 = new Tab("Valor Investido", buildValueTab());
-        Tab tab4 = new Tab("Preview", buildPreviewTab());
 
-        tabPane.getTabs().addAll(tab1, tab2, tab3, tab4);
+        tabPane.getTabs().addAll(tab1, tab2);
 
         getDialogPane().setContent(tabPane);
         getDialogPane().setMinWidth(700);
@@ -89,11 +84,8 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
             datePicker.setValue(LocalDate.now());
         }
 
-        profitabilityField.textProperty().addListener((o, a, b) -> updatePreview());
-        investedValueField.textProperty().addListener((o, a, b) -> updatePreview());
         typeCombo.valueProperty().addListener((o, a, b) -> {
             updateTypeVisibility();
-            updatePreview();
         });
 
         categoryCombo.valueProperty().addListener((o, a, b) -> updateRentabilityVisibility());
@@ -184,7 +176,6 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         indexPercentLabel.setStyle("-fx-font-weight: bold;");
         indexPercentageField.setPromptText("1.0 = 100%, 1.05 = 105%");
 
-        // Modalidade de rentabilidade
         Label modeLabel = new Label("Modalidade de Rentabilidade:");
         modeLabel.setStyle("-fx-font-weight: bold;");
         rentabilityModeCombo.getItems().addAll(RentabilityMode.values());
@@ -204,7 +195,6 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
             }
         });
 
-        // Taxa Fixa
         Label profitLabel = new Label("Rentabilidade Anual (%)");
         profitLabel.setStyle("-fx-font-weight: bold;");
         profitabilityField.setPromptText("Ex: 13.75");
@@ -213,7 +203,6 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         Label profitHint = new Label("💡 Opcional para Ações, Fundos Imobiliários e Fundos de Investimento");
         profitHint.setStyle("-fx-font-size: 11px; -fx-opacity: 0.7;");
 
-        // Benchmark
         Label benchmarkLabel = new Label("Benchmark:");
         benchmarkLabel.setStyle("-fx-font-weight: bold;");
         benchmarkCombo.getItems().addAll("CDI", "SELIC", "IPCA");
@@ -223,7 +212,6 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         benchmarkPercentLabel.setStyle("-fx-font-weight: bold;");
         benchmarkPercentField.setPromptText("110 (= 110% do CDI)");
 
-        // Híbrido
         Label hybridFixedLabel = new Label("Taxa Fixa (Híbrido):");
         hybridFixedLabel.setStyle("-fx-font-weight: bold;");
         hybridFixedField.setPromptText("5.0");
@@ -232,7 +220,6 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         hybridIndexLabel.setStyle("-fx-font-weight: bold;");
         hybridIndexField.setPromptText("4.5 (IPCA)");
 
-        // Ações
         Label tickerLabel = new Label("Ticker (para ações/FIIs)");
         tickerLabel.setStyle("-fx-font-weight: bold;");
 
@@ -244,6 +231,15 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         Label qtyLabel = new Label("Quantidade");
         qtyLabel.setStyle("-fx-font-weight: bold;");
         quantityField.setPromptText("100");
+
+        Label valueLabel = new Label("Valor Investido *");
+        valueLabel.setStyle("-fx-font-weight: bold;");
+        investedValueField.setPromptText("R$ 0,00");
+        investedValueField.setTextFormatter(Money.currencyFormatterEditable());
+        Money.applyFormatOnBlur(investedValueField);
+
+        Label valueHint = new Label("💡 Para ações/FIIs, preenchido automaticamente (Preço × Quantidade)");
+        valueHint.setStyle("-fx-font-size: 11px; -fx-opacity: 0.7;");
 
         box.getChildren().addAll(
                 typeLabel, typeCombo,
@@ -257,45 +253,10 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
                 hybridIndexLabel, hybridIndexField,
                 tickerLabel, tickerField,
                 purchaseLabel, purchasePriceField,
-                qtyLabel, quantityField
-        );
-
-        return box;
-    }
-
-    private VBox buildValueTab() {
-        VBox box = new VBox(12);
-        box.setPadding(new Insets(16));
-
-        Label valueLabel = new Label("Valor Investido *");
-        valueLabel.setStyle("-fx-font-weight: bold;");
-        investedValueField.setPromptText("R$ 0,00");
-        investedValueField.setTextFormatter(Money.currencyFormatterEditable());
-        Money.applyFormatOnBlur(investedValueField);
-
-        Label valueHint = new Label("💡 Para ações, será calculado automaticamente (Preço × Quantidade)");
-        valueHint.setStyle("-fx-font-size: 11px; -fx-opacity: 0.7;");
-
-        box.getChildren().addAll(
+                qtyLabel, quantityField,
                 valueLabel, investedValueField, valueHint
         );
 
-        return box;
-    }
-
-    private VBox buildPreviewTab() {
-        VBox box = new VBox(16);
-        box.setPadding(new Insets(16));
-
-        Label title = new Label("📊 Simulação de Ganhos");
-        title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
-
-        previewLabel.setWrapText(true);
-        previewLabel.setStyle("-fx-font-size: 13px;");
-
-        updatePreview();
-
-        box.getChildren().addAll(title, previewLabel);
         return box;
     }
 
@@ -399,7 +360,8 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
             String priceText = purchasePriceField.getText();
             String qtyText = quantityField.getText();
 
-            if (priceText.isBlank() || qtyText.isBlank()) {
+            if (priceText == null || priceText.isBlank() ||
+                    qtyText == null || qtyText.isBlank()) {
                 return;
             }
 
@@ -429,47 +391,6 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
                 });
             }
         });
-    }
-
-    private void updatePreview() {
-        try {
-            String profitText = profitabilityField.getText().replace(",", ".").trim();
-            String valueText = investedValueField.getText();
-
-            if (profitText.isEmpty() || valueText.isEmpty()) {
-                previewLabel.setText("Preencha os campos para ver a simulação.");
-                return;
-            }
-
-            double profitRate = Double.parseDouble(profitText) / 100.0;
-            long investedCents = Money.textToCentsOrZero(valueText);
-
-            if (investedCents == 0) {
-                previewLabel.setText("Preencha o valor investido.");
-                return;
-            }
-
-            long gain1Year = Math.round(investedCents * profitRate);
-            long total1Year = investedCents + gain1Year;
-
-            long gain5Years = Math.round(investedCents * Math.pow(1 + profitRate, 5) - investedCents);
-            long total5Years = investedCents + gain5Years;
-
-            StringBuilder preview = new StringBuilder();
-            preview.append("Investimento: ").append(Money.centsToText(investedCents)).append("\n");
-            preview.append("Taxa: ").append(String.format("%.2f", profitRate * 100)).append("% a.a.\n\n");
-            preview.append("Projeção:\n");
-            preview.append("• 1 ano: ").append(Money.centsToText(gain1Year))
-                    .append(" → ").append(Money.centsToText(total1Year)).append("\n");
-            preview.append("• 5 anos: ").append(Money.centsToText(gain5Years))
-                    .append(" → ").append(Money.centsToText(total5Years)).append("\n\n");
-            preview.append("⚠️ Simulação baseada em juros compostos.");
-
-            previewLabel.setText(preview.toString());
-
-        } catch (Exception e) {
-            previewLabel.setText("Preencha os campos corretamente.");
-        }
     }
 
     private void fillExistingData(InvestmentTypeData data) {
