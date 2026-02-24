@@ -3,12 +3,14 @@ package com.daniel.core.service;
 import com.daniel.core.domain.entity.*;
 import com.daniel.core.domain.entity.Enums.InvestmentTypeEnum;
 import com.daniel.core.domain.repository.*;
+import com.daniel.infrastructure.api.BrapiClient;
 import com.daniel.infrastructure.persistence.repository.InvestmentTypeRepository;
 import com.daniel.infrastructure.persistence.repository.SnapshotRepository;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 public final class DailyTrackingUseCase {
@@ -71,7 +73,6 @@ public final class DailyTrackingUseCase {
     // ========== CÁLCULO AUTOMÁTICO DE VALOR ATUAL ==========
 
     /**
-     * Calcula o valor atual de um investimento baseado em:
      * - Valor investido
      * - Rentabilidade
      * - Tempo desde a data de investimento
@@ -104,7 +105,7 @@ public final class DailyTrackingUseCase {
         }
 
         // Calcular tempo em anos
-        long daysSince = java.time.temporal.ChronoUnit.DAYS.between(investment.investmentDate(), today);
+        long daysSince = ChronoUnit.DAYS.between(investment.investmentDate(), today);
         double years = daysSince / 365.0;
 
         // Calcular valor com juros compostos
@@ -115,48 +116,224 @@ public final class DailyTrackingUseCase {
         return Math.round(currentValue * 100);
     }
 
-    /**
-     * Obtém todos os valores atuais calculados automaticamente
-     */
-    public Map<Long, Long> getAllCurrentValues(LocalDate today) {
+    public Map<Long, Long> getAllCurrentValues(LocalDate date) {
+        List<InvestmentType> all = typeRepo.listAll();
         Map<Long, Long> values = new HashMap<>();
 
-        for (InvestmentType inv : listTypes()) {
-            long currentValue = calculateCurrentValue(inv, today);
-            values.put((long) inv.id(), currentValue);
+        for (InvestmentType inv : all) {
+            long value = getCurrentValue(inv, date);
+            values.put((long) inv.id(), value);
+
+            // DEBUG
+            if (value > 0) {
+                System.out.println(String.format("📊 %s: %s", inv.name(), brl(value)));
+            } else {
+                System.out.println(String.format("⚠️ %s: SEM VALOR", inv.name()));
+            }
         }
 
         return values;
     }
 
-    /**
-     * Calcula o patrimônio total atual (sem depender de snapshots)
-     */
-    public long getTotalPatrimony(LocalDate today) {
-        long total = 0L;
+    public long getCurrentValue(InvestmentType inv, LocalDate today) {
+        if (inv.ticker() != null && !inv.ticker().isBlank() &&
+                inv.quantity() != null && inv.purchasePrice() != null) {
 
-        for (InvestmentType inv : listTypes()) {
-            total += calculateCurrentValue(inv, today);
+            try {
+                // Buscar preço atual na Brapi
+                BrapiClient.StockData data = BrapiClient.fetchStockData(inv.ticker());
+
+                if (data != null && data.isValid()) {
+                    double currentPrice = data.regularMarketPrice();
+                    int quantity = inv.quantity();
+                    long valueCents = (long)(currentPrice * quantity * 100);
+
+                    System.out.println(String.format(
+                            "✅ [AÇÃO] %s: Qtd=%d × R$%.2f = %s",
+                            inv.ticker(), quantity, currentPrice, brl(valueCents)
+                    ));
+
+                    return valueCents;
+                }
+            } catch (Exception e) {
+                System.err.println(String.format(
+                        "⚠️ [BRAPI ERRO] %s: %s",
+                        inv.ticker(), e.getMessage()
+                ));
+            }
+
+            // Fallback: usar preço de compra
+            double purchasePrice = inv.purchasePrice().doubleValue();
+            int quantity = inv.quantity();
+            long valueCents = (long)(purchasePrice * quantity * 100);
+
+            System.out.println(String.format(
+                    "✅ [AÇÃO FALLBACK] %s: Qtd=%d × R$%.2f (preço compra) = %s",
+                    inv.ticker(), quantity, purchasePrice, brl(valueCents)
+            ));
+
+            return valueCents;
+        }
+
+        if (inv.profitability() != null && inv.investedValue() != null &&
+                inv.investmentDate() != null) {
+
+            long investedCents = inv.investedValue()
+                    .multiply(BigDecimal.valueOf(100))
+                    .longValue();
+
+            double annualRate = inv.profitability().doubleValue() / 100.0;
+
+            long months = ChronoUnit.MONTHS.between(inv.investmentDate(), today);
+            if (months < 0) months = 0;
+
+            // Converter taxa anual para mensal (juros compostos)
+            double monthlyRate = Math.pow(1 + annualRate, 1.0/12) - 1;
+            double currentValue = investedCents * Math.pow(1 + monthlyRate, months);
+
+            System.out.println(String.format(
+                    "✅ [RENDA FIXA] %s: %s × %.2f%% a.a. × %d meses = %s",
+                    inv.name(), brl(investedCents), annualRate * 100,
+                    months, brl((long)currentValue)
+            ));
+
+            return (long)currentValue;
+        }
+
+        if (inv.investedValue() != null) {
+            long valueCents = inv.investedValue()
+                    .multiply(BigDecimal.valueOf(100))
+                    .longValue();
+
+            System.out.println(String.format(
+                    "✅ [OUTRO] %s: %s (valor investido)",
+                    inv.name(), brl(valueCents)
+            ));
+
+            return valueCents;
+        }
+
+        System.err.println(String.format(
+                "❌ [SEM VALOR] %s: Não possui ticker, rentabilidade ou valor investido!",
+                inv.name()
+        ));
+
+        return 0L;
+    }
+
+    public long getTotalPatrimony(LocalDate today) {
+        Map<Long, Long> values = getAllCurrentValues(today);
+        long total = values.values().stream()
+                .mapToLong(Long::longValue)
+                .sum();
+
+        System.out.println(String.format("💰 PATRIMÔNIO TOTAL: %s", brl(total)));
+        return total;
+    }
+
+    public long getTotalProfit(LocalDate today) {
+        List<InvestmentType> all = typeRepo.listAll();
+        Map<Long, Long> currentValues = getAllCurrentValues(today);
+
+        long totalInvested = 0L;
+        long totalCurrent = 0L;
+
+        for (InvestmentType inv : all) {
+            if (inv.investedValue() != null) {
+                long invested = inv.investedValue()
+                        .multiply(BigDecimal.valueOf(100))
+                        .longValue();
+                totalInvested += invested;
+            }
+
+            long current = currentValues.getOrDefault((long)inv.id(), 0L);
+            totalCurrent += current;
+        }
+
+        long profit = totalCurrent - totalInvested;
+
+        System.out.println(String.format(
+                "📊 LUCRO/PREJUÍZO: %s - %s = %s",
+                brl(totalCurrent), brl(totalInvested), brl(profit)
+        ));
+
+        return profit;
+    }
+
+    /**
+     * Calcula o preço médio ponderado de um ticker
+     */
+    public double getAveragePrice(String ticker) {
+        List<InvestmentType> investments = typeRepo.listAll();
+
+        double totalValue = 0.0;
+        int totalQuantity = 0;
+
+        for (InvestmentType inv : investments) {
+            if (ticker.equals(inv.ticker()) &&
+                    inv.purchasePrice() != null &&
+                    inv.quantity() != null) {
+
+                double price = inv.purchasePrice().doubleValue();
+                int qty = inv.quantity();
+
+                totalValue += (price * qty);
+                totalQuantity += qty;
+            }
+        }
+
+        if (totalQuantity == 0) return 0.0;
+        return totalValue / totalQuantity;
+    }
+
+    /**
+     * Calcula a quantidade total de um ticker
+     */
+    public int getTotalQuantity(String ticker) {
+        List<InvestmentType> investments = typeRepo.listAll();
+
+        int total = 0;
+        for (InvestmentType inv : investments) {
+            if (ticker.equals(inv.ticker()) && inv.quantity() != null) {
+                total += inv.quantity();
+            }
         }
 
         return total;
     }
 
     /**
-     * Calcula o lucro/prejuízo total atual
+     * Agrupa investimentos por ticker
      */
-    public long getTotalProfit(LocalDate today) {
-        long totalInvested = 0L;
-        long totalCurrent = 0L;
+    public Map<String, List<InvestmentType>> groupByTicker() {
+        List<InvestmentType> all = typeRepo.listAll();
+        Map<String, List<InvestmentType>> grouped = new HashMap<>();
 
-        for (InvestmentType inv : listTypes()) {
-            if (inv.investedValue() != null) {
-                totalInvested += inv.investedValue().multiply(BigDecimal.valueOf(100)).longValue();
+        for (InvestmentType inv : all) {
+            if (inv.ticker() != null && !inv.ticker().isBlank()) {
+                grouped.computeIfAbsent(inv.ticker(), k -> new ArrayList<>())
+                        .add(inv);
             }
-            totalCurrent += calculateCurrentValue(inv, today);
         }
 
-        return totalCurrent - totalInvested;
+        return grouped;
+    }
+
+    /**
+     * Calcula a rentabilidade percentual de um investimento
+     */
+    public double getProfitability(InvestmentType inv, LocalDate date) {
+        if (inv.investedValue() == null) return 0.0;
+
+        long investedCents = inv.investedValue()
+                .multiply(BigDecimal.valueOf(100))
+                .longValue();
+
+        if (investedCents == 0) return 0.0;
+
+        long currentCents = getCurrentValue(inv, date);
+
+        return ((currentCents - investedCents) / (double)investedCents) * 100;
     }
 
     // ========== DAILY ENTRY ==========
@@ -265,65 +442,6 @@ public final class DailyTrackingUseCase {
                     flowsInCents += f.amountCents();
                 }
                 // Fluxo saindo deste investimento
-                if (f.fromInvestmentTypeId() != null && f.fromInvestmentTypeId() == t.id()) {
-                    flowsOutCents += f.amountCents();
-                }
-            }
-
-            long profitCents = todayCents - yesterdayCents - flowsInCents + flowsOutCents;
-            investmentProfitTodayCents.put((long) t.id(), profitCents);
-
-            totalInvCents += todayCents;
-            totalProfitCents += profitCents;
-        }
-
-        long totalTodayCents = cashCents + totalInvCents;
-
-        return new DailySummary(
-                date,
-                totalTodayCents,
-                totalProfitCents,
-                cashCents,
-                cashDeltaCents,
-                investmentTodayCents,
-                investmentProfitTodayCents
-        );
-    }
-
-    public DailySummary previewSummary(LocalDate date, long cashCents, Map<Long, Long> invMap) {
-        // Preview sem salvar - para UI em tempo real
-        LocalDate prev = date.minusDays(1);
-        DailyEntry prevEntry = loadEntry(prev);
-
-        long prevCashCents = prevEntry.cashCents();
-        long cashDeltaCents = cashCents - prevCashCents;
-
-        Map<Long, Long> investmentTodayCents = new HashMap<>(invMap);
-        Map<Long, Long> investmentProfitTodayCents = new HashMap<>();
-
-        long totalInvCents = 0;
-        long totalProfitCents = 0;
-
-        for (InvestmentType t : listTypes()) {
-            long todayCents = invMap.getOrDefault((long) t.id(), 0L);
-
-            // Buscar valor de ontem
-            long yesterdayCents = 0L;
-            for (var prevMap : prevEntry.investmentValuesCents().entrySet()) {
-                if (prevMap.getKey().id() == t.id()) {
-                    yesterdayCents = prevMap.getValue() != null ? prevMap.getValue() : 0L;
-                    break;
-                }
-            }
-
-            List<Flow> flows = flowsFor(date);
-            long flowsInCents = 0;
-            long flowsOutCents = 0;
-
-            for (Flow f : flows) {
-                if (f.toInvestmentTypeId() != null && f.toInvestmentTypeId() == t.id()) {
-                    flowsInCents += f.amountCents();
-                }
                 if (f.fromInvestmentTypeId() != null && f.fromInvestmentTypeId() == t.id()) {
                     flowsOutCents += f.amountCents();
                 }
