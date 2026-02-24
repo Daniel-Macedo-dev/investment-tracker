@@ -76,7 +76,7 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
 
         getDialogPane().setContent(tabPane);
         getDialogPane().setMinWidth(700);
-        getDialogPane().setMinHeight(600);
+        getDialogPane().setMinHeight(900);
 
         if (existing != null) {
             fillExistingData(existing);
@@ -90,8 +90,17 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
 
         categoryCombo.valueProperty().addListener((o, a, b) -> updateRentabilityVisibility());
 
-        purchasePriceField.textProperty().addListener((o, a, b) -> updateInvestedValueForStock());
-        quantityField.textProperty().addListener((o, a, b) -> updateInvestedValueForStock());
+        purchasePriceField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+            if (!isNowFocused) {
+                updateInvestedValueForStock();
+            }
+        });
+
+        quantityField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+            if (!isNowFocused) {
+                updateInvestedValueForStock();
+            }
+        });
 
         tickerField.textProperty().addListener((obs, old, newVal) -> {
             if (newVal != null && newVal.length() >= 4) {
@@ -227,10 +236,12 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         purchaseLabel.setStyle("-fx-font-weight: bold;");
         purchasePriceField.setPromptText("R$ 35,50");
         purchasePriceField.setTextFormatter(Money.currencyFormatterEditable());
+        purchasePriceField.setOnAction(e -> updateInvestedValueForStock());
 
         Label qtyLabel = new Label("Quantidade");
         qtyLabel.setStyle("-fx-font-weight: bold;");
         quantityField.setPromptText("100");
+        quantityField.setOnAction(e -> updateInvestedValueForStock());
 
         Label valueLabel = new Label("Valor Investido *");
         valueLabel.setStyle("-fx-font-weight: bold;");
@@ -356,23 +367,63 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
     }
 
     private void updateInvestedValueForStock() {
-        try {
-            String priceText = purchasePriceField.getText();
-            String qtyText = quantityField.getText();
+        Platform.runLater(() -> {
+            try {
+                String priceText = purchasePriceField.getText();
+                String qtyText = quantityField.getText();
 
-            if (priceText == null || priceText.isBlank() ||
-                    qtyText == null || qtyText.isBlank()) {
-                return;
+                // Debug
+                System.out.println("🔍 Tentando calcular: preço='" + priceText + "' qty='" + qtyText + "'");
+
+                // Validações básicas
+                if (priceText == null || priceText.isBlank() || priceText.equals("R$ 0,00")) {
+                    System.out.println("⚠️ Preço vazio ou zero");
+                    return;
+                }
+
+                if (qtyText == null || qtyText.isBlank() || qtyText.equals("0")) {
+                    System.out.println("⚠️ Quantidade vazia ou zero");
+                    return;
+                }
+
+                // Converter preço (remover formatação)
+                long priceCents = Money.textToCentsOrZero(priceText);
+                if (priceCents == 0) {
+                    System.out.println("⚠️ Preço convertido = 0");
+                    return;
+                }
+
+                // Converter quantidade (remover formatação)
+                String cleanQty = qtyText.trim().replaceAll("[^0-9]", "");
+                if (cleanQty.isEmpty()) {
+                    System.out.println("⚠️ Quantidade inválida após limpeza");
+                    return;
+                }
+
+                int quantity = Integer.parseInt(cleanQty);
+                if (quantity == 0) {
+                    System.out.println("⚠️ Quantidade = 0");
+                    return;
+                }
+
+                // Calcular total
+                long totalCents = priceCents * quantity;
+
+                // Formatar e atualizar campo
+                String formatted = Money.centsToText(totalCents);
+                investedValueField.setText(formatted);
+
+                System.out.println("✅ SUCESSO! Preço: R$" + (priceCents/100.0) +
+                        " × Qtd: " + quantity +
+                        " = " + formatted);
+
+            } catch (NumberFormatException e) {
+                System.err.println("❌ Erro ao converter número: " + e.getMessage());
+            } catch (Exception e) {
+                System.err.println("❌ Erro inesperado: " + e.getMessage());
+                e.printStackTrace();
             }
-
-            long priceCents = Money.textToCentsOrZero(priceText);
-            int quantity = Integer.parseInt(qtyText);
-
-            long totalCents = priceCents * quantity;
-
-            investedValueField.setText(Money.centsToText(totalCents));
-
-        } catch (Exception ignored) {}
+        });
     }
 
     private void loadStockDataFromBrapi(String ticker) {
