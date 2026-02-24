@@ -3,39 +3,52 @@ package com.daniel.presentation.view.pages;
 import com.daniel.core.domain.entity.Enums.InvestmentTypeEnum;
 import com.daniel.core.service.InvestmentCalculator;
 import com.daniel.core.util.Money;
+import com.daniel.infrastructure.api.BrapiClient;
 
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Parent;
 import javafx.scene.chart.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public final class SimulationPage implements Page {
 
+    private final ScrollPane scrollPane = new ScrollPane();
     private final VBox root = new VBox(16);
 
-    // Inputs comuns
+    private enum RentabilityMode {
+        FIXED_RATE("Taxa Fixa (% a.a.)"),
+        BENCHMARK_PERCENT("% do Benchmark"),
+        HYBRID("Híbrida (Índice + Taxa)");
+
+        private final String display;
+        RentabilityMode(String display) { this.display = display; }
+        public String getDisplay() { return display; }
+    }
+
     private final TextField initialValueField = new TextField();
-    private final ComboBox<Integer> yearsCombo = new ComboBox<>();
+    private final ComboBox<Integer> monthsCombo = new ComboBox<>();
 
-    // Inputs por tipo
+    private final ComboBox<RentabilityMode> rentabilityModeCombo = new ComboBox<>();
+    private RentabilityMode currentRentabilityMode = RentabilityMode.FIXED_RATE;
+
     private final TextField fixedRateField = new TextField();
+    private final ComboBox<String> benchmarkCombo = new ComboBox<>();
+    private final TextField benchmarkPercentField = new TextField();
     private final TextField indexRateField = new TextField();
-    private final TextField indexPercentageField = new TextField();
-    private final TextField inflationField = new TextField();
+    private final TextField hybridFixedField = new TextField();
 
-    // Inputs para ações
     private final TextField tickerField = new TextField();
     private final TextField purchasePriceField = new TextField();
     private final TextField quantityField = new TextField();
     private final TextField currentPriceField = new TextField();
     private final TextField dividendsField = new TextField();
     private final Slider priceVariationSlider = new Slider(-20, 20, 0);
+    private final Label sliderValueLabel = new Label("0%");
 
-    // Resultado
     private final Label resultLabel = new Label("—");
     private final LineChart<Number, Number> projectionChart;
 
@@ -47,37 +60,34 @@ public final class SimulationPage implements Page {
         Label h1 = new Label("Simulação de Investimentos");
         h1.getStyleClass().add("h1");
 
-        // Seletor de tipo
         HBox typeSelector = buildTypeSelector();
-
-        // Inputs
         VBox inputsBox = buildInputsBox();
 
-        // Gráfico
         NumberAxis xAxis = new NumberAxis();
         NumberAxis yAxis = new NumberAxis();
-        xAxis.setLabel("Anos");
+        xAxis.setLabel("Meses");
         yAxis.setLabel("Valor (R$)");
         projectionChart = new LineChart<>(xAxis, yAxis);
         projectionChart.setTitle("Projeção de Rentabilidade");
         projectionChart.setMinHeight(400);
         projectionChart.setCreateSymbols(false);
 
-        // Resultado
         VBox resultBox = buildResultBox();
 
         root.getChildren().addAll(h1, typeSelector, inputsBox, resultBox, projectionChart);
+
+        scrollPane.setContent(root);
+        scrollPane.setFitToWidth(true);
+        scrollPane.getStyleClass().add("scroll-pane");
     }
 
     @Override
     public Parent view() {
-        return root;
+        return scrollPane;
     }
 
     @Override
-    public void onShow() {
-        // Nada a fazer
-    }
+    public void onShow() {}
 
     private HBox buildTypeSelector() {
         HBox box = new HBox(10);
@@ -90,8 +100,8 @@ public final class SimulationPage implements Page {
 
         RadioButton prefixadoRadio = new RadioButton("Prefixado");
         RadioButton posfixadoRadio = new RadioButton("Pós-fixado");
-        RadioButton hibridoRadio = new RadioButton("Híbrido (Inflação)");
-        RadioButton acaoRadio = new RadioButton("Ação");
+        RadioButton hibridoRadio = new RadioButton("Híbrido");
+        RadioButton acaoRadio = new RadioButton("Ação/FII");
 
         prefixadoRadio.setToggleGroup(group);
         posfixadoRadio.setToggleGroup(group);
@@ -117,58 +127,92 @@ public final class SimulationPage implements Page {
         VBox box = new VBox(12);
         box.getStyleClass().add("card");
 
-        // Valor inicial
         Label initialLabel = new Label("Valor Inicial:");
         initialLabel.setStyle("-fx-font-weight: bold;");
         initialValueField.setPromptText("R$ 10.000,00");
         initialValueField.setTextFormatter(Money.currencyFormatterEditable());
         Money.applyFormatOnBlur(initialValueField);
 
-        // Anos
-        Label yearsLabel = new Label("Período (anos):");
-        yearsLabel.setStyle("-fx-font-weight: bold;");
-        yearsCombo.getItems().addAll(1, 2, 3, 4, 5);
-        yearsCombo.setValue(5);
+        Label monthsLabel = new Label("Período (meses):");
+        monthsLabel.setStyle("-fx-font-weight: bold;");
+        monthsCombo.getItems().addAll(1, 3, 6, 12, 24, 36, 48, 60, 120);
+        monthsCombo.setValue(12);
 
-        // Prefixado
+        Label modeLabel = new Label("Modalidade de Rentabilidade:");
+        modeLabel.setStyle("-fx-font-weight: bold;");
+        rentabilityModeCombo.getItems().addAll(RentabilityMode.values());
+        rentabilityModeCombo.setValue(RentabilityMode.FIXED_RATE);
+        rentabilityModeCombo.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(RentabilityMode item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : item.getDisplay());
+            }
+        });
+        rentabilityModeCombo.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(RentabilityMode item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : item.getDisplay());
+            }
+        });
+
+        rentabilityModeCombo.valueProperty().addListener((obs, old, newVal) -> {
+            currentRentabilityMode = newVal;
+            updateRentabilityInputs();
+        });
+
         Label fixedLabel = new Label("Taxa Anual (%):");
         fixedLabel.setStyle("-fx-font-weight: bold;");
         fixedRateField.setPromptText("12.50");
 
-        // Pós-fixado
-        Label indexRateLabel = new Label("Taxa do Índice (% a.a.):");
-        indexRateLabel.setStyle("-fx-font-weight: bold;");
-        indexRateField.setPromptText("13.50");
+        Label benchmarkLabel = new Label("Benchmark:");
+        benchmarkLabel.setStyle("-fx-font-weight: bold;");
+        benchmarkCombo.getItems().addAll("CDI", "SELIC", "IPCA");
+        benchmarkCombo.setValue("CDI");
 
-        Label indexPercentLabel = new Label("Percentual do Índice:");
-        indexPercentLabel.setStyle("-fx-font-weight: bold;");
-        indexPercentageField.setPromptText("1.0 = 100%");
+        Label benchmarkPercentLabel = new Label("Percentual do Benchmark:");
+        benchmarkPercentLabel.setStyle("-fx-font-weight: bold;");
+        benchmarkPercentField.setPromptText("110 (= 110% do CDI)");
 
-        // Híbrido
-        Label inflationLabel = new Label("Taxa de Inflação (% a.a.):");
-        inflationLabel.setStyle("-fx-font-weight: bold;");
-        inflationField.setPromptText("4.50");
+        Label hybridLabel = new Label("Taxa Fixa (Híbrido):");
+        hybridLabel.setStyle("-fx-font-weight: bold;");
+        hybridFixedField.setPromptText("5.0");
 
-        // Ações
+        Label indexLabel = new Label("Taxa do Índice (% a.a.):");
+        indexLabel.setStyle("-fx-font-weight: bold;");
+        indexRateField.setPromptText("4.5 (IPCA estimado)");
+
         Label tickerLabel = new Label("Ticker:");
         tickerLabel.setStyle("-fx-font-weight: bold;");
-        tickerField.setPromptText("PETR4");
+        tickerField.setPromptText("PETR4, VALE3, HGLG11...");
+
+        tickerField.textProperty().addListener((obs, old, newVal) -> {
+            if (newVal != null && newVal.length() >= 4) {
+                loadStockDataFromBrapi(newVal);
+            }
+        });
 
         Label purchasePriceLabel = new Label("Preço de Compra:");
         purchasePriceLabel.setStyle("-fx-font-weight: bold;");
         purchasePriceField.setPromptText("R$ 35,50");
+        purchasePriceField.setTextFormatter(Money.currencyFormatterEditable());
 
         Label quantityLabel = new Label("Quantidade:");
         quantityLabel.setStyle("-fx-font-weight: bold;");
         quantityField.setPromptText("100");
 
-        Label currentPriceLabel = new Label("Preço Atual:");
+        Label currentPriceLabel = new Label("Preço Atual (automático):");
         currentPriceLabel.setStyle("-fx-font-weight: bold;");
-        currentPriceField.setPromptText("R$ 38,75");
+        currentPriceField.setPromptText("Será preenchido automaticamente");
+        currentPriceField.setTextFormatter(Money.currencyFormatterEditable());
+        currentPriceField.setDisable(true);
 
-        Label dividendsLabel = new Label("Dividendos Recebidos:");
+        Label dividendsLabel = new Label("Dividendos Estimados (automático):");
         dividendsLabel.setStyle("-fx-font-weight: bold;");
-        dividendsField.setPromptText("R$ 200,00");
+        dividendsField.setPromptText("Será calculado automaticamente");
+        dividendsField.setTextFormatter(Money.currencyFormatterEditable());
+        dividendsField.setDisable(true);
 
         Label variationLabel = new Label("Variação de Preço (%):");
         variationLabel.setStyle("-fx-font-weight: bold;");
@@ -177,24 +221,26 @@ public final class SimulationPage implements Page {
         priceVariationSlider.setMajorTickUnit(10);
         priceVariationSlider.setMinorTickCount(5);
         priceVariationSlider.setBlockIncrement(1);
-        Label sliderValueLabel = new Label("0%");
         priceVariationSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
             sliderValueLabel.setText(String.format("%.1f%%", newVal.doubleValue()));
-            calculateStock();
+            if (currentType == InvestmentTypeEnum.ACAO) {
+                calculateStock();
+            }
         });
 
-        // Botão calcular
         Button calculateBtn = new Button("Calcular Simulação");
         calculateBtn.getStyleClass().add("primary-btn");
         calculateBtn.setOnAction(e -> calculate());
 
         box.getChildren().addAll(
                 initialLabel, initialValueField,
-                yearsLabel, yearsCombo,
+                monthsLabel, monthsCombo,
+                modeLabel, rentabilityModeCombo,
                 fixedLabel, fixedRateField,
-                indexRateLabel, indexRateField,
-                indexPercentLabel, indexPercentageField,
-                inflationLabel, inflationField,
+                benchmarkLabel, benchmarkCombo,
+                benchmarkPercentLabel, benchmarkPercentField,
+                hybridLabel, hybridFixedField,
+                indexLabel, indexRateField,
                 tickerLabel, tickerField,
                 purchasePriceLabel, purchasePriceField,
                 quantityLabel, quantityField,
@@ -205,6 +251,7 @@ public final class SimulationPage implements Page {
         );
 
         updateInputsVisibility();
+        updateRentabilityInputs();
         return box;
     }
 
@@ -222,18 +269,16 @@ public final class SimulationPage implements Page {
     }
 
     private void updateInputsVisibility() {
-        // Esconder todos
         fixedRateField.setVisible(false);
         fixedRateField.setManaged(false);
-
+        benchmarkCombo.setVisible(false);
+        benchmarkCombo.setManaged(false);
+        benchmarkPercentField.setVisible(false);
+        benchmarkPercentField.setManaged(false);
+        hybridFixedField.setVisible(false);
+        hybridFixedField.setManaged(false);
         indexRateField.setVisible(false);
         indexRateField.setManaged(false);
-        indexPercentageField.setVisible(false);
-        indexPercentageField.setManaged(false);
-
-        inflationField.setVisible(false);
-        inflationField.setManaged(false);
-
         tickerField.setVisible(false);
         tickerField.setManaged(false);
         purchasePriceField.setVisible(false);
@@ -246,49 +291,88 @@ public final class SimulationPage implements Page {
         dividendsField.setManaged(false);
         priceVariationSlider.setVisible(false);
         priceVariationSlider.setManaged(false);
+        rentabilityModeCombo.setVisible(false);
+        rentabilityModeCombo.setManaged(false);
 
-        // Mostrar relevantes
-        switch (currentType) {
-            case PREFIXADO -> {
+        if (currentType == InvestmentTypeEnum.ACAO) {
+            tickerField.setVisible(true);
+            tickerField.setManaged(true);
+            purchasePriceField.setVisible(true);
+            purchasePriceField.setManaged(true);
+            quantityField.setVisible(true);
+            quantityField.setManaged(true);
+            currentPriceField.setVisible(true);
+            currentPriceField.setManaged(true);
+            dividendsField.setVisible(true);
+            dividendsField.setManaged(true);
+            priceVariationSlider.setVisible(true);
+            priceVariationSlider.setManaged(true);
+        } else {
+            rentabilityModeCombo.setVisible(true);
+            rentabilityModeCombo.setManaged(true);
+            updateRentabilityInputs();
+        }
+    }
+
+    private void updateRentabilityInputs() {
+        if (currentType == InvestmentTypeEnum.ACAO) return;
+
+        fixedRateField.setVisible(false);
+        fixedRateField.setManaged(false);
+        benchmarkCombo.setVisible(false);
+        benchmarkCombo.setManaged(false);
+        benchmarkPercentField.setVisible(false);
+        benchmarkPercentField.setManaged(false);
+        hybridFixedField.setVisible(false);
+        hybridFixedField.setManaged(false);
+        indexRateField.setVisible(false);
+        indexRateField.setManaged(false);
+
+        switch (currentRentabilityMode) {
+            case FIXED_RATE -> {
                 fixedRateField.setVisible(true);
                 fixedRateField.setManaged(true);
             }
-            case POS_FIXADO -> {
+            case BENCHMARK_PERCENT -> {
+                benchmarkCombo.setVisible(true);
+                benchmarkCombo.setManaged(true);
+                benchmarkPercentField.setVisible(true);
+                benchmarkPercentField.setManaged(true);
+            }
+            case HYBRID -> {
+                hybridFixedField.setVisible(true);
+                hybridFixedField.setManaged(true);
                 indexRateField.setVisible(true);
                 indexRateField.setManaged(true);
-                indexPercentageField.setVisible(true);
-                indexPercentageField.setManaged(true);
-            }
-            case HIBRIDO -> {
-                fixedRateField.setVisible(true);
-                fixedRateField.setManaged(true);
-                inflationField.setVisible(true);
-                inflationField.setManaged(true);
-            }
-            case ACAO -> {
-                tickerField.setVisible(true);
-                tickerField.setManaged(true);
-                purchasePriceField.setVisible(true);
-                purchasePriceField.setManaged(true);
-                quantityField.setVisible(true);
-                quantityField.setManaged(true);
-                currentPriceField.setVisible(true);
-                currentPriceField.setManaged(true);
-                dividendsField.setVisible(true);
-                dividendsField.setManaged(true);
-                priceVariationSlider.setVisible(true);
-                priceVariationSlider.setManaged(true);
             }
         }
     }
 
+    private void loadStockDataFromBrapi(String ticker) {
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return BrapiClient.fetchStockData(ticker);
+            } catch (Exception e) {
+                return null;
+            }
+        }).thenAcceptAsync(data -> {
+            if (data != null && data.isValid()) {
+                Platform.runLater(() -> {
+                    currentPriceField.setText(Money.centsToText((long)(data.regularMarketPrice() * 100)));
+
+                    double estimatedAnnualDividend = data.regularMarketPrice() * (data.dividendYield() / 100.0);
+                    dividendsField.setText(Money.centsToText((long)(estimatedAnnualDividend * 100)));
+                });
+            }
+        });
+    }
+
     private void calculate() {
         try {
-            switch (currentType) {
-                case PREFIXADO -> calculatePrefixado();
-                case POS_FIXADO -> calculatePosfixado();
-                case HIBRIDO -> calculateHibrido();
-                case ACAO -> calculateStock();
+            if (currentType == InvestmentTypeEnum.ACAO) {
+                calculateStock();
+            } else {
+                calculateFixedIncome();
             }
         } catch (Exception e) {
             resultLabel.setText("Erro: " + e.getMessage());
@@ -296,93 +380,132 @@ public final class SimulationPage implements Page {
         }
     }
 
-    private void calculatePrefixado() {
-        double capital = Money.textToCentsOrZero(initialValueField.getText()) / 100.0;
-        double rate = Double.parseDouble(fixedRateField.getText().replace(",", ".")) / 100.0;
-        int years = yearsCombo.getValue();
+    private void calculateFixedIncome() {
+        try {
+            double capital = Money.textToCentsOrZero(initialValueField.getText()) / 100.0;
+            int months = monthsCombo.getValue();
 
-        double result = InvestmentCalculator.calculatePrefixado(capital, rate, years);
-        double profit = result - capital;
+            if (capital == 0 || months == 0) {
+                resultLabel.setText("Preencha valor inicial e período");
+                return;
+            }
 
-        resultLabel.setText(String.format("Montante: R$ %.2f | Lucro: R$ %.2f", result, profit));
-        resultLabel.setStyle("-fx-text-fill: #22c55e; -fx-font-size: 20px; -fx-font-weight: bold;");
+            double annualRate = getAnnualRate();
+            double monthlyRate = Math.pow(1 + annualRate, 1.0/12) - 1;
 
-        updateChart(capital, rate, years, "Prefixado");
+            double result = capital * Math.pow(1 + monthlyRate, months);
+            double profit = result - capital;
+
+            resultLabel.setText(String.format(
+                    "Montante: R$ %.2f | Lucro: R$ %.2f (%.1f%%)",
+                    result, profit, (profit / capital) * 100
+            ));
+            resultLabel.setStyle("-fx-text-fill: #22c55e; -fx-font-size: 20px; -fx-font-weight: bold;");
+
+            updateChartMonths(capital, monthlyRate, months, "Renda Fixa");
+
+        } catch (Exception e) {
+            resultLabel.setText("Erro: Verifique os campos");
+            resultLabel.setStyle("-fx-text-fill: #ef4444;");
+        }
     }
 
-    private void calculatePosfixado() {
-        double capital = Money.textToCentsOrZero(initialValueField.getText()) / 100.0;
-        double indexRate = Double.parseDouble(indexRateField.getText().replace(",", ".")) / 100.0;
-        double percentage = Double.parseDouble(indexPercentageField.getText().replace(",", "."));
-        int years = yearsCombo.getValue();
-
-        double result = InvestmentCalculator.calculatePosfixado(capital, percentage, indexRate, years);
-        double profit = result - capital;
-
-        resultLabel.setText(String.format("Montante: R$ %.2f | Lucro: R$ %.2f", result, profit));
-        resultLabel.setStyle("-fx-text-fill: #22c55e; -fx-font-size: 20px; -fx-font-weight: bold;");
-
-        updateChart(capital, indexRate * percentage, years, "Pós-fixado");
+    private double getAnnualRate() {
+        switch (currentRentabilityMode) {
+            case FIXED_RATE -> {
+                return Double.parseDouble(fixedRateField.getText().replace(",", ".")) / 100.0;
+            }
+            case BENCHMARK_PERCENT -> {
+                double benchmarkRate = getBenchmarkRate(benchmarkCombo.getValue());
+                double percent = Double.parseDouble(benchmarkPercentField.getText().replace(",", ".")) / 100.0;
+                return benchmarkRate * percent;
+            }
+            case HYBRID -> {
+                double fixedPart = Double.parseDouble(hybridFixedField.getText().replace(",", ".")) / 100.0;
+                double indexPart = Double.parseDouble(indexRateField.getText().replace(",", ".")) / 100.0;
+                return (1 + indexPart) * (1 + fixedPart) - 1;
+            }
+        }
+        return 0;
     }
 
-    private void calculateHibrido() {
-        double capital = Money.textToCentsOrZero(initialValueField.getText()) / 100.0;
-        double fixedRate = Double.parseDouble(fixedRateField.getText().replace(",", ".")) / 100.0;
-        double inflation = Double.parseDouble(inflationField.getText().replace(",", ".")) / 100.0;
-        int years = yearsCombo.getValue();
-
-        double result = InvestmentCalculator.calculateHibrido(capital, fixedRate, inflation, years);
-        double profit = result - capital;
-
-        resultLabel.setText(String.format("Montante: R$ %.2f | Lucro: R$ %.2f", result, profit));
-        resultLabel.setStyle("-fx-text-fill: #22c55e; -fx-font-size: 20px; -fx-font-weight: bold;");
-
-        double effectiveRate = (1 + inflation) * (1 + fixedRate) - 1;
-        updateChart(capital, effectiveRate, years, "Híbrido");
+    private double getBenchmarkRate(String benchmark) {
+        return switch (benchmark) {
+            case "CDI" -> 0.135;
+            case "SELIC" -> 0.15;
+            case "IPCA" -> 0.045;
+            default -> 0.10;
+        };
     }
 
     private void calculateStock() {
-        double purchasePrice = Money.textToCentsOrZero(purchasePriceField.getText()) / 100.0;
-        int quantity = Integer.parseInt(quantityField.getText());
-        double currentPrice = Money.textToCentsOrZero(currentPriceField.getText()) / 100.0;
-        double dividends = Money.textToCentsOrZero(dividendsField.getText()) / 100.0;
+        try {
+            double purchasePrice = Money.textToCentsOrZero(purchasePriceField.getText()) / 100.0;
+            String qtyText = quantityField.getText();
 
-        // Aplicar variação do slider
-        double variation = priceVariationSlider.getValue() / 100.0;
-        double adjustedPrice = currentPrice * (1 + variation);
+            if (qtyText == null || qtyText.isBlank()) {
+                resultLabel.setText("Preencha a quantidade");
+                resultLabel.setStyle("-fx-text-fill: #ef4444;");
+                return;
+            }
 
-        var calc = InvestmentCalculator.calculateAcao(purchasePrice, quantity, adjustedPrice, dividends);
+            int quantity = Integer.parseInt(qtyText);
+            double currentPrice = Money.textToCentsOrZero(currentPriceField.getText()) / 100.0;
+            double dividends = Money.textToCentsOrZero(dividendsField.getText()) / 100.0;
 
-        resultLabel.setText(String.format(
-                "Investido: R$ %.2f | Atual: R$ %.2f | Lucro Total: R$ %.2f (%.2f%%)",
-                calc.valorInvestido(), calc.valorAtual(), calc.lucroTotal(),
-                calc.rentabilidade() * 100
-        ));
+            if (purchasePrice == 0 || quantity == 0) {
+                resultLabel.setText("Preencha preço de compra e quantidade");
+                resultLabel.setStyle("-fx-text-fill: #ef4444;");
+                return;
+            }
 
-        if (calc.lucroTotal() >= 0) {
-            resultLabel.setStyle("-fx-text-fill: #22c55e; -fx-font-size: 18px; -fx-font-weight: bold;");
-        } else {
-            resultLabel.setStyle("-fx-text-fill: #ef4444; -fx-font-size: 18px; -fx-font-weight: bold;");
+            if (currentPrice == 0) {
+                currentPrice = purchasePrice;
+            }
+
+            double variation = priceVariationSlider.getValue() / 100.0;
+            double adjustedPrice = currentPrice * (1 + variation);
+
+            double valorInvestido = purchasePrice * quantity;
+            double valorAtual = adjustedPrice * quantity;
+            double lucro = valorAtual - valorInvestido;
+            double rentabilidade = (lucro / valorInvestido) * 100;
+            double lucroTotal = (valorAtual + dividends) - valorInvestido;
+
+            resultLabel.setText(String.format(
+                    "Investido: R$ %.2f | Atual: R$ %.2f | Lucro: R$ %.2f (%.2f%%)",
+                    valorInvestido, valorAtual, lucroTotal, rentabilidade
+            ));
+
+            resultLabel.setStyle((lucroTotal >= 0 ?
+                    "-fx-text-fill: #22c55e;" :
+                    "-fx-text-fill: #ef4444;") + " -fx-font-size: 18px; -fx-font-weight: bold;");
+
+            projectionChart.getData().clear();
+            XYChart.Series<Number, Number> series = new XYChart.Series<>();
+            series.setName("Ação");
+            series.getData().add(new XYChart.Data<>(0, valorInvestido));
+            series.getData().add(new XYChart.Data<>(1, valorAtual + dividends));
+            projectionChart.getData().add(series);
+
+        } catch (NumberFormatException e) {
+            resultLabel.setText("Erro: Quantidade deve ser um número");
+            resultLabel.setStyle("-fx-text-fill: #ef4444;");
+        } catch (Exception e) {
+            resultLabel.setText("Erro: Preencha todos os campos corretamente");
+            resultLabel.setStyle("-fx-text-fill: #ef4444;");
         }
-
-        // Gráfico simplificado para ações
-        projectionChart.getData().clear();
-        XYChart.Series<Number, Number> series = new XYChart.Series<>();
-        series.setName("Valor da Ação");
-        series.getData().add(new XYChart.Data<>(0, calc.valorInvestido()));
-        series.getData().add(new XYChart.Data<>(1, calc.valorAtual() + dividends));
-        projectionChart.getData().add(series);
     }
 
-    private void updateChart(double capital, double rate, int years, String title) {
+    private void updateChartMonths(double capital, double monthlyRate, int months, String title) {
         projectionChart.getData().clear();
 
         XYChart.Series<Number, Number> series = new XYChart.Series<>();
         series.setName(title);
 
-        for (int year = 0; year <= years; year++) {
-            double value = capital * Math.pow(1 + rate, year);
-            series.getData().add(new XYChart.Data<>(year, value));
+        for (int month = 0; month <= months; month++) {
+            double value = capital * Math.pow(1 + monthlyRate, month);
+            series.getData().add(new XYChart.Data<>(month, value));
         }
 
         projectionChart.getData().add(series);
