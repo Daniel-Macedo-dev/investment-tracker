@@ -7,8 +7,8 @@ import com.daniel.core.service.ARCADiversificationStrategy.*;
 import com.daniel.core.service.DailyTrackingUseCase;
 import com.daniel.core.service.DiversificationCalculator;
 import com.daniel.core.service.DiversificationCalculator.*;
-
 import com.daniel.core.util.Money;
+
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
@@ -31,6 +31,10 @@ public final class DiversificationPage implements Page {
     private final RadioButton arcaRadio = new RadioButton("Método ARCA (Primo Rico)");
     private final RadioButton customRadio = new RadioButton("Personalizado");
 
+    private final ToggleGroup calculationTypeGroup = new ToggleGroup();
+    private final RadioButton rebalanceByContributionRadio = new RadioButton("Rebalancear por Aporte");
+    private final RadioButton rebalanceByTargetRadio = new RadioButton("Patrimônio Alvo");
+
     private final TextField targetPatrimonyField = new TextField();
     private final VBox customInputsBox = new VBox(12);
     private final Map<CategoryEnum, TextField> customPercentages = new HashMap<>();
@@ -52,8 +56,9 @@ public final class DiversificationPage implements Page {
         Label subtitle = new Label("Analise e otimize a distribuição dos seus investimentos");
         subtitle.getStyleClass().add("muted");
 
-        VBox methodBox = buildMethodSelector();
         VBox patrimonyBox = buildPatrimonyCard();
+        VBox methodBox = buildMethodSelector();
+        VBox calculationBox = buildCalculationType();
 
         HBox tablesRow = new HBox(12);
         VBox currentBox = buildCurrentAllocationTable();
@@ -64,7 +69,7 @@ public final class DiversificationPage implements Page {
 
         VBox suggestionsBox = buildSuggestionsTable();
 
-        root.getChildren().addAll(h1, subtitle, patrimonyBox, methodBox, tablesRow, suggestionsBox);
+        root.getChildren().addAll(h1, subtitle, patrimonyBox, calculationBox, methodBox, tablesRow, suggestionsBox);
     }
 
     @Override
@@ -77,6 +82,58 @@ public final class DiversificationPage implements Page {
         refreshData();
     }
 
+    // Seletor de tipo de cálculo
+    private VBox buildCalculationType() {
+        VBox box = new VBox(12);
+        box.getStyleClass().add("card");
+
+        Label title = new Label("Tipo de Cálculo");
+        title.getStyleClass().add("card-title");
+
+        rebalanceByContributionRadio.setToggleGroup(calculationTypeGroup);
+        rebalanceByTargetRadio.setToggleGroup(calculationTypeGroup);
+        rebalanceByContributionRadio.setSelected(true);
+
+        Label contributionHint = new Label("💰 Recomenda apenas APORTES nas categorias abaixo do ideal (sem vender)");
+        contributionHint.getStyleClass().add("muted");
+        contributionHint.setStyle("-fx-font-size: 11px;");
+
+        Label targetHint = new Label("🎯 Calcula quanto aportar em cada categoria para atingir um patrimônio alvo");
+        targetHint.getStyleClass().add("muted");
+        targetHint.setStyle("-fx-font-size: 11px;");
+
+        // Campo de patrimônio alvo (visível apenas no modo alvo)
+        Label targetLabel = new Label("Patrimônio Alvo:");
+        targetLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+        targetPatrimonyField.setPromptText("R$ 100.000,00");
+        targetPatrimonyField.setTextFormatter(Money.currencyFormatterEditable());
+        Money.applyFormatOnBlur(targetPatrimonyField);
+
+        VBox targetBox = new VBox(8, targetLabel, targetPatrimonyField, targetHint);
+        targetBox.setVisible(false);
+        targetBox.setManaged(false);
+
+        calculationTypeGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> {
+            boolean isTarget = newVal == rebalanceByTargetRadio;
+            targetBox.setVisible(isTarget);
+            targetBox.setManaged(isTarget);
+            refreshData();
+        });
+
+        Button recalculateBtn = new Button("Recalcular");
+        recalculateBtn.getStyleClass().add("primary-btn");
+        recalculateBtn.setOnAction(e -> refreshData());
+
+        box.getChildren().addAll(
+                title,
+                rebalanceByContributionRadio, contributionHint,
+                rebalanceByTargetRadio, targetBox,
+                recalculateBtn
+        );
+
+        return box;
+    }
+
     private VBox buildMethodSelector() {
         VBox box = new VBox(12);
         box.getStyleClass().add("card");
@@ -84,21 +141,11 @@ public final class DiversificationPage implements Page {
         Label title = new Label("Método de Diversificação");
         title.getStyleClass().add("card-title");
 
-        Label targetLabel = new Label("Patrimônio Alvo (opcional):");
-        targetLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
-        targetPatrimonyField.setPromptText("R$ 10.000,00");
-        targetPatrimonyField.setTextFormatter(Money.currencyFormatterEditable());
-        Money.applyFormatOnBlur(targetPatrimonyField);
-
-        Label targetHint = new Label("💡 Deixe vazio para usar patrimônio atual");
-        targetHint.getStyleClass().add("muted");
-        targetHint.setStyle("-fx-font-size: 11px;");
-
         arcaRadio.setToggleGroup(methodGroup);
         customRadio.setToggleGroup(methodGroup);
         arcaRadio.setSelected(true);
 
-        Label arcaHint = new Label("📊 Ativos Reais 25% • Cripto 5% • Renda Fixa 40% • Ações 30%");
+        Label arcaHint = new Label("📊 Renda Fixa 40% • Ações 30% • Outros 25% • Cripto 5%");
         arcaHint.getStyleClass().add("muted");
         arcaHint.setStyle("-fx-font-size: 11px;");
 
@@ -113,13 +160,7 @@ public final class DiversificationPage implements Page {
             refreshData();
         });
 
-        box.getChildren().addAll(targetLabel, targetPatrimonyField, targetHint);
-
-        Button recalculateBtn = new Button("Recalcular");
-        recalculateBtn.getStyleClass().add("primary-btn");
-        recalculateBtn.setOnAction(e -> refreshData());
-
-        box.getChildren().addAll(title, arcaRadio, arcaHint, customRadio, customInputsBox, recalculateBtn);
+        box.getChildren().addAll(title, arcaRadio, arcaHint, customRadio, customInputsBox);
         return box;
     }
 
@@ -165,7 +206,7 @@ public final class DiversificationPage implements Page {
         VBox box = new VBox(8);
         box.getStyleClass().add("card");
 
-        Label title = new Label("Patrimônio Total");
+        Label title = new Label("Patrimônio Atual");
         title.getStyleClass().add("card-title");
 
         totalPatrimonyLabel.getStyleClass().add("big-value");
@@ -271,7 +312,7 @@ public final class DiversificationPage implements Page {
         VBox box = new VBox(10);
         box.getStyleClass().add("card");
 
-        Label title = new Label("Sugestões de Ajuste");
+        Label title = new Label("Sugestões de Aporte");
         title.getStyleClass().add("card-title");
 
         suggestionsTable.getStyleClass().add("table");
@@ -299,7 +340,7 @@ public final class DiversificationPage implements Page {
             }
         });
 
-        TableColumn<SuggestionRow, String> actionCol = new TableColumn<>("Ação");
+        TableColumn<SuggestionRow, String> actionCol = new TableColumn<>("Aporte Sugerido");
         actionCol.setCellValueFactory(c -> c.getValue().actionProperty());
         actionCol.setCellFactory(col -> new TableCell<>() {
             @Override
@@ -310,19 +351,17 @@ public final class DiversificationPage implements Page {
                     setStyle("");
                 } else {
                     setText(item);
-                    if (item.contains("Investir") || item.contains("Aumentar")) {
+                    if (item.contains("Investir") || item.contains("Aportar")) {
                         setStyle("-fx-text-fill: #22c55e; -fx-font-weight: bold;");
-                    } else if (item.contains("Reduzir") || item.contains("Retirar")) {
-                        setStyle("-fx-text-fill: #ef4444; -fx-font-weight: bold;");
-                    } else {
-                        setStyle("-fx-text-fill: #6b7280;");
+                    } else if (item.contains("balanceado")) {
+                        setStyle("-fx-text-fill: #6b7280; -fx-font-style: italic;");
                     }
                 }
             }
         });
 
         suggestionsTable.getColumns().setAll(catCol, actionCol);
-        suggestionsTable.setPlaceholder(new Label("Sua carteira está balanceada!"));
+        suggestionsTable.setPlaceholder(new Label("Sua carteira está perfeitamente balanceada!"));
 
         box.getChildren().addAll(title, suggestionsTable);
         return box;
@@ -330,7 +369,6 @@ public final class DiversificationPage implements Page {
 
     private void refreshData() {
         LocalDate today = LocalDate.now();
-
         List<InvestmentType> investments = daily.listTypes();
 
         if (investments.isEmpty()) {
@@ -375,43 +413,52 @@ public final class DiversificationPage implements Page {
     }
 
     private void updateARCAIdeal(long currentPatrimony, DiversificationData currentData) {
-        long targetPatrimony = getTargetPatrimony(currentPatrimony);
+        Map<CategoryEnum, Double> profile = ARCADiversificationStrategy.getARCAProfile();
 
-        List<DiversificationSuggestion> suggestions = ARCADiversificationStrategy.calculateSuggestions(
-                targetPatrimony,
-                currentData.valuesCents()
-        );
+        List<DiversificationSuggestion> suggestions;
+        long referencePatrimony;
+
+        // Escolher metodo de cálculo
+        if (rebalanceByTargetRadio.isSelected()) {
+            long targetPatrimony = getTargetPatrimony(currentPatrimony);
+            referencePatrimony = targetPatrimony;
+            suggestions = ARCADiversificationStrategy.calculateSuggestionsByTarget(
+                    currentPatrimony, targetPatrimony, currentData.valuesCents(), profile
+            );
+        } else {
+            referencePatrimony = currentPatrimony;
+            suggestions = ARCADiversificationStrategy.calculateSuggestionsByContribution(
+                    currentPatrimony, currentData.valuesCents(), profile
+            );
+        }
 
         var idealRows = FXCollections.<AllocationRow>observableArrayList();
         for (var sug : suggestions) {
             idealRows.add(new AllocationRow(
                     sug.category(),
                     daily.brl(sug.idealCents()),
-                    String.format("%.1f%%", (sug.idealCents() * 100.0 / targetPatrimony))
+                    String.format("%.1f%%", (sug.idealCents() * 100.0 / referencePatrimony))
             ));
         }
         idealTable.setItems(idealRows);
 
         var suggestionRows = FXCollections.<SuggestionRow>observableArrayList();
         for (var sug : suggestions) {
-            long diff = sug.differenceCents();
-            if (Math.abs(diff) > 100_00) {
-                String action;
-                if (diff > 0) {
-                    action = "Investir " + daily.brl(diff);
-                } else {
-                    action = "Reduzir " + daily.brl(Math.abs(diff));
-                }
+            if (sug.aporteNecessarioCents() > 100_00) {
+                String action = "Aportar " + daily.brl(sug.aporteNecessarioCents());
                 suggestionRows.add(new SuggestionRow(sug.category(), action));
             }
         }
+
+        if (suggestionRows.isEmpty()) {
+            suggestionRows.add(new SuggestionRow(CategoryEnum.RENDA_FIXA, "✅ Carteira balanceada"));
+        }
+
         suggestionsTable.setItems(suggestionRows);
     }
 
-
     private void updateCustomIdeal(long currentPatrimony, DiversificationData currentData) {
         double total = 0;
-        long targetPatrimony = getTargetPatrimony(currentPatrimony);
         Map<CategoryEnum, Double> customProfile = new HashMap<>();
 
         try {
@@ -428,32 +475,44 @@ public final class DiversificationPage implements Page {
                 return;
             }
 
-            List<DiversificationSuggestion> suggestions = ARCADiversificationStrategy
-                    .calculateSuggestionsCustom(targetPatrimony, currentData.valuesCents(), customProfile);
+            List<DiversificationSuggestion> suggestions;
+            long referencePatrimony;
+
+            if (rebalanceByTargetRadio.isSelected()) {
+                long targetPatrimony = getTargetPatrimony(currentPatrimony);
+                referencePatrimony = targetPatrimony;
+                suggestions = ARCADiversificationStrategy.calculateSuggestionsByTarget(
+                        currentPatrimony, targetPatrimony, currentData.valuesCents(), customProfile
+                );
+            } else {
+                referencePatrimony = currentPatrimony;
+                suggestions = ARCADiversificationStrategy.calculateSuggestionsByContribution(
+                        currentPatrimony, currentData.valuesCents(), customProfile
+                );
+            }
 
             var idealRows = FXCollections.<AllocationRow>observableArrayList();
             for (var sug : suggestions) {
                 idealRows.add(new AllocationRow(
                         sug.category(),
                         daily.brl(sug.idealCents()),
-                        String.format("%.1f%%", (sug.idealCents() * 100.0 / targetPatrimony))
+                        String.format("%.1f%%", (sug.idealCents() * 100.0 / referencePatrimony))
                 ));
             }
             idealTable.setItems(idealRows);
 
             var suggestionRows = FXCollections.<SuggestionRow>observableArrayList();
             for (var sug : suggestions) {
-                long diff = sug.differenceCents();
-                if (Math.abs(diff) > 100_00) {
-                    String action;
-                    if (diff > 0) {
-                        action = "Investir " + daily.brl(diff);
-                    } else {
-                        action = "Reduzir " + daily.brl(Math.abs(diff));
-                    }
+                if (sug.aporteNecessarioCents() > 100_00) {
+                    String action = "Aportar " + daily.brl(sug.aporteNecessarioCents());
                     suggestionRows.add(new SuggestionRow(sug.category(), action));
                 }
             }
+
+            if (suggestionRows.isEmpty()) {
+                suggestionRows.add(new SuggestionRow(CategoryEnum.RENDA_FIXA, "✅ Carteira balanceada"));
+            }
+
             suggestionsTable.setItems(suggestionRows);
 
         } catch (NumberFormatException e) {
@@ -462,8 +521,6 @@ public final class DiversificationPage implements Page {
             suggestionsTable.getItems().clear();
         }
     }
-
-    // METODO HELPER PARA CRIAR BADGE COM CÍRCULO COLORIDO
 
     private long getTargetPatrimony(long currentPatrimony) {
         String targetText = targetPatrimonyField.getText();
@@ -490,8 +547,6 @@ public final class DiversificationPage implements Page {
         box.getChildren().addAll(circle, label);
         return box;
     }
-
-    // ========== INNER CLASSES ==========
 
     private static class AllocationRow {
         private final CategoryEnum category;
