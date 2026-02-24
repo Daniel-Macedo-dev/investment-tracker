@@ -10,12 +10,24 @@ public final class Schema {
                     -- Tipos de Investimento (ATUALIZADO com campos de tipo e ações)
                     CREATE TABLE IF NOT EXISTS investment_type (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        name TEXT NOT NULL UNIQUE,
+                        name TEXT NOT NULL,
                         category TEXT,
                         liquidity TEXT,
                         investment_date TEXT,
                         profitability REAL,
                         invested_value REAL,
+                        type_of_investment TEXT,
+                        index_type TEXT,
+                        index_percentage REAL,
+                        ticker TEXT,
+                        purchase_price REAL,
+                        quantity INTEGER
+                    );
+                
+                    -- Índices úteis (sem UNIQUE no nome)
+                    CREATE INDEX IF NOT EXISTS idx_investment_ticker ON investment_type(ticker);
+                    CREATE INDEX IF NOT EXISTS idx_investment_date ON investment_type(investment_date);
+                    CREATE INDEX IF NOT EXISTS idx_investment_category ON investment_type(category);
                 
                         -- Novos campos para tipos de investimento
                         type_of_investment TEXT,  -- PREFIXADO, POS_FIXADO, HIBRIDO, ACAO
