@@ -28,7 +28,7 @@ public final class AppShell {
         pages.put("Diversificação", new DiversificationPage(dailyTrackingUseCase));
         pages.put("Simulação", new SimulationPage());
         pages.put("Gráficos", new ChartsPage(dailyTrackingUseCase));
-        pages.put("Relatórios", new ReportsPage(dailyTrackingUseCase));
+        pages.put("Extrato de Investimentos", new ReportsPage(dailyTrackingUseCase));
     }
 
     public Parent build() {
