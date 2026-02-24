@@ -35,12 +35,14 @@ public final class DashboardPage implements Page {
 
     private final PieChart pieChart = new PieChart();
     private final BarChart<String, Number> waterfallChart;
+    private final LineChart<Number, Number> comparisonChart;
 
     private final VBox investmentsByCategoryContainer = new VBox(16);
 
     public DashboardPage(DailyTrackingUseCase dailyTrackingUseCase) {
         this.daily = dailyTrackingUseCase;
 
+        // Criar eixos para waterfallChart
         CategoryAxis xAxis = new CategoryAxis();
         NumberAxis yAxis = new NumberAxis();
         xAxis.setLabel("Investimentos");
@@ -48,6 +50,16 @@ public final class DashboardPage implements Page {
         waterfallChart = new BarChart<>(xAxis, yAxis);
         waterfallChart.setTitle("Composição do Patrimônio");
         waterfallChart.setLegendVisible(false);
+
+        // Criar eixos para comparisonChart
+        NumberAxis xAxisComparison = new NumberAxis();
+        NumberAxis yAxisComparison = new NumberAxis();
+        xAxisComparison.setLabel("Meses");
+        yAxisComparison.setLabel("Rentabilidade %");
+        comparisonChart = new LineChart<>(xAxisComparison, yAxisComparison);
+        comparisonChart.setTitle("Rentabilidade da Carteira vs Benchmarks");
+        comparisonChart.setMinHeight(300);
+        comparisonChart.setCreateSymbols(false);
 
         root.setPadding(new Insets(16));
 
@@ -85,7 +97,13 @@ public final class DashboardPage implements Page {
 
         chartsRow.getChildren().addAll(pieBox, waterfallBox);
 
-        root.getChildren().addAll(h1, cards, h2, chartsRow, investmentsByCategoryContainer);
+        VBox comparisonBox = new VBox(8);
+        comparisonBox.getStyleClass().add("card");
+        Label comparisonTitle = new Label("Comparação com Mercado");
+        comparisonTitle.getStyleClass().add("card-title");
+        comparisonBox.getChildren().addAll(comparisonTitle, comparisonChart);
+
+        root.getChildren().addAll(h1, cards, h2, chartsRow, comparisonBox, investmentsByCategoryContainer);
 
         scrollPane.setContent(root);
         scrollPane.setFitToWidth(true);
@@ -114,6 +132,7 @@ public final class DashboardPage implements Page {
             cdiComparisonLabel.setText("—");
             pieChart.getData().clear();
             waterfallChart.getData().clear();
+            comparisonChart.getData().clear();
             investmentsByCategoryContainer.getChildren().clear();
             return;
         }
@@ -136,6 +155,7 @@ public final class DashboardPage implements Page {
         updateCDIComparison(today, investments, totalPatrimony);
         updatePieChart(investments, currentValues);
         updateWaterfallChart(investments, currentValues);
+        updateComparisonChart(investments, currentValues, today);
         updateInvestmentsByCategory(investments, currentValues, totalPatrimony);
     }
 
@@ -252,6 +272,107 @@ public final class DashboardPage implements Page {
                 }
             });
         }
+    }
+
+    private void updateComparisonChart(List<InvestmentType> investments,
+                                       Map<Long, Long> currentValues,
+                                       LocalDate today) {
+        comparisonChart.getData().clear();
+
+        // Encontrar data mais antiga
+        LocalDate oldestDate = today;
+        for (InvestmentType inv : investments) {
+            if (inv.investmentDate() != null && inv.investmentDate().isBefore(oldestDate)) {
+                oldestDate = inv.investmentDate();
+            }
+        }
+
+        long monthsRange = java.time.temporal.ChronoUnit.MONTHS.between(oldestDate, today);
+        if (monthsRange < 1) monthsRange = 1;
+        if (monthsRange > 24) monthsRange = 24; // Limitar a 2 anos
+
+        // Calcular valor total investido
+        long totalInvested = 0L;
+        for (InvestmentType inv : investments) {
+            if (inv.investedValue() != null) {
+                totalInvested += inv.investedValue().multiply(java.math.BigDecimal.valueOf(100)).longValue();
+            }
+        }
+
+        if (totalInvested == 0) {
+            comparisonChart.setTitle("Sem dados para comparação");
+            return;
+        }
+
+        // Série da Carteira
+        XYChart.Series<Number, Number> portfolioSeries = new XYChart.Series<>();
+        portfolioSeries.setName("Carteira");
+
+        // Série CDI (13.5% a.a.)
+        XYChart.Series<Number, Number> cdiSeries = new XYChart.Series<>();
+        cdiSeries.setName("CDI (13,5% a.a.)");
+
+        // Série SELIC (11.75% a.a.)
+        XYChart.Series<Number, Number> selicSeries = new XYChart.Series<>();
+        selicSeries.setName("SELIC (11,75% a.a.)");
+
+        // Série IPCA (4.5% a.a.)
+        XYChart.Series<Number, Number> ipcaSeries = new XYChart.Series<>();
+        ipcaSeries.setName("IPCA (4,5% a.a.)");
+
+        double cdiRate = 0.135;
+        double selicRate = 0.1175;
+        double ipcaRate = 0.045;
+
+        double monthlyRateCDI = Math.pow(1 + cdiRate, 1.0/12) - 1;
+        double monthlyRateSELIC = Math.pow(1 + selicRate, 1.0/12) - 1;
+        double monthlyRateIPCA = Math.pow(1 + ipcaRate, 1.0/12) - 1;
+
+        for (int month = 0; month <= monthsRange; month++) {
+            // Rentabilidade CDI
+            double rentCDI = (Math.pow(1 + monthlyRateCDI, month) - 1) * 100;
+            cdiSeries.getData().add(new XYChart.Data<>(month, rentCDI));
+
+            // Rentabilidade SELIC
+            double rentSELIC = (Math.pow(1 + monthlyRateSELIC, month) - 1) * 100;
+            selicSeries.getData().add(new XYChart.Data<>(month, rentSELIC));
+
+            // Rentabilidade IPCA
+            double rentIPCA = (Math.pow(1 + monthlyRateIPCA, month) - 1) * 100;
+            ipcaSeries.getData().add(new XYChart.Data<>(month, rentIPCA));
+
+            // Rentabilidade da Carteira
+            long currentTotal = daily.getTotalPatrimony(today);
+            double rentPortfolio = ((currentTotal - totalInvested) * 100.0) / totalInvested;
+            portfolioSeries.getData().add(new XYChart.Data<>(month, rentPortfolio));
+        }
+
+        comparisonChart.getData().addAll(portfolioSeries, cdiSeries, selicSeries, ipcaSeries);
+
+        // Estilizar as linhas
+        portfolioSeries.nodeProperty().addListener((obs, oldNode, newNode) -> {
+            if (newNode != null) {
+                newNode.setStyle("-fx-stroke: #22c55e; -fx-stroke-width: 3px;");
+            }
+        });
+
+        cdiSeries.nodeProperty().addListener((obs, oldNode, newNode) -> {
+            if (newNode != null) {
+                newNode.setStyle("-fx-stroke: #3b82f6; -fx-stroke-width: 2px;");
+            }
+        });
+
+        selicSeries.nodeProperty().addListener((obs, oldNode, newNode) -> {
+            if (newNode != null) {
+                newNode.setStyle("-fx-stroke: #f59e0b; -fx-stroke-width: 2px;");
+            }
+        });
+
+        ipcaSeries.nodeProperty().addListener((obs, oldNode, newNode) -> {
+            if (newNode != null) {
+                newNode.setStyle("-fx-stroke: #ef4444; -fx-stroke-width: 2px;");
+            }
+        });
     }
 
     private void updateInvestmentsByCategory(List<InvestmentType> investments,
@@ -395,22 +516,43 @@ public final class DashboardPage implements Page {
         if (inv.quantity() != null && inv.purchasePrice() != null) {
             int qtdTotal = inv.quantity();
             double precoMedio = inv.purchasePrice().doubleValue();
-            double posicao = currentValueCents / 100.0;
-            double ultimoPreco = posicao / qtdTotal;
+            double posicaoAtual = currentValueCents / 100.0;
+            double ultimoPreco = posicaoAtual / qtdTotal;
+
+            // Valor Investido
+            long valorInvestidoCents = (long)(precoMedio * qtdTotal * 100);
+            nodes.add(createInfoBox("Valor Investido", daily.brl(valorInvestidoCents)));
+
+            // Posição Atual
+            Label posicaoLabel = new Label(daily.brl(currentValueCents));
+            posicaoLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+            nodes.add(createInfoBox("Posição Atual", posicaoLabel));
+
+            // Rentabilidade
             double rentabilidade = ((ultimoPreco - precoMedio) / precoMedio) * 100;
-            double alocacao = (currentValueCents * 100.0) / totalPatrimony;
-
-            nodes.add(createInfoBox("Posição", daily.brl(currentValueCents)));
-            nodes.add(createInfoBox("% Alocação", String.format("%.1f%%", alocacao)));
-
-            Label rentLabel = new Label(String.format("%+.1f%%", rentabilidade));
+            Label rentLabel = new Label(String.format("%+.2f%%", rentabilidade));
             rentLabel.setStyle((rentabilidade >= 0 ? "-fx-text-fill: #22c55e;" : "-fx-text-fill: #ef4444;") +
                     " -fx-font-weight: bold; -fx-font-size: 12px;");
             nodes.add(createInfoBox("Rentabilidade", rentLabel));
 
+            // % Alocação
+            double alocacao = (currentValueCents * 100.0) / totalPatrimony;
+            nodes.add(createInfoBox("% Alocação", String.format("%.1f%%", alocacao)));
+
+            // Preço Médio
             nodes.add(createInfoBox("Preço Médio", String.format("R$ %.2f", precoMedio)));
+
+            // Último Preço
             nodes.add(createInfoBox("Último Preço", String.format("R$ %.2f", ultimoPreco)));
+
+            // Quantidade
             nodes.add(createInfoBox("Qtd Total", String.valueOf(qtdTotal)));
+
+            // Data Investimento
+            if (inv.investmentDate() != null) {
+                nodes.add(createInfoBox("Data Investimento",
+                        inv.investmentDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))));
+            }
         }
 
         return nodes;
@@ -421,21 +563,35 @@ public final class DashboardPage implements Page {
 
         double alocacao = (currentValueCents * 100.0) / totalPatrimony;
 
-        nodes.add(createInfoBox("Posição", daily.brl(currentValueCents)));
-        nodes.add(createInfoBox("% Alocação", String.format("%.1f%%", alocacao)));
-
+        // Valor Investido
         if (inv.investedValue() != null) {
             long aplicado = inv.investedValue().multiply(java.math.BigDecimal.valueOf(100)).longValue();
-            nodes.add(createInfoBox("Valor Aplicado", daily.brl(aplicado)));
+            nodes.add(createInfoBox("Valor Investido", daily.brl(aplicado)));
+
+            // Posição Atual
+            nodes.add(createInfoBox("Posição Atual", daily.brl(currentValueCents)));
+
+            // Rentabilidade
+            long lucro = currentValueCents - aplicado;
+            double rentabilidade = (lucro * 100.0) / aplicado;
+            Label rentLabel = new Label(String.format("%+.2f%%", rentabilidade));
+            rentLabel.setStyle((rentabilidade >= 0 ? "-fx-text-fill: #22c55e;" : "-fx-text-fill: #ef4444;") +
+                    " -fx-font-weight: bold; -fx-font-size: 12px;");
+            nodes.add(createInfoBox("Rentabilidade", rentLabel));
         }
 
+        // % Alocação
+        nodes.add(createInfoBox("% Alocação", String.format("%.1f%%", alocacao)));
+
+        // Taxa
         if (inv.profitability() != null) {
             String taxa = String.format("%.2f%% a.a.", inv.profitability());
             nodes.add(createInfoBox("Taxa", taxa));
         }
 
+        // Data Investimento
         if (inv.investmentDate() != null) {
-            nodes.add(createInfoBox("Data Aplicação",
+            nodes.add(createInfoBox("Data Investimento",
                     inv.investmentDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))));
         }
 
@@ -447,11 +603,29 @@ public final class DashboardPage implements Page {
 
         double alocacao = (currentValueCents * 100.0) / totalPatrimony;
 
-        nodes.add(createInfoBox("Posição", daily.brl(currentValueCents)));
+        // Valor Investido
+        if (inv.investedValue() != null) {
+            long investido = inv.investedValue().multiply(java.math.BigDecimal.valueOf(100)).longValue();
+            nodes.add(createInfoBox("Valor Investido", daily.brl(investido)));
+
+            // Posição Atual
+            nodes.add(createInfoBox("Posição Atual", daily.brl(currentValueCents)));
+
+            // Rentabilidade
+            long lucro = currentValueCents - investido;
+            double rentabilidade = investido > 0 ? (lucro * 100.0) / investido : 0;
+            Label rentLabel = new Label(String.format("%+.2f%%", rentabilidade));
+            rentLabel.setStyle((rentabilidade >= 0 ? "-fx-text-fill: #22c55e;" : "-fx-text-fill: #ef4444;") +
+                    " -fx-font-weight: bold; -fx-font-size: 12px;");
+            nodes.add(createInfoBox("Rentabilidade", rentLabel));
+        }
+
+        // % Alocação
         nodes.add(createInfoBox("% Alocação", String.format("%.1f%%", alocacao)));
 
+        // Data Investimento
         if (inv.investmentDate() != null) {
-            nodes.add(createInfoBox("Data",
+            nodes.add(createInfoBox("Data Investimento",
                     inv.investmentDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))));
         }
 
