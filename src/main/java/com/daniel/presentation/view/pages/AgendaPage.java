@@ -2,9 +2,11 @@ package com.daniel.presentation.view.pages;
 
 import com.daniel.core.domain.entity.DailySummary;
 import com.daniel.core.service.DailyTrackingUseCase;
+import com.daniel.presentation.view.components.UiComponents;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
@@ -19,7 +21,7 @@ public final class AgendaPage implements Page {
     private final DailyTrackingUseCase daily;
     private final java.util.function.Consumer<LocalDate> openDailyAt;
 
-    private final BorderPane root = new BorderPane();
+    private final ScrollPane root;
     private final ComboBox<YearMonth> monthPicker = new ComboBox<>();
     private final TableView<Row> table = new TableView<>();
 
@@ -29,28 +31,43 @@ public final class AgendaPage implements Page {
         this.daily = daily;
         this.openDailyAt = openDailyAt;
 
-        root.setPadding(new Insets(16));
-        root.getStyleClass().add("page");
+        VBox content = new VBox(12);
 
-        root.setTop(top());
-        root.setCenter(center());
+        // Header with title, subtitle, and month picker
+        VBox headerSection = buildHeader();
+        content.getChildren().add(headerSection);
+
+        // Tip card
+        VBox tipCard = buildTipCard();
+        content.getChildren().add(tipCard);
+
+        // Table
         buildTable();
+        content.getChildren().add(table);
+
+        // Wrap in scroll pane
+        root = UiComponents.pageScroll(content);
+
+        // Event listener
+        monthPicker.valueProperty().addListener((o, a, b) -> reload());
     }
 
     @Override public Parent view() { return root; }
 
     @Override public void onShow() {
-        if (monthPicker.getValue() == null) monthPicker.setValue(YearMonth.now());
+        if (monthPicker.getValue() == null) {
+            monthPicker.setValue(YearMonth.now());
+        }
         reload();
     }
 
-    private Parent top() {
-        Label h1 = new Label("Agenda");
-        h1.getStyleClass().add("h1");
+    private VBox buildHeader() {
+        VBox header = UiComponents.pageHeader(
+                "Agenda",
+                "Visão por dia do mês (duplo clique para abrir o registro)."
+        );
 
-        Label sub = new Label("Visão por dia do mês (duplo clique para abrir o registro).");
-        sub.getStyleClass().add("muted");
-
+        // Month picker in a soft card
         monthPicker.getItems().setAll(
                 YearMonth.now().minusMonths(6),
                 YearMonth.now().minusMonths(5),
@@ -63,26 +80,30 @@ public final class AgendaPage implements Page {
                 YearMonth.now().plusMonths(2)
         );
         monthPicker.setValue(YearMonth.now());
-        monthPicker.valueProperty().addListener((o,a,b) -> reload());
 
-        HBox pick = new HBox(10, new Label("Mês:"), monthPicker);
-        pick.getStyleClass().add("card-soft");
+        HBox monthRow = new HBox(10, new Label("Mês:"), monthPicker);
+        VBox pickerCard = new VBox(monthRow);
+        pickerCard.getStyleClass().add("card-soft");
+        pickerCard.setPadding(new Insets(12));
 
-        VBox header = new VBox(8, h1, sub, pick);
-        return header;
+        // Combine header and picker
+        VBox full = new VBox(12, header, pickerCard);
+        return full;
     }
 
-    private Parent center() {
-        VBox box = new VBox(12);
+    private VBox buildTipCard() {
+        Label tipTitle = new Label("Dica");
+        tipTitle.getStyleClass().add("card-title");
 
-        Label tip = new Label("Dê duplo clique em um dia para abrir o Registro Diário nessa data.");
-        tip.getStyleClass().add("muted");
+        Label tipText = new Label("Dê duplo clique em um dia para abrir o Registro Diário nessa data.");
+        tipText.getStyleClass().add("muted");
+        tipText.setWrapText(true);
 
-        VBox tipCard = new VBox(6, new Label("Dica"), tip);
-        tipCard.getStyleClass().add("card-soft");
+        VBox card = new VBox(8, tipTitle, tipText);
+        card.getStyleClass().add("card-soft");
+        card.setPadding(new Insets(12));
 
-        box.getChildren().addAll(tipCard, table);
-        return box;
+        return card;
     }
 
     private void buildTable() {
@@ -100,29 +121,42 @@ public final class AgendaPage implements Page {
         table.getColumns().setAll(colDate, colTotal, colProfit);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
 
+        // Configure row styling and interactions
         table.setRowFactory(tv -> {
             TableRow<Row> r = new TableRow<>() {
                 @Override protected void updateItem(Row item, boolean empty) {
                     super.updateItem(item, empty);
-                    getStyleClass().removeAll("row-today","row-yesterday","row-empty");
+                    getStyleClass().removeAll("row-today", "row-yesterday", "row-empty");
                     if (empty || item == null) return;
 
-                    if (!item.hasData) getStyleClass().add("row-empty");
-                    if (item.date.equals(LocalDate.now())) getStyleClass().add("row-today");
-                    if (item.date.equals(LocalDate.now().minusDays(1))) getStyleClass().add("row-yesterday");
+                    if (!item.hasData) {
+                        getStyleClass().add("row-empty");
+                    }
+                    if (item.date.equals(LocalDate.now())) {
+                        getStyleClass().add("row-today");
+                    }
+                    if (item.date.equals(LocalDate.now().minusDays(1))) {
+                        getStyleClass().add("row-yesterday");
+                    }
                 }
             };
 
+            // Handle double-click to open daily entry
             r.setOnMouseClicked(e -> {
-                if (e.getClickCount() == 2 && !r.isEmpty()) openDailyAt.accept(r.getItem().date);
+                if (e.getClickCount() == 2 && !r.isEmpty()) {
+                    openDailyAt.accept(r.getItem().date);
+                }
             });
             return r;
         });
 
+        // Handle Enter key to open daily entry
         table.setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ENTER) {
                 Row sel = table.getSelectionModel().getSelectedItem();
-                if (sel != null) openDailyAt.accept(sel.date);
+                if (sel != null) {
+                    openDailyAt.accept(sel.date);
+                }
             }
         });
     }

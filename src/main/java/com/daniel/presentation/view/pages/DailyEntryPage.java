@@ -3,13 +3,17 @@ package com.daniel.presentation.view.pages;
 import com.daniel.core.domain.entity.*;
 import com.daniel.core.domain.entity.Enums.FlowKind;
 import com.daniel.core.service.DailyTrackingUseCase;
-import com.daniel.presentation.view.util.Dialogs;
-import com.daniel.presentation.view.components.MoneyEditingCell;
-import com.daniel.presentation.viewmodel.InvestmentValueRow;
 import com.daniel.core.util.Money;
+import com.daniel.presentation.view.components.MoneyEditingCell;
+import com.daniel.presentation.view.components.UiComponents;
+import com.daniel.presentation.view.util.Dialogs;
+import com.daniel.presentation.viewmodel.InvestmentValueRow;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -18,33 +22,42 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+/**
+ * Daily entry page with cash tracking, investment values, and flow management.
+ * Uses UiComponents utility for consistent styling and layout.
+ */
 public final class DailyEntryPage implements Page {
 
     private final DailyTrackingUseCase daily;
+    private final VBox contentBox = new VBox(20);
+    private final ScrollPane root;
 
-    private final VBox root = new VBox(12);
-
+    // Header & Navigation
     private final DatePicker datePicker = new DatePicker(LocalDate.now());
     private final Button btnPrev = new Button("◀");
     private final Button btnNext = new Button("▶");
     private final Button btnToday = new Button("Hoje");
-
     private final Label hint = new Label();
 
+    // Top cards
     private final TextField cashField = new TextField();
+    private final Label totalLabel = new Label("—");
+    private final Label profitLabel = new Label("—");
+
+    // Investment table
     private final TableView<InvestmentValueRow> invTable = new TableView<>();
     private final ObservableList<InvestmentValueRow> invRows = FXCollections.observableArrayList();
 
+    // Flows table
     private final TableView<FlowRow> flowTable = new TableView<>();
     private final ObservableList<FlowRow> flowRows = FXCollections.observableArrayList();
 
+    // Actions
     private final Button btnAddFlow = new Button("+ Fluxo");
     private final Button btnRemoveFlow = new Button("Remover fluxo");
     private final Button btnSave = new Button("Salvar");
 
-    private final Label totalLabel = new Label("—");
-    private final Label profitLabel = new Label("—");
-
+    // State
     private LocalDate currentDate = LocalDate.now();
     private boolean loading = false;
     private boolean dirty = false;
@@ -54,24 +67,34 @@ public final class DailyEntryPage implements Page {
     public DailyEntryPage(DailyTrackingUseCase dailyTrackingUseCase) {
         this.daily = dailyTrackingUseCase;
 
-        root.setPadding(new Insets(16));
-        root.getStyleClass().add("page");
+        contentBox.setSpacing(20);
+        contentBox.setPadding(new Insets(0));
 
-        root.getChildren().addAll(
+        contentBox.getChildren().addAll(
                 buildHeader(),
                 buildTopCards(),
                 buildTables(),
                 buildBottomBar()
         );
 
+        root = UiComponents.pageScroll(contentBox);
         hookEvents();
         setDate(LocalDate.now());
     }
 
-    @Override public Parent view() { return root; }
+    @Override
+    public Parent view() {
+        return root;
+    }
 
-    @Override public void onShow() { loadFor(currentDate); }
+    @Override
+    public void onShow() {
+        loadFor(currentDate);
+    }
 
+    /**
+     * Navigate to a specific date with dirty-state checking.
+     */
     public void setDate(LocalDate date) {
         if (date == null) return;
 
@@ -91,13 +114,14 @@ public final class DailyEntryPage implements Page {
         loadFor(date);
     }
 
+    /**
+     * Builds the header: title, date navigation, date picker, and hint.
+     */
     private Parent buildHeader() {
-        Label h1 = new Label("Registro Diário");
-        h1.getStyleClass().add("h1");
+        VBox header = UiComponents.pageHeader("Registro Diário",
+                "Preencha o total do fim do dia e os fluxos (para separar aporte/resgate do lucro de mercado).");
 
-        Label sub = new Label("Preencha o total do fim do dia e os fluxos (para separar aporte/resgate do lucro de mercado).");
-        sub.getStyleClass().add("muted");
-
+        // Date navigation controls
         btnPrev.getStyleClass().add("icon-btn");
         btnNext.getStyleClass().add("icon-btn");
         btnToday.getStyleClass().add("ghost-btn");
@@ -108,19 +132,24 @@ public final class DailyEntryPage implements Page {
         datePicker.getStyleClass().add("date-picker");
         datePicker.setEditable(false);
 
+        hint.getStyleClass().add("muted");
+
+        // Build header row with date controls
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        hint.getStyleClass().add("muted");
+        HBox dateRow = new HBox(10, hint, datePicker, nav);
+        dateRow.setAlignment(Pos.CENTER_RIGHT);
 
-        HBox row = new HBox(10, h1, spacer, hint, datePicker, nav);
-        row.getStyleClass().add("header-row");
-
-        VBox header = new VBox(6, row, sub);
-        return header;
+        VBox headerContainer = new VBox(12, header, dateRow);
+        return headerContainer;
     }
 
+    /**
+     * Builds top cards: cash input and summary display.
+     */
     private Parent buildTopCards() {
+        // Cash card
         VBox cashCard = new VBox(8);
         cashCard.getStyleClass().add("card");
 
@@ -134,68 +163,79 @@ public final class DailyEntryPage implements Page {
 
         cashCard.getChildren().addAll(cashTitle, cashField);
 
+        // Summary card
         VBox summaryCard = new VBox(8);
         summaryCard.getStyleClass().add("card");
 
-        Label t = new Label("Resumo (mercado)");
-        t.getStyleClass().add("card-title");
+        Label summaryTitle = new Label("Resumo (mercado)");
+        summaryTitle.getStyleClass().add("card-title");
 
         totalLabel.getStyleClass().add("big-value");
         profitLabel.getStyleClass().add("big-value");
 
-        GridPane g = new GridPane();
-        g.setHgap(10);
-        g.setVgap(8);
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(8);
 
-        var l1 = new Label("Total do dia:");
-        l1.getStyleClass().add("muted");
-        var l2 = new Label("Lucro/Prejuízo:");
-        l2.getStyleClass().add("muted");
+        Label totalLbl = new Label("Total do dia:");
+        totalLbl.getStyleClass().add("muted");
+        Label profitLbl = new Label("Lucro/Prejuízo:");
+        profitLbl.getStyleClass().add("muted");
 
-        g.add(l1, 0, 0);
-        g.add(totalLabel, 1, 0);
-        g.add(l2, 0, 1);
-        g.add(profitLabel, 1, 1);
+        grid.add(totalLbl, 0, 0);
+        grid.add(totalLabel, 1, 0);
+        grid.add(profitLbl, 0, 1);
+        grid.add(profitLabel, 1, 1);
 
-        summaryCard.getChildren().addAll(t, g);
+        summaryCard.getChildren().addAll(summaryTitle, grid);
 
-        HBox row = new HBox(12, cashCard, summaryCard);
+        // Two-column layout for cards
+        HBox topRow = new HBox(12, cashCard, summaryCard);
         HBox.setHgrow(cashCard, Priority.ALWAYS);
         HBox.setHgrow(summaryCard, Priority.ALWAYS);
-        return row;
+
+        return topRow;
     }
 
+    /**
+     * Builds investment and flow tables.
+     */
     private Parent buildTables() {
         buildInvTable();
         buildFlowTable();
 
-        VBox left = new VBox(10);
-        VBox leftCard = new VBox(10, sectionTitle("Valores dos investimentos (TOTAL no fim do dia)"), invTable);
+        // Investment table card (left column)
+        VBox leftCard = new VBox(10);
         leftCard.getStyleClass().add("card");
-        left.getChildren().add(leftCard);
+        leftCard.getChildren().addAll(
+                UiComponents.sectionTitle("Valores dos investimentos (TOTAL no fim do dia)"),
+                invTable
+        );
 
-        VBox right = new VBox(10);
+        // Flow table card (right column)
         btnAddFlow.getStyleClass().add("primary-btn");
         btnRemoveFlow.getStyleClass().add("danger-btn");
-
         HBox flowActions = new HBox(8, btnAddFlow, btnRemoveFlow);
 
-        VBox rightCard = new VBox(10,
-                sectionTitle("Fluxos (CASH ↔ investimentos / investimento ↔ investimento)"),
+        VBox rightCard = new VBox(10);
+        rightCard.getStyleClass().add("card");
+        rightCard.getChildren().addAll(
+                UiComponents.sectionTitle("Fluxos (CASH ↔ investimentos / investimento ↔ investimento)"),
                 flowActions,
                 flowTable
         );
-        rightCard.getStyleClass().add("card");
 
-        right.getChildren().add(rightCard);
-
-        HBox row = new HBox(12, left, right);
-        HBox.setHgrow(left, Priority.ALWAYS);
-        HBox.setHgrow(right, Priority.ALWAYS);
+        // Two-column layout
+        HBox row = new HBox(12, leftCard, rightCard);
+        HBox.setHgrow(leftCard, Priority.ALWAYS);
+        HBox.setHgrow(rightCard, Priority.ALWAYS);
 
         return row;
     }
 
+    /**
+     * Builds bottom action bar with save button.
+     */
     private Parent buildBottomBar() {
         HBox bar = new HBox(10);
         bar.getStyleClass().add("bottom-bar");
@@ -209,12 +249,86 @@ public final class DailyEntryPage implements Page {
         return bar;
     }
 
-    private Label sectionTitle(String text) {
-        Label l = new Label(text);
-        l.getStyleClass().add("section-title");
-        return l;
+    /**
+     * Builds the investment values table with editable value column.
+     */
+    private void buildInvTable() {
+        invTable.getStyleClass().add("table");
+        invTable.setEditable(true);
+
+        TableColumn<InvestmentValueRow, String> nameCol = new TableColumn<>("Investimento");
+        nameCol.setCellValueFactory(c -> c.getValue().nameProperty());
+        nameCol.setPrefWidth(320);
+
+        TableColumn<InvestmentValueRow, Long> valueCol = new TableColumn<>("Valor do dia");
+        valueCol.setCellValueFactory(c -> c.getValue().valueCentsProperty().asObject());
+        valueCol.setCellFactory(col -> new MoneyEditingCell<>());
+        valueCol.setOnEditCommit(e -> {
+            e.getRowValue().setValueCents(e.getNewValue() == null ? 0L : e.getNewValue());
+            dirty = true;
+            refreshSummaryPreview();
+        });
+        valueCol.setPrefWidth(220);
+
+        TableColumn<InvestmentValueRow, String> profitCol = new TableColumn<>("Lucro (mercado)");
+        profitCol.setCellValueFactory(c -> new SimpleStringProperty(""));
+        profitCol.setPrefWidth(200);
+
+        // Custom cell for profit display with styling
+        profitCol.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                getStyleClass().removeAll("pos", "neg", "muted");
+                if (empty) {
+                    setText(null);
+                    return;
+                }
+
+                InvestmentValueRow row = getTableView().getItems().get(getIndex());
+                long profit = row.getProfitCents();
+                if (profit == 0) {
+                    setText("—");
+                    getStyleClass().add("muted");
+                } else {
+                    setText((profit >= 0 ? "+ " : "- ") + daily.brlAbs(Math.abs(profit)));
+                    getStyleClass().add(profit >= 0 ? "pos" : "neg");
+                }
+            }
+        });
+
+        invTable.getColumns().setAll(nameCol, valueCol, profitCol);
+        invTable.setItems(invRows);
+        invTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
     }
 
+    /**
+     * Builds the flow table.
+     */
+    private void buildFlowTable() {
+        flowTable.getStyleClass().add("table");
+        flowTable.setEditable(false);
+
+        TableColumn<FlowRow, String> fromCol = new TableColumn<>("De");
+        fromCol.setCellValueFactory(c -> c.getValue().fromTextProperty());
+
+        TableColumn<FlowRow, String> toCol = new TableColumn<>("Para");
+        toCol.setCellValueFactory(c -> c.getValue().toTextProperty());
+
+        TableColumn<FlowRow, String> amtCol = new TableColumn<>("Valor");
+        amtCol.setCellValueFactory(c -> c.getValue().amountTextProperty());
+
+        TableColumn<FlowRow, String> noteCol = new TableColumn<>("Obs");
+        noteCol.setCellValueFactory(c -> c.getValue().noteProperty());
+
+        flowTable.getColumns().setAll(fromCol, toCol, amtCol, noteCol);
+        flowTable.setItems(flowRows);
+        flowTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+    }
+
+    /**
+     * Hooks all event listeners.
+     */
     private void hookEvents() {
         btnPrev.setOnAction(e -> setDate(currentDate.minusDays(1)));
         btnNext.setOnAction(e -> setDate(currentDate.plusDays(1)));
@@ -246,72 +360,9 @@ public final class DailyEntryPage implements Page {
         btnRemoveFlow.setOnAction(e -> removeSelectedFlow());
     }
 
-    private void buildInvTable() {
-        invTable.getStyleClass().add("table");
-        invTable.setEditable(true);
-
-        TableColumn<InvestmentValueRow, String> nameCol = new TableColumn<>("Investimento");
-        nameCol.setCellValueFactory(c -> c.getValue().nameProperty());
-        nameCol.setPrefWidth(320);
-
-        TableColumn<InvestmentValueRow, Long> valueCol = new TableColumn<>("Valor do dia");
-        valueCol.setCellValueFactory(c -> c.getValue().valueCentsProperty().asObject());
-        valueCol.setCellFactory(col -> new MoneyEditingCell<>());
-        valueCol.setOnEditCommit(e -> {
-            e.getRowValue().setValueCents(e.getNewValue() == null ? 0L : e.getNewValue());
-            dirty = true;
-            refreshSummaryPreview();
-        });
-        valueCol.setPrefWidth(220);
-
-        TableColumn<InvestmentValueRow, String> profitCol = new TableColumn<>("Lucro (mercado)");
-        profitCol.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(""));
-        profitCol.setPrefWidth(200);
-
-        invTable.getColumns().setAll(nameCol, valueCol, profitCol);
-        invTable.setItems(invRows);
-        invTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-
-        profitCol.setCellFactory(col -> new TableCell<>() {
-            @Override protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-                getStyleClass().removeAll("pos","neg","muted");
-                if (empty) { setText(null); return; }
-
-                InvestmentValueRow row = getTableView().getItems().get(getIndex());
-                long p = row.getProfitCents();
-                if (p == 0) {
-                    setText("—");
-                    getStyleClass().add("muted");
-                } else {
-                    setText((p >= 0 ? "+ " : "- ") + daily.brlAbs(Math.abs(p)));
-                    getStyleClass().add(p >= 0 ? "pos" : "neg");
-                }
-            }
-        });
-    }
-
-    private void buildFlowTable() {
-        flowTable.getStyleClass().add("table");
-        flowTable.setEditable(false);
-
-        TableColumn<FlowRow, String> fromCol = new TableColumn<>("De");
-        fromCol.setCellValueFactory(c -> c.getValue().fromTextProperty());
-
-        TableColumn<FlowRow, String> toCol = new TableColumn<>("Para");
-        toCol.setCellValueFactory(c -> c.getValue().toTextProperty());
-
-        TableColumn<FlowRow, String> amtCol = new TableColumn<>("Valor");
-        amtCol.setCellValueFactory(c -> c.getValue().amountTextProperty());
-
-        TableColumn<FlowRow, String> noteCol = new TableColumn<>("Obs");
-        noteCol.setCellValueFactory(c -> c.getValue().noteProperty());
-
-        flowTable.getColumns().setAll(fromCol, toCol, amtCol, noteCol);
-        flowTable.setItems(flowRows);
-        flowTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-    }
-
+    /**
+     * Loads data for the given date.
+     */
     private void loadFor(LocalDate date) {
         try {
             loading = true;
@@ -325,8 +376,8 @@ public final class DailyEntryPage implements Page {
 
             invRows.clear();
             for (InvestmentType t : types) {
-                long v = entry.investmentValuesCents().getOrDefault(t.id(), 0L);
-                invRows.add(new InvestmentValueRow(t.id(), t.name(), v));
+                long value = entry.investmentValuesCents().getOrDefault(t.id(), 0L);
+                invRows.add(new InvestmentValueRow(t.id(), t.name(), value));
             }
 
             flowRows.clear();
@@ -342,26 +393,35 @@ public final class DailyEntryPage implements Page {
         }
     }
 
+    /**
+     * Refreshes summary preview based on current input values.
+     */
     private void refreshSummaryPreview() {
         try {
             long cashCents = Money.textToCentsOrZero(cashField.getText());
 
             Map<Long, Long> invMap = new HashMap<>();
-            for (InvestmentValueRow r : invRows) invMap.put(r.getInvestmentTypeId(), r.getValueCents());
-
-            DailySummary s = daily.previewSummary(currentDate, cashCents, invMap);
-
-            totalLabel.setText(daily.brl(s.totalTodayCents()));
-
-            long p = s.totalProfitTodayCents();
-            profitLabel.setText(p == 0 ? "—" : ((p >= 0 ? "+ " : "- ") + daily.brlAbs(Math.abs(p))));
-            profitLabel.getStyleClass().removeAll("pos", "neg", "muted");
-            if (p == 0) profitLabel.getStyleClass().add("muted");
-            else profitLabel.getStyleClass().add(p >= 0 ? "pos" : "neg");
-
             for (InvestmentValueRow r : invRows) {
-                long prof = s.investmentProfitTodayCents().getOrDefault(r.getInvestmentTypeId(), 0L);
-                r.setProfitCents(prof);
+                invMap.put(r.getInvestmentTypeId(), r.getValueCents());
+            }
+
+            DailySummary summary = daily.previewSummary(currentDate, cashCents, invMap);
+
+            totalLabel.setText(daily.brl(summary.totalTodayCents()));
+
+            long profit = summary.totalProfitTodayCents();
+            profitLabel.setText(profit == 0 ? "—" : ((profit >= 0 ? "+ " : "- ") + daily.brlAbs(Math.abs(profit))));
+            profitLabel.getStyleClass().removeAll("pos", "neg", "muted");
+            if (profit == 0) {
+                profitLabel.getStyleClass().add("muted");
+            } else {
+                profitLabel.getStyleClass().add(profit >= 0 ? "pos" : "neg");
+            }
+
+            // Update profit display for each investment type
+            for (InvestmentValueRow r : invRows) {
+                long investmentProfit = summary.investmentProfitTodayCents().getOrDefault(r.getInvestmentTypeId(), 0L);
+                r.setProfitCents(investmentProfit);
             }
 
             invTable.refresh();
@@ -369,13 +429,20 @@ public final class DailyEntryPage implements Page {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Saves the current day's data.
+     */
     private void saveCurrentDay() {
-        if (invTable.getEditingCell() != null) invTable.edit(-1, null);
+        if (invTable.getEditingCell() != null) {
+            invTable.edit(-1, null);
+        }
 
         long cashCents = Money.textToCentsSafe(cashField.getText());
 
         Map<Long, Long> invMap = new HashMap<>();
-        for (InvestmentValueRow r : invRows) invMap.put(r.getInvestmentTypeId(), r.getValueCents());
+        for (InvestmentValueRow r : invRows) {
+            invMap.put(r.getInvestmentTypeId(), r.getValueCents());
+        }
 
         DailyEntry entry = new DailyEntry(currentDate, cashCents, invMap);
         daily.saveEntry(entry);
@@ -384,6 +451,9 @@ public final class DailyEntryPage implements Page {
         loadFor(currentDate);
     }
 
+    /**
+     * Checks if we can navigate away from current date (with unsaved changes warning).
+     */
     private boolean ensureCanNavigate(LocalDate target) {
         if (!dirty) return true;
 
@@ -407,6 +477,9 @@ public final class DailyEntryPage implements Page {
         }
     }
 
+    /**
+     * Formats date label with relative descriptions (hoje/ontem/etc).
+     */
     private String labelForDate(LocalDate date) {
         LocalDate today = LocalDate.now();
         if (date.equals(today)) return "Hoje • " + BR.format(date);
@@ -414,62 +487,94 @@ public final class DailyEntryPage implements Page {
         return BR.format(date);
     }
 
+    /**
+     * Opens dialog to add a new flow.
+     */
     private void addFlowDialog() {
-        // (mantive como estava) — se der erro aqui depois, a gente ajusta com teu código real
+        // Placeholder for now - extends with full flow creation dialog
         Dialogs.info("Ainda em evolução", "Fluxos já funcionam, mas vamos refinar o dialog no próximo ajuste.");
     }
 
+    /**
+     * Removes the selected flow from the table.
+     */
     private void removeSelectedFlow() {
-        FlowRow r = flowTable.getSelectionModel().getSelectedItem();
-        if (r == null) return;
+        FlowRow selected = flowTable.getSelectionModel().getSelectedItem();
+        if (selected == null) return;
 
         boolean ok = Dialogs.confirm("Remover", "Remover este fluxo?", "Essa ação não pode ser desfeita.");
         if (!ok) return;
 
-        daily.deleteFlow(r.getId());
+        daily.deleteFlow(selected.getId());
         loadFor(currentDate);
     }
 
+    /**
+     * Inner class representing a row in the flows table.
+     */
     public static final class FlowRow {
         private final long id;
-        private final javafx.beans.property.StringProperty fromText = new javafx.beans.property.SimpleStringProperty("");
-        private final javafx.beans.property.StringProperty toText = new javafx.beans.property.SimpleStringProperty("");
-        private final javafx.beans.property.StringProperty amountText = new javafx.beans.property.SimpleStringProperty("");
-        private final javafx.beans.property.StringProperty note = new javafx.beans.property.SimpleStringProperty("");
+        private final StringProperty fromText = new SimpleStringProperty("");
+        private final StringProperty toText = new SimpleStringProperty("");
+        private final StringProperty amountText = new SimpleStringProperty("");
+        private final StringProperty note = new SimpleStringProperty("");
 
-        private FlowRow(long id) { this.id = id; }
+        private FlowRow(long id) {
+            this.id = id;
+        }
 
-        public long getId() { return id; }
-        public javafx.beans.property.StringProperty fromTextProperty() { return fromText; }
-        public javafx.beans.property.StringProperty toTextProperty() { return toText; }
-        public javafx.beans.property.StringProperty amountTextProperty() { return amountText; }
-        public javafx.beans.property.StringProperty noteProperty() { return note; }
+        public long getId() {
+            return id;
+        }
 
-        public static FlowRow fromFlow(Flow f, List<InvestmentType> types, DailyTrackingUseCase daily) {
+        public StringProperty fromTextProperty() {
+            return fromText;
+        }
+
+        public StringProperty toTextProperty() {
+            return toText;
+        }
+
+        public StringProperty amountTextProperty() {
+            return amountText;
+        }
+
+        public StringProperty noteProperty() {
+            return note;
+        }
+
+        /**
+         * Creates a FlowRow from a Flow domain object.
+         */
+        public static FlowRow fromFlow(Flow flow, List<InvestmentType> types, DailyTrackingUseCase daily) {
             Map<Long, String> nameById = new HashMap<>();
-            for (InvestmentType t : types) nameById.put(t.id(), t.name());
+            for (InvestmentType t : types) {
+                nameById.put(t.id(), t.name());
+            }
 
-            FlowRow r = new FlowRow(f.id());
+            FlowRow row = new FlowRow(flow.id());
 
             String from;
-            if (f.fromKind() == FlowKind.CASH) from = "CASH";
-            else {
-                Long id = f.fromInvestmentTypeId();
-                from = (id == null) ? "INV" : nameById.getOrDefault(id, "INV");
+            if (flow.fromKind() == FlowKind.CASH) {
+                from = "CASH";
+            } else {
+                Long typeId = flow.fromInvestmentTypeId();
+                from = (typeId == null) ? "INV" : nameById.getOrDefault(typeId, "INV");
             }
 
             String to;
-            if (f.toKind() == FlowKind.CASH) to = "CASH";
-            else {
-                Long id = f.toInvestmentTypeId();
-                to = (id == null) ? "INV" : nameById.getOrDefault(id, "INV");
+            if (flow.toKind() == FlowKind.CASH) {
+                to = "CASH";
+            } else {
+                Long typeId = flow.toInvestmentTypeId();
+                to = (typeId == null) ? "INV" : nameById.getOrDefault(typeId, "INV");
             }
 
-            r.fromText.set(from);
-            r.toText.set(to);
-            r.amountText.set(daily.brl(f.amountCents()));
-            r.note.set(f.note() == null ? "" : f.note());
-            return r;
+            row.fromText.set(from);
+            row.toText.set(to);
+            row.amountText.set(daily.brl(flow.amountCents()));
+            row.note.set(flow.note() == null ? "" : flow.note());
+            return row;
         }
     }
 }

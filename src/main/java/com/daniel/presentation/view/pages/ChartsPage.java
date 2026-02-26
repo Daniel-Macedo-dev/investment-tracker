@@ -2,12 +2,15 @@ package com.daniel.presentation.view.pages;
 
 import com.daniel.core.domain.entity.InvestmentType;
 import com.daniel.core.service.DailyTrackingUseCase;
+import com.daniel.presentation.view.components.UiComponents;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.chart.*;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.*;
 
@@ -17,7 +20,7 @@ import java.util.ArrayList;
 public final class ChartsPage implements Page {
 
     private final DailyTrackingUseCase daily;
-    private final VBox root = new VBox(12);
+    private final ScrollPane root;
 
     private final ComboBox<InvestmentType> picker = new ComboBox<>();
     private final ComboBox<Integer> range = new ComboBox<>();
@@ -31,42 +34,61 @@ public final class ChartsPage implements Page {
     public ChartsPage(DailyTrackingUseCase dailyTrackingUseCase) {
         this.daily = dailyTrackingUseCase;
 
-        root.setPadding(new Insets(16));
-        root.getStyleClass().add("page");
+        VBox content = new VBox(12);
 
-        Label h1 = new Label("Gráficos");
-        h1.getStyleClass().add("h1");
+        // Header with title and subtitle
+        VBox header = UiComponents.pageHeader(
+                "Gráficos",
+                "Evolução do valor por investimento (janela configurável)."
+        );
+        content.getChildren().add(header);
 
-        Label sub = new Label("Evolução do valor por investimento (janela configurável).");
-        sub.getStyleClass().add("muted");
-
+        // Filters in a soft card
         picker.setItems(FXCollections.observableArrayList(daily.listTypes()));
         picker.setPromptText("Selecione um investimento...");
 
         range.setItems(FXCollections.observableArrayList(30, 60, 90, 180, 365));
         range.setValue(90);
 
-        HBox top = new HBox(10,
+        HBox filterRow = new HBox(12,
                 new Label("Investimento:"), picker,
                 new Label("Janela (dias):"), range
         );
-        top.getStyleClass().add("card");
+        filterRow.setAlignment(Pos.CENTER_LEFT);
 
+        VBox filterCard = new VBox(10, filterRow);
+        filterCard.getStyleClass().add("card-soft");
+        filterCard.setPadding(new Insets(12));
+
+        content.getChildren().add(filterCard);
+
+        // Chart in a big card
         chart.setAnimated(true);
         chart.setLegendVisible(false);
         chart.setCreateSymbols(true);
+        chart.setPrefHeight(400);
 
-        root.getChildren().addAll(h1, sub, top, chart);
+        VBox chartCard = new VBox(chart);
+        chartCard.getStyleClass().add("card");
+        chartCard.setVgrow(chart, Priority.ALWAYS);
 
-        picker.valueProperty().addListener((o,a,b) -> reload());
-        range.valueProperty().addListener((o,a,b) -> reload());
+        content.getChildren().add(chartCard);
+
+        // Wrap in scroll pane
+        root = UiComponents.pageScroll(content);
+
+        // Event listeners
+        picker.valueProperty().addListener((o, a, b) -> reload());
+        range.valueProperty().addListener((o, a, b) -> reload());
     }
 
     @Override public Parent view() { return root; }
 
     @Override public void onShow() {
         picker.setItems(FXCollections.observableArrayList(daily.listTypes()));
-        if (!picker.getItems().isEmpty() && picker.getValue() == null) picker.setValue(picker.getItems().get(0));
+        if (!picker.getItems().isEmpty() && picker.getValue() == null) {
+            picker.setValue(picker.getItems().get(0));
+        }
         reload();
     }
 
@@ -80,7 +102,9 @@ public final class ChartsPage implements Page {
         var points = daily.seriesForInvestment(t.id());
         int days = range.getValue() == null ? 90 : range.getValue();
 
-        if (points.size() > days) points = new ArrayList<>(points.subList(points.size() - days, points.size()));
+        if (points.size() > days) {
+            points = new ArrayList<>(points.subList(points.size() - days, points.size()));
+        }
 
         XYChart.Series<String, Number> s = new XYChart.Series<>();
         for (var p : points) {
@@ -90,9 +114,12 @@ public final class ChartsPage implements Page {
 
         chart.getData().setAll(s);
 
+        // Install tooltips on data points
         for (var d : s.getData()) {
             d.nodeProperty().addListener((obs, oldN, n) -> {
-                if (n != null) Tooltip.install(n, new Tooltip("R$ " + d.getYValue()));
+                if (n != null) {
+                    Tooltip.install(n, new Tooltip("R$ " + d.getYValue()));
+                }
             });
         }
     }
