@@ -28,8 +28,7 @@ public final class UiComponents {
         ScrollPane sp = new ScrollPane(content);
         sp.setFitToWidth(true);
         sp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        sp.getStyleClass().addAll("scroll-pane", "page");
-        sp.setStyle("-fx-background-color: transparent;");
+        sp.getStyleClass().addAll("scroll-pane", "page", "transparent-bg");
         return sp;
     }
 
@@ -76,7 +75,7 @@ public final class UiComponents {
      */
     public static VBox kpiCard(String iconChar, String iconBoxClass, String labelText, Label valueLabel) {
         Label icon = new Label(iconChar);
-        icon.setStyle("-fx-font-size: 16px; -fx-text-fill: #F5F7FB;");
+        icon.getStyleClass().add("kpi-icon");
 
         StackPane iconBox = new StackPane(icon);
         iconBox.getStyleClass().add(iconBoxClass);

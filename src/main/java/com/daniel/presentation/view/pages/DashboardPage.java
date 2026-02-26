@@ -157,7 +157,7 @@ public final class DashboardPage implements Page {
 
             // Right content: profit
             Label profitText = new Label(formatProfit(investmentProfit));
-            profitText.setStyle("-fx-font-weight: bold;");
+            profitText.getStyleClass().add("font-bold");
             UiComponents.styleProfitLabel(profitText, investmentProfit);
 
             // Create list item row
