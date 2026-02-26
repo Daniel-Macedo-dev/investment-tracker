@@ -17,6 +17,8 @@ import javafx.scene.shape.Circle;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 
 public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.InvestmentTypeData> {
@@ -55,6 +57,9 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
     private final TextField purchasePriceField = new TextField();
     private final TextField quantityField = new TextField();
 
+    // ✅ ADICIONAR: Timer para debounce
+    private Timer debounceTimer;
+
     private final boolean isEdit;
 
     public InvestmentTypeDialog(String title, InvestmentTypeData existing) {
@@ -90,17 +95,36 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
 
         categoryCombo.valueProperty().addListener((o, a, b) -> updateRentabilityVisibility());
 
-        purchasePriceField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
-            if (!isNowFocused) {
-                updateInvestedValueForStock();
+        // ✅ SUBSTITUIR: Listeners com debounce para auto-preenchimento
+        purchasePriceField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (debounceTimer != null) {
+                debounceTimer.cancel();
             }
+            debounceTimer = new Timer();
+            debounceTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    Platform.runLater(() -> updateInvestedValueForStock());
+                }
+            }, 500);
         });
 
-        quantityField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
-            if (!isNowFocused) {
-                updateInvestedValueForStock();
+        quantityField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (debounceTimer != null) {
+                debounceTimer.cancel();
             }
+            debounceTimer = new Timer();
+            debounceTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    Platform.runLater(() -> updateInvestedValueForStock());
+                }
+            }, 500);
         });
+
+        // Também calcular ao pressionar Enter
+        purchasePriceField.setOnAction(e -> updateInvestedValueForStock());
+        quantityField.setOnAction(e -> updateInvestedValueForStock());
 
         tickerField.textProperty().addListener((obs, old, newVal) -> {
             if (newVal != null && newVal.length() >= 4) {
@@ -236,17 +260,15 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         purchaseLabel.setStyle("-fx-font-weight: bold;");
         purchasePriceField.setPromptText("R$ 35,50");
         purchasePriceField.setTextFormatter(Money.currencyFormatterEditable());
-        purchasePriceField.setOnAction(e -> updateInvestedValueForStock());
 
         Label qtyLabel = new Label("Quantidade");
         qtyLabel.setStyle("-fx-font-weight: bold;");
         quantityField.setPromptText("100");
-        quantityField.setOnAction(e -> updateInvestedValueForStock());
 
         Label valueLabel = new Label("Valor Investido *");
         valueLabel.setStyle("-fx-font-weight: bold;");
         investedValueField.setPromptText("R$ 0,00");
-        investedValueField.setTextFormatter(Money.currencyFormatterEditable());
+        //investedValueField.setTextFormatter(Money.currencyFormatterEditable());
         Money.applyFormatOnBlur(investedValueField);
 
         Label valueHint = new Label("💡 Para ações/FIIs, preenchido automaticamente (Preço × Quantidade)");
@@ -367,62 +389,40 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
     }
 
     private void updateInvestedValueForStock() {
+        String priceText = purchasePriceField.getText();
+        String qtyText = quantityField.getText();
+
+        if (priceText == null || priceText.isBlank() || priceText.equals("R$ 0,00")) {
+            return;
+        }
+
+        if (qtyText == null || qtyText.isBlank() || qtyText.equals("0")) {
+            return;
+        }
+
+        long priceCents = Money.textToCentsOrZero(priceText);
+        if (priceCents == 0) {
+            return;
+        }
+
+        String cleanQty = qtyText.trim().replaceAll("[^0-9]", "");
+        if (cleanQty.isEmpty()) {
+            return;
+        }
+
+        int quantity = Integer.parseInt(cleanQty);
+        if (quantity == 0) {
+            return;
+        }
+
+        long totalCents = priceCents * quantity;
+        double totalValue = totalCents / 100.0;
+        String formatted = String.format("%.2f", totalValue).replace('.', ',');
+
+        investedValueField.clear();
         Platform.runLater(() -> {
-            try {
-                String priceText = purchasePriceField.getText();
-                String qtyText = quantityField.getText();
-
-                // Debug
-                System.out.println("🔍 Tentando calcular: preço='" + priceText + "' qty='" + qtyText + "'");
-
-                // Validações básicas
-                if (priceText == null || priceText.isBlank() || priceText.equals("R$ 0,00")) {
-                    System.out.println("⚠️ Preço vazio ou zero");
-                    return;
-                }
-
-                if (qtyText == null || qtyText.isBlank() || qtyText.equals("0")) {
-                    System.out.println("⚠️ Quantidade vazia ou zero");
-                    return;
-                }
-
-                // Converter preço (remover formatação)
-                long priceCents = Money.textToCentsOrZero(priceText);
-                if (priceCents == 0) {
-                    System.out.println("⚠️ Preço convertido = 0");
-                    return;
-                }
-
-                // Converter quantidade (remover formatação)
-                String cleanQty = qtyText.trim().replaceAll("[^0-9]", "");
-                if (cleanQty.isEmpty()) {
-                    System.out.println("⚠️ Quantidade inválida após limpeza");
-                    return;
-                }
-
-                int quantity = Integer.parseInt(cleanQty);
-                if (quantity == 0) {
-                    System.out.println("⚠️ Quantidade = 0");
-                    return;
-                }
-
-                // Calcular total
-                long totalCents = priceCents * quantity;
-
-                // Formatar e atualizar campo
-                String formatted = Money.centsToText(totalCents);
-                investedValueField.setText(formatted);
-
-                System.out.println("✅ SUCESSO! Preço: R$" + (priceCents/100.0) +
-                        " × Qtd: " + quantity +
-                        " = " + formatted);
-
-            } catch (NumberFormatException e) {
-                System.err.println("❌ Erro ao converter número: " + e.getMessage());
-            } catch (Exception e) {
-                System.err.println("❌ Erro inesperado: " + e.getMessage());
-                e.printStackTrace();
-            }
+            investedValueField.setText(formatted);
+            investedValueField.positionCaret(formatted.length());
         });
     }
 
@@ -560,7 +560,7 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
             profitability = new BigDecimal(profitabilityField.getText().replace(",", "."));
         }
 
-        long cents = Money.textToCentsSafe(investedValueField.getText());
+        long cents = Money.textToCentsOrZero(investedValueField.getText());
         BigDecimal investedValue = BigDecimal.valueOf(cents).divide(BigDecimal.valueOf(100));
 
         String typeOfInv = typeCombo.getValue() != null ? typeCombo.getValue().name() : null;
@@ -571,17 +571,20 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
             indexPerc = new BigDecimal(indexPercentageField.getText().replace(",", "."));
         }
 
-        String ticker = tickerField.getText().isBlank() ? null : tickerField.getText().trim();
+        String ticker = tickerField.getText().isBlank() ? null : tickerField.getText().trim().toUpperCase();
 
         BigDecimal purchasePrice = null;
         if (!purchasePriceField.getText().isBlank()) {
-            long priceCents = Money.textToCentsSafe(purchasePriceField.getText());
+            long priceCents = Money.textToCentsOrZero(purchasePriceField.getText());
             purchasePrice = BigDecimal.valueOf(priceCents).divide(BigDecimal.valueOf(100));
         }
 
         Integer quantity = null;
         if (!quantityField.getText().isBlank()) {
-            quantity = Integer.parseInt(quantityField.getText());
+            String cleanQty = quantityField.getText().trim().replaceAll("[^0-9]", "");
+            if (!cleanQty.isEmpty()) {
+                quantity = Integer.parseInt(cleanQty);
+            }
         }
 
         return new InvestmentTypeData(
