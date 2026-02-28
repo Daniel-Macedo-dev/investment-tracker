@@ -3,6 +3,7 @@ package com.daniel.presentation.view.pages;
 import com.daniel.core.domain.entity.Enums.InvestmentTypeEnum;
 import com.daniel.core.service.InvestmentCalculator;
 import com.daniel.core.util.Money;
+import com.daniel.infrastructure.api.BcbClient;
 import com.daniel.infrastructure.api.BrapiClient;
 
 import javafx.application.Platform;
@@ -12,6 +13,8 @@ import javafx.scene.chart.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
 
 public final class SimulationPage implements Page {
@@ -52,6 +55,12 @@ public final class SimulationPage implements Page {
     private final Label resultLabel = new Label("—");
     private final LineChart<Number, Number> projectionChart;
 
+    private final Label ratesStatusLabel = new Label();
+
+    private double rateCdi = 0.135;
+    private double rateSelic = 0.15;
+    private double rateIpca = 0.045;
+
     private InvestmentTypeEnum currentType = InvestmentTypeEnum.PREFIXADO;
 
     public SimulationPage() {
@@ -87,7 +96,40 @@ public final class SimulationPage implements Page {
     }
 
     @Override
-    public void onShow() {}
+    public void onShow() {
+        fetchRealRates();
+    }
+
+    private void fetchRealRates() {
+        ratesStatusLabel.setText("Buscando taxas...");
+        ratesStatusLabel.setStyle("-fx-font-size: 11px; -fx-opacity: 0.7;");
+
+        CompletableFuture.supplyAsync(() -> {
+            var cdi = BcbClient.fetchCdi();
+            var selic = BcbClient.fetchSelic();
+            var ipca = BcbClient.fetchIpca();
+            return new double[]{
+                    cdi.orElse(-1.0), selic.orElse(-1.0), ipca.orElse(-1.0)
+            };
+        }).thenAcceptAsync(rates -> Platform.runLater(() -> {
+            boolean anyFailed = false;
+
+            if (rates[0] > 0) { rateCdi = rates[0]; } else { anyFailed = true; }
+            if (rates[1] > 0) { rateSelic = rates[1]; } else { anyFailed = true; }
+            if (rates[2] > 0) { rateIpca = rates[2]; } else { anyFailed = true; }
+
+            if (anyFailed) {
+                ratesStatusLabel.setText("Algumas taxas usando valor estimado");
+                ratesStatusLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #f59e0b;");
+            } else {
+                String time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
+                ratesStatusLabel.setText(String.format(
+                        "Taxas atualizadas em %s — CDI: %.2f%% | SELIC: %.2f%% | IPCA: %.2f%%",
+                        time, rateCdi * 100, rateSelic * 100, rateIpca * 100));
+                ratesStatusLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #22c55e;");
+            }
+        }));
+    }
 
     private HBox buildTypeSelector() {
         HBox box = new HBox(10);
@@ -237,7 +279,7 @@ public final class SimulationPage implements Page {
                 monthsLabel, monthsCombo,
                 modeLabel, rentabilityModeCombo,
                 fixedLabel, fixedRateField,
-                benchmarkLabel, benchmarkCombo,
+                benchmarkLabel, benchmarkCombo, ratesStatusLabel,
                 benchmarkPercentLabel, benchmarkPercentField,
                 hybridLabel, hybridFixedField,
                 indexLabel, indexRateField,
@@ -431,9 +473,9 @@ public final class SimulationPage implements Page {
 
     private double getBenchmarkRate(String benchmark) {
         return switch (benchmark) {
-            case "CDI" -> 0.135;
-            case "SELIC" -> 0.15;
-            case "IPCA" -> 0.045;
+            case "CDI" -> rateCdi;
+            case "SELIC" -> rateSelic;
+            case "IPCA" -> rateIpca;
             default -> 0.10;
         };
     }

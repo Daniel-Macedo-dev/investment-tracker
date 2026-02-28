@@ -43,24 +43,44 @@ public final class InvestmentTypeRepository implements IInvestmentTypeRepository
         }
     }
 
-    public void createFull(String name, String category, String liquidity,
-                           LocalDate investmentDate, BigDecimal profitability,
-                           BigDecimal investedValue) {
+    public int createFull(String name, String category, String liquidity,
+                          LocalDate investmentDate, BigDecimal profitability,
+                          BigDecimal investedValue, String typeOfInvestment,
+                          String indexType, BigDecimal indexPercentage,
+                          String ticker, BigDecimal purchasePrice, Integer quantity) {
         String sql = """
-            INSERT INTO investment_type 
-            (name, category, liquidity, investment_date, profitability, invested_value) 
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO investment_type
+            (name, category, liquidity, investment_date, profitability, invested_value,
+             type_of_investment, index_type, index_percentage, ticker, purchase_price, quantity)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
         try (Connection conn = Database.open();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, name);
             ps.setString(2, category);
             ps.setString(3, liquidity);
             ps.setString(4, investmentDate != null ? investmentDate.toString() : null);
             ps.setBigDecimal(5, profitability);
             ps.setBigDecimal(6, investedValue);
+            ps.setString(7, typeOfInvestment);
+            ps.setString(8, indexType);
+            ps.setBigDecimal(9, indexPercentage);
+            ps.setString(10, ticker);
+            ps.setBigDecimal(11, purchasePrice);
+            if (quantity != null) {
+                ps.setInt(12, quantity);
+            } else {
+                ps.setNull(12, Types.INTEGER);
+            }
             ps.executeUpdate();
+
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) {
+                    return keys.getInt(1);
+                }
+            }
+            return -1;
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao criar tipo: " + e.getMessage(), e);
         }
@@ -68,11 +88,15 @@ public final class InvestmentTypeRepository implements IInvestmentTypeRepository
 
     public void updateFull(int id, String name, String category, String liquidity,
                            LocalDate investmentDate, BigDecimal profitability,
-                           BigDecimal investedValue) {
+                           BigDecimal investedValue, String typeOfInvestment,
+                           String indexType, BigDecimal indexPercentage,
+                           String ticker, BigDecimal purchasePrice, Integer quantity) {
         String sql = """
-            UPDATE investment_type 
-            SET name = ?, category = ?, liquidity = ?, 
-                investment_date = ?, profitability = ?, invested_value = ? 
+            UPDATE investment_type
+            SET name = ?, category = ?, liquidity = ?,
+                investment_date = ?, profitability = ?, invested_value = ?,
+                type_of_investment = ?, index_type = ?, index_percentage = ?,
+                ticker = ?, purchase_price = ?, quantity = ?
             WHERE id = ?
             """;
 
@@ -84,7 +108,17 @@ public final class InvestmentTypeRepository implements IInvestmentTypeRepository
             ps.setString(4, investmentDate != null ? investmentDate.toString() : null);
             ps.setBigDecimal(5, profitability);
             ps.setBigDecimal(6, investedValue);
-            ps.setInt(7, id);
+            ps.setString(7, typeOfInvestment);
+            ps.setString(8, indexType);
+            ps.setBigDecimal(9, indexPercentage);
+            ps.setString(10, ticker);
+            ps.setBigDecimal(11, purchasePrice);
+            if (quantity != null) {
+                ps.setInt(12, quantity);
+            } else {
+                ps.setNull(12, Types.INTEGER);
+            }
+            ps.setInt(13, id);
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao atualizar: " + e.getMessage(), e);
@@ -131,7 +165,17 @@ public final class InvestmentTypeRepository implements IInvestmentTypeRepository
         BigDecimal profitability = rs.getBigDecimal("profitability");
         BigDecimal investedValue = rs.getBigDecimal("invested_value");
 
+        String typeOfInvestment = rs.getString("type_of_investment");
+        String indexType = rs.getString("index_type");
+        BigDecimal indexPercentage = rs.getBigDecimal("index_percentage");
+        String ticker = rs.getString("ticker");
+        BigDecimal purchasePrice = rs.getBigDecimal("purchase_price");
+        int rawQty = rs.getInt("quantity");
+        Integer quantity = rs.wasNull() ? null : rawQty;
+
         return new InvestmentType(id, name, category, liquidity,
-                investmentDate, profitability, investedValue);
+                investmentDate, profitability, investedValue,
+                typeOfInvestment, indexType, indexPercentage,
+                ticker, purchasePrice, quantity, null);
     }
 }

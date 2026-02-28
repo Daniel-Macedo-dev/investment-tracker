@@ -18,16 +18,19 @@ public final class DailyTrackingUseCase {
     private final IFlowRepository flowRepo;
     private final IInvestmentTypeRepository typeRepo;
     private final ISnapshotRepository snapshotRepo;
+    private final ITransactionRepository txRepo;
 
     private static final NumberFormat BRL = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
 
     public DailyTrackingUseCase(
             IFlowRepository flowRepo,
             IInvestmentTypeRepository typeRepo,
-            ISnapshotRepository snapshotRepo) {
+            ISnapshotRepository snapshotRepo,
+            ITransactionRepository txRepo) {
         this.flowRepo = flowRepo;
         this.typeRepo = typeRepo;
         this.snapshotRepo = snapshotRepo;
+        this.txRepo = txRepo;
     }
 
     // ========== INVESTMENT TYPES ==========
@@ -48,12 +51,15 @@ public final class DailyTrackingUseCase {
         typeRepo.delete(id);
     }
 
-    public void createTypeFull(String name, String category, String liquidity,
-                               LocalDate investmentDate, BigDecimal profitability,
-                               BigDecimal investedValue) {
+    public int createTypeFull(String name, String category, String liquidity,
+                              LocalDate investmentDate, BigDecimal profitability,
+                              BigDecimal investedValue, String typeOfInvestment,
+                              String indexType, BigDecimal indexPercentage,
+                              String ticker, BigDecimal purchasePrice, Integer quantity) {
         if (typeRepo instanceof InvestmentTypeRepository repo) {
-            repo.createFull(name, category, liquidity, investmentDate,
-                    profitability, investedValue);
+            return repo.createFull(name, category, liquidity, investmentDate,
+                    profitability, investedValue, typeOfInvestment,
+                    indexType, indexPercentage, ticker, purchasePrice, quantity);
         } else {
             throw new UnsupportedOperationException("Repository não suporta createFull");
         }
@@ -61,12 +67,62 @@ public final class DailyTrackingUseCase {
 
     public void updateTypeFull(int id, String name, String category, String liquidity,
                                LocalDate investmentDate, BigDecimal profitability,
-                               BigDecimal investedValue) {
+                               BigDecimal investedValue, String typeOfInvestment,
+                               String indexType, BigDecimal indexPercentage,
+                               String ticker, BigDecimal purchasePrice, Integer quantity) {
         if (typeRepo instanceof InvestmentTypeRepository repo) {
             repo.updateFull(id, name, category, liquidity, investmentDate,
-                    profitability, investedValue);
+                    profitability, investedValue, typeOfInvestment,
+                    indexType, indexPercentage, ticker, purchasePrice, quantity);
         } else {
             throw new UnsupportedOperationException("Repository não suporta updateFull");
+        }
+    }
+
+    // ========== TRANSAÇÕES (COMPRA/VENDA) ==========
+
+    public void recordBuy(int investmentTypeId, String name, String ticker,
+                          Integer quantity, Long unitPriceCents, long totalCents,
+                          LocalDate date) {
+        Transaction tx = new Transaction(0, date, investmentTypeId,
+                Transaction.BUY, name, ticker, quantity, unitPriceCents, totalCents, null);
+        txRepo.insert(tx);
+    }
+
+    public void recordSell(int investmentTypeId, String name, String ticker,
+                           Integer quantity, Long unitPriceCents, long totalCents,
+                           LocalDate date, String note) {
+        Transaction tx = new Transaction(0, date, investmentTypeId,
+                Transaction.SELL, name, ticker, quantity, unitPriceCents, totalCents, note);
+        txRepo.insert(tx);
+    }
+
+    public List<Transaction> listTransactions(java.time.YearMonth month) {
+        LocalDate start = month.atDay(1);
+        LocalDate end = month.atEndOfMonth();
+        return txRepo.listBetween(start, end);
+    }
+
+    // ========== SNAPSHOT AUTOMÁTICO ==========
+
+    public void takeSnapshotIfNeeded(LocalDate date) {
+        Map<Long, Long> existing = snapshotRepo.getAllInvestimentsForDate(date);
+        if (!existing.isEmpty()) {
+            return;
+        }
+
+        List<InvestmentType> all = typeRepo.listAll();
+        if (all.isEmpty()) {
+            return;
+        }
+
+        if (snapshotRepo instanceof SnapshotRepository snapRepo) {
+            for (InvestmentType inv : all) {
+                long valueCents = getCurrentValue(inv, date);
+                if (valueCents > 0) {
+                    snapRepo.upsertInvestment(date, inv.id(), valueCents, null);
+                }
+            }
         }
     }
 

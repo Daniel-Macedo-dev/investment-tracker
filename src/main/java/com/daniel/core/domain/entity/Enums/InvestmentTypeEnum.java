@@ -4,5 +4,6 @@ public enum InvestmentTypeEnum {
     PREFIXADO,
     POS_FIXADO,
     HIBRIDO,
-    ACAO
+    ACAO,
+    FUNDO
 }

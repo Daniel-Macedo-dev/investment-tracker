@@ -1,8 +1,6 @@
 package com.daniel.presentation.view.pages;
 
-import com.daniel.core.domain.entity.Flow;
-import com.daniel.core.domain.entity.Enums.FlowKind;
-import com.daniel.core.domain.entity.InvestmentType;
+import com.daniel.core.domain.entity.Transaction;
 import com.daniel.core.service.DailyTrackingUseCase;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -26,10 +24,9 @@ public final class ReportsPage implements Page {
     private final Button btnCurrentMonth = new Button("Mês Atual");
     private final Label monthLabel = new Label();
 
-    private final Label saldoInicialLabel = new Label("—");
-    private final Label saldoFinalLabel = new Label("—");
-    private final Label totalAportesLabel = new Label("—");
-    private final Label totalSaquesLabel = new Label("—");
+    private final Label totalComprasLabel = new Label("—");
+    private final Label totalVendasLabel = new Label("—");
+    private final Label lucroRealizadoLabel = new Label("—");
 
     private final TableView<ExtractRow> table = new TableView<>();
 
@@ -99,10 +96,9 @@ public final class ReportsPage implements Page {
         // Cards de resumo
         HBox cards = new HBox(12);
         cards.getChildren().addAll(
-                card("Saldo Inicial", saldoInicialLabel),
-                card("Total Aportes", totalAportesLabel),
-                card("Total Saques", totalSaquesLabel),
-                card("Saldo Final", saldoFinalLabel)
+                card("Total Compras", totalComprasLabel),
+                card("Total Vendas", totalVendasLabel),
+                card("Lucro Realizado", lucroRealizadoLabel)
         );
 
         box.getChildren().addAll(cards, table);
@@ -163,87 +159,54 @@ public final class ReportsPage implements Page {
     private void reload() {
         monthLabel.setText(currentMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy", new Locale("pt", "BR"))));
 
-        LocalDate start = currentMonth.atDay(1);
-        LocalDate end = currentMonth.atEndOfMonth();
+        List<Transaction> transactions = daily.listTransactions(currentMonth);
 
-        // Buscar saldo inicial (último dia do mês anterior)
-        LocalDate prevMonthEnd = start.minusDays(1);
-        long saldoInicial = 0;
-        if (daily.hasAnyDataPublic(prevMonthEnd)) {
-            var prevSummary = daily.summaryFor(prevMonthEnd);
-            saldoInicial = prevSummary.totalTodayCents();
-        }
-
-        // Buscar saldo final (último dia do mês atual)
-        long saldoFinal = 0;
-        if (daily.hasAnyDataPublic(end)) {
-            var endSummary = daily.summaryFor(end);
-            saldoFinal = endSummary.totalTodayCents();
-        }
-
-        // Coletar todos os fluxos do mês
         List<ExtractRow> rows = new ArrayList<>();
-        long totalAportes = 0;
-        long totalSaques = 0;
+        long totalCompras = 0;
+        long totalVendas = 0;
 
-        Map<Long, String> investmentNames = new HashMap<>();
-        for (InvestmentType inv : daily.listTypes()) {
-            investmentNames.put((long) inv.id(), inv.name());
-        }
+        for (Transaction tx : transactions) {
+            boolean isBuy = Transaction.BUY.equals(tx.type());
+            String type = isBuy ? "Compra" : "Venda";
 
-        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
-            List<Flow> flows = daily.flowsFor(date);
-
-            for (Flow flow : flows) {
-                String type;
-                String desc;
-                String value;
-
-                // Determinar tipo e descrição
-                if (flow.fromKind() == FlowKind.CASH && flow.toKind() == FlowKind.INVESTMENT) {
-                    type = "Aporte";
-                    String invName = investmentNames.getOrDefault(flow.toInvestmentTypeId(), "Investimento");
-                    desc = "Aporte em " + invName;
-                    value = "+ " + daily.brl(flow.amountCents());
-                    totalAportes += flow.amountCents();
-
-                } else if (flow.fromKind() == FlowKind.INVESTMENT && flow.toKind() == FlowKind.CASH) {
-                    type = "Saque";
-                    String invName = investmentNames.getOrDefault(flow.fromInvestmentTypeId(), "Investimento");
-                    desc = "Saque de " + invName;
-                    value = "- " + daily.brl(flow.amountCents());
-                    totalSaques += flow.amountCents();
-
-                } else if (flow.fromKind() == FlowKind.INVESTMENT && flow.toKind() == FlowKind.INVESTMENT) {
-                    type = "Transferência";
-                    String fromName = investmentNames.getOrDefault(flow.fromInvestmentTypeId(), "Investimento");
-                    String toName = investmentNames.getOrDefault(flow.toInvestmentTypeId(), "Investimento");
-                    desc = "De " + fromName + " para " + toName;
-                    value = daily.brl(flow.amountCents());
-                } else {
-                    type = "Outro";
-                    desc = flow.note() != null ? flow.note() : "—";
-                    value = daily.brl(flow.amountCents());
-                }
-
-                rows.add(new ExtractRow(date, type, desc, value));
+            StringBuilder desc = new StringBuilder();
+            desc.append(type).append(" de ").append(tx.name());
+            if (tx.ticker() != null) {
+                desc.append(" (").append(tx.ticker()).append(")");
             }
+            if (tx.quantity() != null && tx.unitPriceCents() != null) {
+                desc.append(" — ").append(tx.quantity()).append(" x ").append(daily.brl(tx.unitPriceCents()));
+            }
+            if (tx.note() != null) {
+                desc.append(" | ").append(tx.note());
+            }
+
+            String value;
+            if (isBuy) {
+                value = "- " + daily.brl(tx.totalCents());
+                totalCompras += tx.totalCents();
+            } else {
+                value = "+ " + daily.brl(tx.totalCents());
+                totalVendas += tx.totalCents();
+            }
+
+            rows.add(new ExtractRow(tx.date(), type, desc.toString(), value));
         }
 
-        // Ordenar por data (mais recente primeiro)
-        rows.sort((a, b) -> b.date.compareTo(a.date));
-
-        // Atualizar tabela
         table.setItems(FXCollections.observableArrayList(rows));
 
-        // Atualizar cards
-        saldoInicialLabel.setText(daily.brl(saldoInicial));
-        saldoFinalLabel.setText(daily.brl(saldoFinal));
-        totalAportesLabel.setText("+ " + daily.brl(totalAportes));
-        totalSaquesLabel.setText("- " + daily.brl(totalSaques));
+        totalComprasLabel.setText("- " + daily.brl(totalCompras));
+        totalVendasLabel.setText("+ " + daily.brl(totalVendas));
 
-        totalAportesLabel.getStyleClass().add("pos");
-        totalSaquesLabel.getStyleClass().add("neg");
+        long lucro = totalVendas - totalCompras;
+        lucroRealizadoLabel.setText((lucro >= 0 ? "+ " : "- ") + daily.brl(Math.abs(lucro)));
+
+        totalComprasLabel.getStyleClass().removeAll("pos", "neg");
+        totalComprasLabel.getStyleClass().add("neg");
+        totalVendasLabel.getStyleClass().removeAll("pos", "neg");
+        totalVendasLabel.getStyleClass().add("pos");
+        lucroRealizadoLabel.getStyleClass().removeAll("pos", "neg");
+        lucroRealizadoLabel.getStyleClass().add(lucro >= 0 ? "pos" : "neg");
     }
 
     private record ExtractRow(

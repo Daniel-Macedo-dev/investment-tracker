@@ -35,6 +35,8 @@ public class App extends Application {
         stage.setTitle("Investment Tracker");
         stage.setScene(scene);
         stage.show();
+
+        dailyTrackingUseCase.takeSnapshotIfNeeded(java.time.LocalDate.now());
     }
 
     @Override

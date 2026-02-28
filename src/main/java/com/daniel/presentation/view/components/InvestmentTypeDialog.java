@@ -93,7 +93,10 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
             updateTypeVisibility();
         });
 
-        categoryCombo.valueProperty().addListener((o, a, b) -> updateRentabilityVisibility());
+        categoryCombo.valueProperty().addListener((o, a, b) -> {
+            updateRentabilityVisibility();
+            updateTypeComboItems();
+        });
 
         // ✅ SUBSTITUIR: Listeners com debounce para auto-preenchimento
         purchasePriceField.textProperty().addListener((obs, oldVal, newVal) -> {
@@ -198,7 +201,21 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         Label typeLabel = new Label("Tipo de Investimento");
         typeLabel.setStyle("-fx-font-weight: bold;");
         typeCombo.getItems().addAll(InvestmentTypeEnum.values());
-        typeCombo.setPromptText("Opcional");
+        typeCombo.setPromptText("Selecione o tipo");
+        typeCombo.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(InvestmentTypeEnum item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : typeDisplayName(item));
+            }
+        });
+        typeCombo.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(InvestmentTypeEnum item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : typeDisplayName(item));
+            }
+        });
 
         Label indexLabel = new Label("Índice");
         indexLabel.setStyle("-fx-font-weight: bold;");
@@ -324,6 +341,9 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
                 quantityField.setVisible(true);
                 quantityField.setManaged(true);
             }
+            case FUNDO -> {
+                // Fundo: only invested value (already always visible), no ticker required
+            }
         }
     }
 
@@ -352,6 +372,40 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         } else {
             updateRentabilityModeInputs();
         }
+    }
+
+    private void updateTypeComboItems() {
+        CategoryEnum cat = categoryCombo.getValue();
+        InvestmentTypeEnum previousSelection = typeCombo.getValue();
+        typeCombo.getItems().clear();
+
+        if (cat == null) {
+            typeCombo.getItems().addAll(InvestmentTypeEnum.values());
+        } else {
+            switch (cat) {
+                case RENDA_FIXA, PREVIDENCIA -> typeCombo.getItems().addAll(
+                        InvestmentTypeEnum.PREFIXADO, InvestmentTypeEnum.POS_FIXADO, InvestmentTypeEnum.HIBRIDO);
+                case ACOES, FUNDOS_IMOBILIARIOS, CRIPTOMOEDAS -> typeCombo.getItems().add(InvestmentTypeEnum.ACAO);
+                case FUNDOS -> typeCombo.getItems().add(InvestmentTypeEnum.FUNDO);
+                case OUTROS -> typeCombo.getItems().addAll(InvestmentTypeEnum.values());
+            }
+        }
+
+        if (previousSelection != null && typeCombo.getItems().contains(previousSelection)) {
+            typeCombo.setValue(previousSelection);
+        } else if (typeCombo.getItems().size() == 1) {
+            typeCombo.setValue(typeCombo.getItems().get(0));
+        }
+    }
+
+    private String typeDisplayName(InvestmentTypeEnum type) {
+        return switch (type) {
+            case PREFIXADO -> "Prefixado";
+            case POS_FIXADO -> "Pós-Fixado";
+            case HIBRIDO -> "Híbrido";
+            case ACAO -> "Ação";
+            case FUNDO -> "Fundo de Investimento";
+        };
     }
 
     private void updateRentabilityModeInputs() {

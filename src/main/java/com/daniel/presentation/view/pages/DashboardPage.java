@@ -5,15 +5,16 @@ import com.daniel.core.domain.entity.Enums.CategoryEnum;
 import com.daniel.core.service.DailyTrackingUseCase;
 import com.daniel.core.service.DiversificationCalculator;
 import com.daniel.core.service.DiversificationCalculator.*;
+import com.daniel.infrastructure.api.BcbClient;
+import com.daniel.infrastructure.api.BrapiClient;
 
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
 import javafx.scene.Parent;
 import javafx.scene.chart.*;
-import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Separator;
+import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
@@ -21,6 +22,7 @@ import javafx.scene.shape.Circle;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 public final class DashboardPage implements Page {
 
@@ -38,6 +40,22 @@ public final class DashboardPage implements Page {
     private final LineChart<Number, Number> comparisonChart;
 
     private final VBox investmentsByCategoryContainer = new VBox(16);
+    private final VBox rankPanel = new VBox(8);
+
+    private double rateCdi = 0.135;
+    private double rateSelic = 0.1175;
+    private double rateIpca = 0.045;
+    private double rateIbov = Double.NaN;
+    private boolean ratesFetched = false;
+
+    private int selectedFilterMonths = 12;
+    private LocalDate customFrom = null;
+    private LocalDate customTo = null;
+    private boolean useCustomRange = false;
+    private final HBox filterBar = new HBox(6);
+    private final DatePicker fromPicker = new DatePicker();
+    private final DatePicker toPicker = new DatePicker();
+    private final HBox datePickerBox = new HBox(8);
 
     public DashboardPage(DailyTrackingUseCase dailyTrackingUseCase) {
         this.daily = dailyTrackingUseCase;
@@ -93,13 +111,23 @@ public final class DashboardPage implements Page {
         waterfallChart.setMinHeight(300);
         waterfallBox.getChildren().addAll(waterfallTitle, waterfallChart);
 
-        chartsRow.getChildren().addAll(pieBox, waterfallBox);
+        rankPanel.getStyleClass().add("card");
+        rankPanel.setMinWidth(280);
+        rankPanel.setMaxWidth(280);
+        Label rankTitle = new Label("Top Rentabilidade Hoje");
+        rankTitle.getStyleClass().add("card-title");
+        Label rankLoading = new Label("Carregando...");
+        rankLoading.getStyleClass().add("muted");
+        rankPanel.getChildren().addAll(rankTitle, rankLoading);
+
+        chartsRow.getChildren().addAll(pieBox, waterfallBox, rankPanel);
 
         VBox comparisonBox = new VBox(8);
         comparisonBox.getStyleClass().add("card");
         Label comparisonTitle = new Label("Comparação com Mercado");
         comparisonTitle.getStyleClass().add("card-title");
-        comparisonBox.getChildren().addAll(comparisonTitle, comparisonChart);
+        buildFilterBar();
+        comparisonBox.getChildren().addAll(comparisonTitle, filterBar, datePickerBox, comparisonChart);
 
         root.getChildren().addAll(h1, cards, h2, chartsRow, comparisonBox, investmentsByCategoryContainer);
 
@@ -116,6 +144,34 @@ public final class DashboardPage implements Page {
     @Override
     public void onShow() {
         refreshData();
+        if (!ratesFetched) {
+            fetchRealRates();
+        }
+    }
+
+    private void fetchRealRates() {
+        CompletableFuture.supplyAsync(() -> {
+            double cdi = BcbClient.fetchCdi().orElse(-1.0);
+            double selic = BcbClient.fetchSelic().orElse(-1.0);
+            double ipca = BcbClient.fetchIpca().orElse(-1.0);
+
+            double ibov = Double.NaN;
+            try {
+                BrapiClient.StockData data = BrapiClient.fetchStockData("^BVSP");
+                if (data != null && data.isValid()) {
+                    ibov = data.regularMarketChangePercent();
+                }
+            } catch (Exception ignored) {}
+
+            return new double[]{cdi, selic, ipca, ibov};
+        }).thenAcceptAsync(rates -> Platform.runLater(() -> {
+            if (rates[0] > 0) rateCdi = rates[0];
+            if (rates[1] > 0) rateSelic = rates[1];
+            if (rates[2] > 0) rateIpca = rates[2];
+            if (!Double.isNaN(rates[3])) rateIbov = rates[3];
+            ratesFetched = true;
+            refreshData();
+        }));
     }
 
     private void refreshData() {
@@ -155,6 +211,7 @@ public final class DashboardPage implements Page {
         updateWaterfallChart(investments, currentValues);
         updateComparisonChart(investments, currentValues, today);
         updateInvestmentsByCategory(investments, currentValues, totalPatrimony);
+        updateRankPanel(investments, currentValues);
     }
 
     private void updateCDIComparison(LocalDate today, List<InvestmentType> investments, long totalPatrimony) {
@@ -186,7 +243,7 @@ public final class DashboardPage implements Page {
                 totalInvested,
                 totalPatrimony,
                 (int) months,
-                0.135
+                rateCdi
         );
 
         String text;
@@ -272,21 +329,86 @@ public final class DashboardPage implements Page {
         }
     }
 
+    private void buildFilterBar() {
+        filterBar.setAlignment(Pos.CENTER_LEFT);
+        filterBar.setPadding(new Insets(4, 0, 4, 0));
+
+        Map<String, Integer> filters = new LinkedHashMap<>();
+        filters.put("1M", 1);
+        filters.put("3M", 3);
+        filters.put("6M", 6);
+        filters.put("1A", 12);
+        filters.put("3A", 36);
+        filters.put("5A", 60);
+        filters.put("10A", 120);
+
+        ToggleGroup group = new ToggleGroup();
+        List<ToggleButton> buttons = new ArrayList<>();
+
+        for (var entry : filters.entrySet()) {
+            ToggleButton btn = new ToggleButton(entry.getKey());
+            btn.setToggleGroup(group);
+            btn.setStyle("-fx-background-radius: 12; -fx-padding: 4 12;");
+            int months = entry.getValue();
+            btn.setOnAction(e -> {
+                selectedFilterMonths = months;
+                useCustomRange = false;
+                datePickerBox.setVisible(false);
+                datePickerBox.setManaged(false);
+                refreshData();
+            });
+            if (months == 12) btn.setSelected(true);
+            buttons.add(btn);
+        }
+
+        ToggleButton customBtn = new ToggleButton("Intervalo");
+        customBtn.setToggleGroup(group);
+        customBtn.setStyle("-fx-background-radius: 12; -fx-padding: 4 12;");
+        customBtn.setOnAction(e -> {
+            useCustomRange = true;
+            datePickerBox.setVisible(true);
+            datePickerBox.setManaged(true);
+        });
+        buttons.add(customBtn);
+
+        filterBar.getChildren().addAll(buttons);
+
+        fromPicker.setPromptText("De");
+        fromPicker.setPrefWidth(130);
+        toPicker.setPromptText("Até");
+        toPicker.setPrefWidth(130);
+        toPicker.setValue(LocalDate.now());
+
+        Button applyBtn = new Button("Aplicar");
+        applyBtn.getStyleClass().add("primary-btn");
+        applyBtn.setStyle("-fx-padding: 4 12;");
+        applyBtn.setOnAction(e -> {
+            customFrom = fromPicker.getValue();
+            customTo = toPicker.getValue();
+            if (customFrom != null && customTo != null) {
+                refreshData();
+            }
+        });
+
+        datePickerBox.setAlignment(Pos.CENTER_LEFT);
+        datePickerBox.setPadding(new Insets(4, 0, 0, 0));
+        datePickerBox.getChildren().addAll(new Label("De:"), fromPicker, new Label("Até:"), toPicker, applyBtn);
+        datePickerBox.setVisible(false);
+        datePickerBox.setManaged(false);
+    }
+
     private void updateComparisonChart(List<InvestmentType> investments,
                                        Map<Long, Long> currentValues,
                                        LocalDate today) {
         comparisonChart.getData().clear();
 
-        LocalDate oldestDate = today;
-        for (InvestmentType inv : investments) {
-            if (inv.investmentDate() != null && inv.investmentDate().isBefore(oldestDate)) {
-                oldestDate = inv.investmentDate();
-            }
+        long monthsRange;
+        if (useCustomRange && customFrom != null && customTo != null) {
+            monthsRange = java.time.temporal.ChronoUnit.MONTHS.between(customFrom, customTo);
+        } else {
+            monthsRange = selectedFilterMonths;
         }
-
-        long monthsRange = java.time.temporal.ChronoUnit.MONTHS.between(oldestDate, today);
         if (monthsRange < 1) monthsRange = 1;
-        if (monthsRange > 24) monthsRange = 24;
 
         long totalInvested = 0L;
         for (InvestmentType inv : investments) {
@@ -304,21 +426,24 @@ public final class DashboardPage implements Page {
         portfolioSeries.setName("Carteira");
 
         XYChart.Series<Number, Number> cdiSeries = new XYChart.Series<>();
-        cdiSeries.setName("CDI (13,5% a.a.)");
+        cdiSeries.setName(String.format("CDI (%.2f%% a.a.)", rateCdi * 100));
 
         XYChart.Series<Number, Number> selicSeries = new XYChart.Series<>();
-        selicSeries.setName("SELIC (11,75% a.a.)");
+        selicSeries.setName(String.format("SELIC (%.2f%% a.a.)", rateSelic * 100));
 
         XYChart.Series<Number, Number> ipcaSeries = new XYChart.Series<>();
-        ipcaSeries.setName("IPCA (4,5% a.a.)");
+        ipcaSeries.setName(String.format("IPCA (%.2f%% a.a.)", rateIpca * 100));
 
-        double cdiRate = 0.135;
-        double selicRate = 0.1175;
-        double ipcaRate = 0.045;
+        XYChart.Series<Number, Number> ibovSeries = new XYChart.Series<>();
+        ibovSeries.setName("IBOVESPA");
 
-        double monthlyRateCDI = Math.pow(1 + cdiRate, 1.0/12) - 1;
-        double monthlyRateSELIC = Math.pow(1 + selicRate, 1.0/12) - 1;
-        double monthlyRateIPCA = Math.pow(1 + ipcaRate, 1.0/12) - 1;
+        double monthlyRateCDI = Math.pow(1 + rateCdi, 1.0/12) - 1;
+        double monthlyRateSELIC = Math.pow(1 + rateSelic, 1.0/12) - 1;
+        double monthlyRateIPCA = Math.pow(1 + rateIpca, 1.0/12) - 1;
+
+        // IBOVESPA: estimate annual return from daily change * 252 trading days
+        double ibovAnnual = !Double.isNaN(rateIbov) ? (rateIbov / 100.0) * 12 : Double.NaN;
+        double monthlyRateIBOV = !Double.isNaN(ibovAnnual) ? Math.pow(1 + ibovAnnual, 1.0/12) - 1 : 0;
 
         for (int month = 0; month <= monthsRange; month++) {
             double rentCDI = (Math.pow(1 + monthlyRateCDI, month) - 1) * 100;
@@ -330,34 +455,147 @@ public final class DashboardPage implements Page {
             double rentIPCA = (Math.pow(1 + monthlyRateIPCA, month) - 1) * 100;
             ipcaSeries.getData().add(new XYChart.Data<>(month, rentIPCA));
 
+            if (!Double.isNaN(ibovAnnual)) {
+                double rentIBOV = (Math.pow(1 + monthlyRateIBOV, month) - 1) * 100;
+                ibovSeries.getData().add(new XYChart.Data<>(month, rentIBOV));
+            }
+
             long currentTotal = daily.getTotalPatrimony(today);
             double rentPortfolio = ((currentTotal - totalInvested) * 100.0) / totalInvested;
             portfolioSeries.getData().add(new XYChart.Data<>(month, rentPortfolio));
         }
 
         comparisonChart.getData().addAll(portfolioSeries, cdiSeries, selicSeries, ipcaSeries);
+        if (!ibovSeries.getData().isEmpty()) {
+            comparisonChart.getData().add(ibovSeries);
+        }
 
-        portfolioSeries.nodeProperty().addListener((obs, oldNode, newNode) -> {
-            if (newNode != null) {
-                newNode.setStyle("-fx-stroke: #22c55e; -fx-stroke-width: 3px;");
+        applySeriesStyle(portfolioSeries, "#22c55e", 3);
+        applySeriesStyle(cdiSeries, "#3b82f6", 2);
+        applySeriesStyle(selicSeries, "#f59e0b", 2);
+        applySeriesStyle(ipcaSeries, "#ef4444", 2);
+        if (!ibovSeries.getData().isEmpty()) {
+            applySeriesStyle(ibovSeries, "#8b5cf6", 2);
+        }
+    }
+
+    private record RankEntry(String name, String ticker, double changePercent, long valueCents) {}
+
+    private void updateRankPanel(List<InvestmentType> investments, Map<Long, Long> currentValues) {
+        // Keep the title, show loading
+        rankPanel.getChildren().removeIf(n -> !(n instanceof Label l && l.getStyleClass().contains("card-title")));
+        Label loading = new Label("Carregando...");
+        loading.getStyleClass().add("muted");
+        rankPanel.getChildren().add(loading);
+
+        CompletableFuture.supplyAsync(() -> {
+            List<RankEntry> entries = new ArrayList<>();
+
+            // Collect tickers that need Brapi lookup
+            List<InvestmentType> withTicker = new ArrayList<>();
+            List<InvestmentType> withoutTicker = new ArrayList<>();
+
+            for (InvestmentType inv : investments) {
+                if (inv.ticker() != null && !inv.ticker().isBlank()) {
+                    withTicker.add(inv);
+                } else {
+                    withoutTicker.add(inv);
+                }
             }
-        });
 
-        cdiSeries.nodeProperty().addListener((obs, oldNode, newNode) -> {
-            if (newNode != null) {
-                newNode.setStyle("-fx-stroke: #3b82f6; -fx-stroke-width: 2px;");
+            // Fetch tickers in batch
+            if (!withTicker.isEmpty()) {
+                StringBuilder tickers = new StringBuilder();
+                for (InvestmentType inv : withTicker) {
+                    if (tickers.length() > 0) tickers.append(",");
+                    tickers.append(inv.ticker());
+                }
+                try {
+                    Map<String, BrapiClient.StockData> stockMap = BrapiClient.fetchMultipleStocks(tickers.toString());
+                    for (InvestmentType inv : withTicker) {
+                        BrapiClient.StockData data = stockMap.get(inv.ticker().toUpperCase());
+                        double change = (data != null && data.isValid()) ? data.regularMarketChangePercent() : 0;
+                        long value = currentValues.getOrDefault((long) inv.id(), 0L);
+                        entries.add(new RankEntry(inv.name(), inv.ticker(), change, value));
+                    }
+                } catch (Exception e) {
+                    for (InvestmentType inv : withTicker) {
+                        long value = currentValues.getOrDefault((long) inv.id(), 0L);
+                        entries.add(new RankEntry(inv.name(), inv.ticker(), 0, value));
+                    }
+                }
             }
-        });
 
-        selicSeries.nodeProperty().addListener((obs, oldNode, newNode) -> {
-            if (newNode != null) {
-                newNode.setStyle("-fx-stroke: #f59e0b; -fx-stroke-width: 2px;");
+            // Fixed income: estimate daily variation = annual rate / 252
+            for (InvestmentType inv : withoutTicker) {
+                double dailyChange = 0;
+                if (inv.profitability() != null) {
+                    dailyChange = inv.profitability().doubleValue() / 252.0;
+                }
+                long value = currentValues.getOrDefault((long) inv.id(), 0L);
+                entries.add(new RankEntry(inv.name(), null, dailyChange, value));
             }
-        });
 
-        ipcaSeries.nodeProperty().addListener((obs, oldNode, newNode) -> {
+            // Sort by |changePercent| descending, limit to 8
+            entries.sort((a, b) -> Double.compare(Math.abs(b.changePercent()), Math.abs(a.changePercent())));
+            if (entries.size() > 8) entries = entries.subList(0, 8);
+
+            return entries;
+        }).thenAcceptAsync(entries -> Platform.runLater(() -> {
+            rankPanel.getChildren().removeIf(n -> !(n instanceof Label l && l.getStyleClass().contains("card-title")));
+
+            if (entries.isEmpty()) {
+                Label empty = new Label("Nenhum ativo cadastrado");
+                empty.getStyleClass().add("muted");
+                rankPanel.getChildren().add(empty);
+                return;
+            }
+
+            for (RankEntry entry : entries) {
+                rankPanel.getChildren().add(buildRankRow(entry));
+            }
+        }));
+    }
+
+    private HBox buildRankRow(RankEntry entry) {
+        HBox row = new HBox(6);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(4, 0, 4, 0));
+        row.setStyle("-fx-border-color: transparent transparent #1a2332 transparent; -fx-border-width: 0 0 1 0;");
+
+        VBox nameBox = new VBox(1);
+        Label nameLabel = new Label(entry.ticker() != null ? entry.ticker() : entry.name());
+        nameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+        if (entry.ticker() != null) {
+            Label subLabel = new Label(entry.name());
+            subLabel.setStyle("-fx-font-size: 10px; -fx-opacity: 0.6;");
+            nameBox.getChildren().addAll(nameLabel, subLabel);
+        } else {
+            nameBox.getChildren().add(nameLabel);
+        }
+        HBox.setHgrow(nameBox, Priority.ALWAYS);
+
+        VBox rightBox = new VBox(1);
+        rightBox.setAlignment(Pos.CENTER_RIGHT);
+
+        boolean positive = entry.changePercent() >= 0;
+        Label changeLabel = new Label(String.format("%s%.2f%%", positive ? "+" : "", entry.changePercent()));
+        changeLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+        changeLabel.getStyleClass().add(positive ? "pos" : "neg");
+
+        Label valueLabel = new Label(daily.brl(entry.valueCents()));
+        valueLabel.setStyle("-fx-font-size: 10px; -fx-opacity: 0.6;");
+
+        rightBox.getChildren().addAll(changeLabel, valueLabel);
+
+        row.getChildren().addAll(nameBox, rightBox);
+        return row;
+    }
+
+    private void applySeriesStyle(XYChart.Series<Number, Number> series, String color, int width) {
+        series.nodeProperty().addListener((obs, oldNode, newNode) -> {
             if (newNode != null) {
-                newNode.setStyle("-fx-stroke: #ef4444; -fx-stroke-width: 2px;");
+                newNode.setStyle("-fx-stroke: " + color + "; -fx-stroke-width: " + width + "px;");
             }
         });
     }

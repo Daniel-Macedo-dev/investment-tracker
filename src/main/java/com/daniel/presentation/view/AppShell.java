@@ -27,7 +27,6 @@ public final class AppShell {
         pages.put("Cadastrar Investimento", new InvestmentTypesPage(dailyTrackingUseCase));
         pages.put("Diversificação", new DiversificationPage(dailyTrackingUseCase));
         pages.put("Simulação", new SimulationPage());
-        pages.put("Gráficos", new ChartsPage(dailyTrackingUseCase));
         pages.put("Extrato de Investimentos", new ReportsPage(dailyTrackingUseCase));
     }
 

@@ -15,6 +15,8 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 
+import com.daniel.core.util.Money;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -43,14 +45,17 @@ public final class InvestmentTypesPage implements Page {
 
         Button edit = new Button("✏️ Editar Investimento");
 
+        Button sell = new Button("💰 Vender");
+
         Button delete = new Button("🗑️ Excluir Investimento");
         delete.getStyleClass().add("danger-btn");
 
         add.setOnAction(e -> onCreate());
         edit.setOnAction(e -> onEdit());
+        sell.setOnAction(e -> onSell());
         delete.setOnAction(e -> onDelete());
 
-        HBox actions = new HBox(8, add, edit, delete);
+        HBox actions = new HBox(8, add, edit, sell, delete);
 
         Label hint = new Label("💡 Crie investimentos com todos os detalhes para acompanhar rentabilidade!");
         hint.getStyleClass().add("muted");
@@ -205,14 +210,33 @@ public final class InvestmentTypesPage implements Page {
 
         result.ifPresent(data -> {
             try {
-                daily.createTypeFull(
+                int newId = daily.createTypeFull(
                         data.name(),
                         data.category(),
                         data.liquidity(),
                         data.investmentDate(),
                         data.profitability(),
-                        data.investedValue()
+                        data.investedValue(),
+                        data.typeOfInvestment(),
+                        data.indexType(),
+                        data.indexPercentage(),
+                        data.ticker(),
+                        data.purchasePrice(),
+                        data.quantity()
                 );
+
+                if (data.investedValue() != null && data.investedValue().signum() > 0) {
+                    long totalCents = data.investedValue().multiply(java.math.BigDecimal.valueOf(100)).longValue();
+                    Long unitCents = data.purchasePrice() != null
+                            ? data.purchasePrice().multiply(java.math.BigDecimal.valueOf(100)).longValue()
+                            : null;
+                    java.time.LocalDate txDate = data.investmentDate() != null
+                            ? data.investmentDate() : java.time.LocalDate.now();
+                    daily.recordBuy(newId, data.name(), data.ticker(),
+                            data.quantity(), unitCents, totalCents, txDate);
+                }
+
+                daily.takeSnapshotIfNeeded(java.time.LocalDate.now());
                 refresh();
                 Dialogs.info("Sucesso", "Investimento criado!");
             } catch (Exception e) {
@@ -255,14 +279,80 @@ public final class InvestmentTypesPage implements Page {
                         data.liquidity(),
                         data.investmentDate(),
                         data.profitability(),
-                        data.investedValue()
+                        data.investedValue(),
+                        data.typeOfInvestment(),
+                        data.indexType(),
+                        data.indexPercentage(),
+                        data.ticker(),
+                        data.purchasePrice(),
+                        data.quantity()
                 );
+                daily.takeSnapshotIfNeeded(java.time.LocalDate.now());
                 refresh();
                 Dialogs.info("Sucesso", "Investimento atualizado!");
             } catch (Exception e) {
                 Dialogs.error("Erro: " + e.getMessage());
             }
         });
+    }
+
+    private void onSell() {
+        InvestmentType sel = table.getSelectionModel().getSelectedItem();
+        if (sel == null) {
+            Dialogs.info("Atenção", "Selecione um investimento para vender.");
+            return;
+        }
+
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Registrar Venda");
+        dialog.setHeaderText("Venda de: " + sel.name());
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        TextField qtyField = new TextField();
+        qtyField.setPromptText("Quantidade");
+        if (sel.quantity() != null) {
+            qtyField.setText(sel.quantity().toString());
+        }
+
+        TextField priceField = new TextField();
+        priceField.setPromptText("R$ 0,00");
+        Money.applyFormatOnBlur(priceField);
+        if (sel.purchasePrice() != null) {
+            long cents = sel.purchasePrice().multiply(BigDecimal.valueOf(100)).longValue();
+            priceField.setText(Money.centsToText(cents));
+        }
+
+        DatePicker datePicker = new DatePicker(LocalDate.now());
+
+        TextField noteField = new TextField();
+        noteField.setPromptText("Observação (opcional)");
+
+        VBox content = new VBox(8,
+                new Label("Quantidade:"), qtyField,
+                new Label("Preço Unitário:"), priceField,
+                new Label("Data da Venda:"), datePicker,
+                new Label("Observação:"), noteField
+        );
+        content.setPadding(new Insets(16));
+        dialog.getDialogPane().setContent(content);
+
+        Optional<ButtonType> result = dialog.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            try {
+                long unitCents = Money.textToCentsOrZero(priceField.getText());
+                String cleanQty = qtyField.getText().trim().replaceAll("[^0-9]", "");
+                Integer qty = cleanQty.isEmpty() ? null : Integer.parseInt(cleanQty);
+                long totalCents = qty != null ? unitCents * qty : unitCents;
+                LocalDate sellDate = datePicker.getValue() != null ? datePicker.getValue() : LocalDate.now();
+                String note = noteField.getText().isBlank() ? null : noteField.getText().trim();
+
+                daily.recordSell(sel.id(), sel.name(), sel.ticker(),
+                        qty, unitCents > 0 ? unitCents : null, totalCents, sellDate, note);
+                Dialogs.info("Sucesso", "Venda registrada no extrato!");
+            } catch (Exception e) {
+                Dialogs.error("Erro ao registrar venda: " + e.getMessage());
+            }
+        }
     }
 
     private void onDelete() {

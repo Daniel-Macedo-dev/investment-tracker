@@ -3,11 +3,13 @@ package com.daniel.infrastructure.config;
 import com.daniel.core.domain.repository.IFlowRepository;
 import com.daniel.core.domain.repository.IInvestmentTypeRepository;
 import com.daniel.core.domain.repository.ISnapshotRepository;
+import com.daniel.core.domain.repository.ITransactionRepository;
 import com.daniel.core.service.DailyTrackingUseCase;
 import com.daniel.infrastructure.persistence.config.Database;
 import com.daniel.infrastructure.persistence.repository.FlowRepository;
 import com.daniel.infrastructure.persistence.repository.InvestmentTypeRepository;
 import com.daniel.infrastructure.persistence.repository.SnapshotRepository;
+import com.daniel.infrastructure.persistence.repository.TransactionRepository;
 
 import java.sql.Connection;
 
@@ -22,8 +24,9 @@ public class AppConfig {
         IFlowRepository flowRepo = new FlowRepository();
         IInvestmentTypeRepository invRepo = new InvestmentTypeRepository();
         ISnapshotRepository snapRepo = new SnapshotRepository();
+        ITransactionRepository txRepo = new TransactionRepository();
 
-        this.dailyTrackingUseCase = new DailyTrackingUseCase(flowRepo, invRepo, snapRepo);
+        this.dailyTrackingUseCase = new DailyTrackingUseCase(flowRepo, invRepo, snapRepo, txRepo);
     }
 
     public DailyTrackingUseCase getDailyTrackingUseCase() {

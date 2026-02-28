@@ -32,33 +32,46 @@ public final class ARCADiversificationStrategy {
     }
 
     /**
-     * Calcula sugestões POR APORTE (sem vender nada)
+     * Calcula sugestões POR APORTE (sem vender nada).
+     *
+     * Lógica: encontrar o patrimônio-alvo onde NENHUMA categoria precisa vender.
+     * Para cada categoria com alocação > 0, o patrimônio mínimo é currentCents / targetPercentage.
+     * O patrimônio-alvo é o maior desses valores.
+     * Ideal de cada categoria = patrimônio-alvo × targetPercentage.
+     * Aporte = max(0, ideal - current).
      */
     public static List<DiversificationSuggestion> calculateSuggestionsByContribution(
             long currentPatrimonyCents,
             Map<CategoryEnum, Long> currentAllocation,
             Map<CategoryEnum, Double> targetProfile
     ) {
+        // Calcular patrimônio-alvo: o maior (currentCents / targetPercentage)
+        long targetPatrimony = currentPatrimonyCents;
+        for (CategoryEnum category : CategoryEnum.values()) {
+            long currentCents = currentAllocation.getOrDefault(category, 0L);
+            double targetPercentage = targetProfile.getOrDefault(category, 0.0);
+            if (currentCents > 0 && targetPercentage > 0) {
+                long required = Math.round(currentCents / targetPercentage);
+                if (required > targetPatrimony) {
+                    targetPatrimony = required;
+                }
+            }
+        }
+
         List<DiversificationSuggestion> suggestions = new ArrayList<>();
 
-        // Calcular quanto precisa aportar em cada categoria
         for (CategoryEnum category : CategoryEnum.values()) {
             long currentCents = currentAllocation.getOrDefault(category, 0L);
             double targetPercentage = targetProfile.getOrDefault(category, 0.0);
 
-            // Calcular o valor ideal ATUAL (sem aporte adicional)
-            long idealCurrentCents = Math.round(currentPatrimonyCents * targetPercentage);
-
-            // Diferença = quanto está abaixo do ideal
-            long difference = idealCurrentCents - currentCents;
-
-            // Só sugerir aporte se estiver ABAIXO do ideal
+            long idealCents = Math.round(targetPatrimony * targetPercentage);
+            long difference = idealCents - currentCents;
             long aporteNecessario = Math.max(0, difference);
 
             suggestions.add(new DiversificationSuggestion(
                     category,
                     currentCents,
-                    idealCurrentCents,
+                    idealCents,
                     difference,
                     aporteNecessario
             ));
@@ -114,37 +127,14 @@ public final class ARCADiversificationStrategy {
     }
 
     /**
-     * Calcula sugestões com perfil customizado
+     * Calcula sugestões com perfil customizado (mesma lógica de aporte, sem vendas)
      */
     public static List<DiversificationSuggestion> calculateSuggestionsCustom(
             long totalPatrimonyCents,
             Map<CategoryEnum, Long> currentAllocation,
             Map<CategoryEnum, Double> targetProfile
     ) {
-        List<DiversificationSuggestion> suggestions = new ArrayList<>();
-
-        for (CategoryEnum category : CategoryEnum.values()) {
-            long currentCents = currentAllocation.getOrDefault(category, 0L);
-            double targetPercentage = targetProfile.getOrDefault(category, 0.0);
-            long idealCents = Math.round(totalPatrimonyCents * targetPercentage);
-            long difference = idealCents - currentCents;
-            long aporteNecessario = Math.max(0, difference);
-
-            suggestions.add(new DiversificationSuggestion(
-                    category,
-                    currentCents,
-                    idealCents,
-                    difference,
-                    aporteNecessario
-            ));
-        }
-
-        suggestions.sort((a, b) -> Long.compare(
-                Math.abs(b.differenceCents()),
-                Math.abs(a.differenceCents())
-        ));
-
-        return suggestions;
+        return calculateSuggestionsByContribution(totalPatrimonyCents, currentAllocation, targetProfile);
     }
 
     public static Map<CategoryEnum, Double> getARCAProfile() {

@@ -58,8 +58,29 @@ public final class Schema {
                     FOREIGN KEY (investment_type_id) REFERENCES investment_type(id) ON DELETE CASCADE
                 );
                 
+                -- Transações (append-only: compra/venda)
+                CREATE TABLE IF NOT EXISTS transactions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date TEXT NOT NULL,
+                    investment_type_id INTEGER NOT NULL,
+                    type TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    ticker TEXT,
+                    quantity INTEGER,
+                    unit_price_cents INTEGER,
+                    total_cents INTEGER NOT NULL,
+                    note TEXT,
+                    FOREIGN KEY (investment_type_id) REFERENCES investment_type(id) ON DELETE CASCADE
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_transactions_date
+                    ON transactions(date DESC);
+
+                CREATE INDEX IF NOT EXISTS idx_transactions_type_id
+                    ON transactions(investment_type_id);
+
                 -- Índices para performance
-                CREATE INDEX IF NOT EXISTS idx_flows_date 
+                CREATE INDEX IF NOT EXISTS idx_flows_date
                     ON flows(date DESC);
                 
                 CREATE INDEX IF NOT EXISTS idx_flows_from_type 
