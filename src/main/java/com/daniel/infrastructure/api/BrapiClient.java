@@ -1,5 +1,6 @@
 package com.daniel.infrastructure.api;
 
+import com.daniel.infrastructure.persistence.repository.AppSettingsRepository;
 import okhttp3.*;
 import com.google.gson.*;
 
@@ -13,12 +14,24 @@ public final class BrapiClient {
     private static final String QUOTE_ENDPOINT = "/quote";
     private static final String AVAILABLE_ENDPOINT = "/available";
 
+    public static final String SETTINGS_KEY_TOKEN = "brapi_token";
+
     private static final OkHttpClient client = new OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
             .build();
 
     private static final Gson gson = new Gson();
+    private static final AppSettingsRepository settingsRepo = new AppSettingsRepository();
+
+    private static String getToken() {
+        return settingsRepo.get(SETTINGS_KEY_TOKEN).orElse(null);
+    }
+
+    private static String appendToken(String url, String token) {
+        if (token == null || token.isBlank()) return url;
+        return url + (url.contains("?") ? "&" : "?") + "token=" + token.trim();
+    }
 
     public record StockData(
             String ticker,
@@ -71,11 +84,16 @@ public final class BrapiClient {
      * Busca dados de uma ação específica
      */
     public static StockData fetchStockData(String ticker) throws IOException {
+        return fetchStockDataWithToken(ticker, getToken());
+    }
+
+    public static StockData fetchStockDataWithToken(String ticker, String token) throws IOException {
         if (ticker == null || ticker.isBlank()) {
             return new StockData(ticker, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, "Ticker inválido");
         }
 
-        String url = BASE_URL + QUOTE_ENDPOINT + "/" + ticker.toUpperCase().trim();
+        String url = appendToken(
+                BASE_URL + QUOTE_ENDPOINT + "/" + ticker.toUpperCase().trim(), token);
 
         Request request = new Request.Builder()
                 .url(url)
@@ -204,7 +222,8 @@ public final class BrapiClient {
     public static Map<String, StockData> fetchMultipleStocks(String tickers) throws IOException {
         Map<String, StockData> results = new HashMap<>();
 
-        String url = BASE_URL + QUOTE_ENDPOINT + "/" + tickers.toUpperCase().trim();
+        String url = appendToken(
+                BASE_URL + QUOTE_ENDPOINT + "/" + tickers.toUpperCase().trim(), getToken());
 
         Request request = new Request.Builder()
                 .url(url)
@@ -302,5 +321,19 @@ public final class BrapiClient {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public static boolean testConnectionWithToken(String token) {
+        try {
+            StockData test = fetchStockDataWithToken("PETR4", token);
+            return test.isValid();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public static boolean hasToken() {
+        String token = getToken();
+        return token != null && !token.isBlank();
     }
 }
