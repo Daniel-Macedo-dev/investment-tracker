@@ -34,37 +34,22 @@ public final class ARCADiversificationStrategy {
     /**
      * Calcula sugestões POR APORTE (sem vender nada).
      *
-     * Lógica: encontrar o patrimônio-alvo onde NENHUMA categoria precisa vender.
-     * Para cada categoria com alocação > 0, o patrimônio mínimo é currentCents / targetPercentage.
-     * O patrimônio-alvo é o maior desses valores.
-     * Ideal de cada categoria = patrimônio-alvo × targetPercentage.
+     * Lógica simples: ideal = patrimonioAtual × targetPercentage.
      * Aporte = max(0, ideal - current).
+     * Categorias acima do ideal não precisam vender — aporte = 0.
      */
     public static List<DiversificationSuggestion> calculateSuggestionsByContribution(
             long currentPatrimonyCents,
             Map<CategoryEnum, Long> currentAllocation,
             Map<CategoryEnum, Double> targetProfile
     ) {
-        // Calcular patrimônio-alvo: o maior (currentCents / targetPercentage)
-        long targetPatrimony = currentPatrimonyCents;
-        for (CategoryEnum category : CategoryEnum.values()) {
-            long currentCents = currentAllocation.getOrDefault(category, 0L);
-            double targetPercentage = targetProfile.getOrDefault(category, 0.0);
-            if (currentCents > 0 && targetPercentage > 0) {
-                long required = Math.round(currentCents / targetPercentage);
-                if (required > targetPatrimony) {
-                    targetPatrimony = required;
-                }
-            }
-        }
-
         List<DiversificationSuggestion> suggestions = new ArrayList<>();
 
         for (CategoryEnum category : CategoryEnum.values()) {
             long currentCents = currentAllocation.getOrDefault(category, 0L);
             double targetPercentage = targetProfile.getOrDefault(category, 0.0);
 
-            long idealCents = Math.round(targetPatrimony * targetPercentage);
+            long idealCents = Math.round(currentPatrimonyCents * targetPercentage);
             long difference = idealCents - currentCents;
             long aporteNecessario = Math.max(0, difference);
 
