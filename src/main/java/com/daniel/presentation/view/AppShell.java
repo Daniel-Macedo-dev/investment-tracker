@@ -28,6 +28,7 @@ public final class AppShell {
         pages.put("Diversificação", new DiversificationPage(dailyTrackingUseCase));
         pages.put("Simulação", new SimulationPage());
         pages.put("Extrato de Investimentos", new ReportsPage(dailyTrackingUseCase));
+        pages.put("Configurações", new ConfiguracoesPage());
     }
 
     public Parent build() {
@@ -53,6 +54,7 @@ public final class AppShell {
         box.getChildren().addAll(title, sub, new Separator());
 
         for (String k : pages.keySet()) {
+            if (k.equals("Configurações")) continue; // handled separately in footer
             Button b = new Button(k);
             b.setMaxWidth(Double.MAX_VALUE);
             b.getStyleClass().add("nav-btn");
@@ -65,10 +67,16 @@ public final class AppShell {
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
+        Button configBtn = new Button("⚙ Configurações");
+        configBtn.setMaxWidth(Double.MAX_VALUE);
+        configBtn.getStyleClass().add("nav-btn");
+        configBtn.setOnAction(e -> go("Configurações"));
+        nav.put("Configurações", configBtn);
+
         Label footer = new Label("v0.5.0");
         footer.getStyleClass().add("sidebar-footer");
 
-        box.getChildren().addAll(spacer, footer);
+        box.getChildren().addAll(spacer, configBtn, footer);
         return box;
     }
 
