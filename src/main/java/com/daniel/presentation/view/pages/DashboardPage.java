@@ -38,7 +38,9 @@ public final class DashboardPage implements Page {
 
     private final PieChart pieChart = new PieChart();
     private final BarChart<String, Number> waterfallChart;
-    private final LineChart<Number, Number> comparisonChart;
+    private final CategoryAxis compXAxis = new CategoryAxis();
+    private final NumberAxis compYAxis = new NumberAxis();
+    private final LineChart<String, Number> comparisonChart = new LineChart<>(compXAxis, compYAxis);
 
     private final VBox investmentsByCategoryContainer = new VBox(16);
     private final VBox rankPanel = new VBox(8);
@@ -48,6 +50,12 @@ public final class DashboardPage implements Page {
     private double rateIpca = 0.045;
     private double rateIbov = Double.NaN;
     private boolean ratesFetched = false;
+
+    private String selectedBenchmark = "CDI";
+    private final Label metricRendimentoLabel = new Label("—");
+    private final Label metricRentabilidadeLabel = new Label("—");
+    private final Label metricBenchmarkLabel = new Label("—");
+    private final Label metricBenchmarkTitleLabel = new Label("Rent. CDI");
 
     private int selectedFilterMonths = 12;
     private LocalDate customFrom = null;
@@ -74,14 +82,10 @@ public final class DashboardPage implements Page {
         waterfallChart.setTitle("Composição do Patrimônio");
         waterfallChart.setLegendVisible(false);
 
-        NumberAxis xAxisComparison = new NumberAxis();
-        NumberAxis yAxisComparison = new NumberAxis();
-        xAxisComparison.setLabel("Meses");
-        yAxisComparison.setLabel("Rentabilidade %");
-        comparisonChart = new LineChart<>(xAxisComparison, yAxisComparison);
-        comparisonChart.setTitle("Rentabilidade da Carteira vs Benchmarks");
+        comparisonChart.setTitle(null);
         comparisonChart.setMinHeight(300);
         comparisonChart.setCreateSymbols(false);
+        comparisonChart.setAnimated(false);
 
         root.setPadding(new Insets(16));
 
@@ -128,12 +132,7 @@ public final class DashboardPage implements Page {
 
         chartsRow.getChildren().addAll(pieBox, waterfallBox, rankPanel);
 
-        VBox comparisonBox = new VBox(8);
-        comparisonBox.getStyleClass().add("card");
-        Label comparisonTitle = new Label("Comparação com Mercado");
-        comparisonTitle.getStyleClass().add("card-title");
-        buildFilterBar();
-        comparisonBox.getChildren().addAll(comparisonTitle, filterBar, datePickerBox, comparisonChart);
+        VBox comparisonBox = buildComparisonSection();
 
         tokenWarningBanner.setWrapText(true);
         tokenWarningBanner.setStyle(
@@ -345,6 +344,116 @@ public final class DashboardPage implements Page {
         }
     }
 
+    private VBox buildComparisonSection() {
+        VBox box = new VBox(12);
+        box.getStyleClass().add("card");
+
+        Label title = new Label("Performance da sua carteira");
+        title.getStyleClass().add("card-title");
+        title.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
+
+        // Botões de benchmark
+        ToggleGroup benchTg = new ToggleGroup();
+        HBox benchBar = new HBox(8);
+        benchBar.setAlignment(Pos.CENTER_LEFT);
+
+        for (String bench : List.of("CDI", "SELIC", "IPCA")) {
+            ToggleButton btn = new ToggleButton(bench);
+            btn.setToggleGroup(benchTg);
+            if (bench.equals("CDI")) {
+                btn.setSelected(true);
+                btn.setStyle(
+                    "-fx-background-radius: 20; -fx-padding: 4 16;" +
+                    "-fx-font-size: 12px; -fx-font-weight: bold;" +
+                    "-fx-background-color: rgba(34,197,94,0.25);" +
+                    "-fx-text-fill: #22c55e; -fx-border-color: #22c55e;" +
+                    "-fx-border-radius: 20;");
+            } else {
+                btn.setStyle(
+                    "-fx-background-radius: 20; -fx-padding: 4 16;" +
+                    "-fx-font-size: 12px; -fx-font-weight: bold;" +
+                    "-fx-background-color: rgba(255,255,255,0.08);" +
+                    "-fx-text-fill: #bfead2;");
+            }
+            btn.setOnAction(e -> {
+                selectedBenchmark = bench;
+                benchTg.getToggles().forEach(t -> {
+                    ToggleButton tb = (ToggleButton) t;
+                    if (tb.isSelected()) {
+                        tb.setStyle(
+                            "-fx-background-radius: 20; -fx-padding: 4 16;" +
+                            "-fx-font-size: 12px; -fx-font-weight: bold;" +
+                            "-fx-background-color: rgba(34,197,94,0.25);" +
+                            "-fx-text-fill: #22c55e; -fx-border-color: #22c55e;" +
+                            "-fx-border-radius: 20;");
+                    } else {
+                        tb.setStyle(
+                            "-fx-background-radius: 20; -fx-padding: 4 16;" +
+                            "-fx-font-size: 12px; -fx-font-weight: bold;" +
+                            "-fx-background-color: rgba(255,255,255,0.08);" +
+                            "-fx-text-fill: #bfead2;");
+                    }
+                });
+                metricBenchmarkTitleLabel.setText("Rent. " + bench);
+                refreshData();
+            });
+            benchBar.getChildren().add(btn);
+        }
+
+        // Painel de métricas lateral
+        metricRendimentoLabel.setStyle(
+                "-fx-text-fill: #22c55e; -fx-font-weight: bold; -fx-font-size: 16px;");
+        metricRentabilidadeLabel.setStyle(
+                "-fx-text-fill: #22c55e; -fx-font-weight: bold; -fx-font-size: 16px;");
+        metricBenchmarkLabel.setStyle(
+                "-fx-text-fill: #3b82f6; -fx-font-weight: bold; -fx-font-size: 16px;");
+        metricBenchmarkTitleLabel.setStyle("-fx-font-size: 11px; -fx-opacity: 0.6;");
+
+        VBox metricsPanel = new VBox(14);
+        metricsPanel.setAlignment(Pos.TOP_RIGHT);
+        metricsPanel.setMinWidth(160);
+        metricsPanel.setPadding(new Insets(4, 0, 0, 20));
+        metricsPanel.getChildren().addAll(
+                buildMetricBox("Rendimento", metricRendimentoLabel),
+                buildMetricBox("Rentabilidade", metricRentabilidadeLabel),
+                buildMetricBoxCustomTitle(metricBenchmarkTitleLabel, metricBenchmarkLabel)
+        );
+
+        // Configurar gráfico
+        compXAxis.setLabel(null);
+        compYAxis.setLabel("Rentabilidade %");
+        comparisonChart.setAnimated(false);
+        comparisonChart.setCreateSymbols(false);
+        comparisonChart.setLegendVisible(true);
+        comparisonChart.setMinHeight(300);
+
+        HBox chartRow = new HBox(0, comparisonChart, metricsPanel);
+        HBox.setHgrow(comparisonChart, Priority.ALWAYS);
+        chartRow.setAlignment(Pos.TOP_LEFT);
+
+        // Barra de filtro de período
+        buildFilterBar();
+
+        box.getChildren().addAll(title, benchBar, filterBar, datePickerBox, chartRow);
+        return box;
+    }
+
+    private VBox buildMetricBox(String label, Label valueLabel) {
+        VBox b = new VBox(3);
+        b.setAlignment(Pos.CENTER_RIGHT);
+        Label lbl = new Label(label);
+        lbl.setStyle("-fx-font-size: 11px; -fx-opacity: 0.6;");
+        b.getChildren().addAll(valueLabel, lbl);
+        return b;
+    }
+
+    private VBox buildMetricBoxCustomTitle(Label titleLabel, Label valueLabel) {
+        VBox b = new VBox(3);
+        b.setAlignment(Pos.CENTER_RIGHT);
+        b.getChildren().addAll(valueLabel, titleLabel);
+        return b;
+    }
+
     private void buildFilterBar() {
         filterBar.setAlignment(Pos.CENTER_LEFT);
         filterBar.setPadding(new Insets(4, 0, 4, 0));
@@ -418,96 +527,104 @@ public final class DashboardPage implements Page {
                                        LocalDate today) {
         comparisonChart.getData().clear();
 
-        long monthsRange;
-        if (useCustomRange && customFrom != null && customTo != null) {
-            monthsRange = java.time.temporal.ChronoUnit.MONTHS.between(customFrom, customTo);
-        } else {
-            monthsRange = selectedFilterMonths;
-        }
-        if (monthsRange < 1) monthsRange = 1;
+        if (investments.isEmpty()) return;
 
-        long totalInvested = 0L;
+        // Calcular total investido e patrimônio atual
+        long totalInvestido = 0L;
         for (InvestmentType inv : investments) {
             if (inv.investedValue() != null) {
-                totalInvested += inv.investedValue().multiply(java.math.BigDecimal.valueOf(100)).longValue();
+                totalInvestido += inv.investedValue()
+                        .multiply(java.math.BigDecimal.valueOf(100)).longValue();
             }
         }
+        if (totalInvestido == 0) return;
 
-        if (totalInvested == 0) {
-            comparisonChart.setTitle("Sem dados para comparação");
-            return;
+        long patrimonioAtual = currentValues.values().stream()
+                .mapToLong(Long::longValue).sum();
+
+        // Data de início: filtro selecionado ou a data do investimento mais antigo
+        LocalDate dataInicio;
+        LocalDate dataFim = today;
+        if (useCustomRange && customFrom != null && customTo != null) {
+            dataInicio = customFrom;
+            dataFim = customTo;
+        } else {
+            dataInicio = today.minusMonths(selectedFilterMonths);
+            LocalDate maisAntiga = investments.stream()
+                    .filter(inv -> inv.investmentDate() != null)
+                    .map(InvestmentType::investmentDate)
+                    .min(LocalDate::compareTo)
+                    .orElse(dataInicio);
+            if (maisAntiga.isAfter(dataInicio)) dataInicio = maisAntiga;
         }
 
-        XYChart.Series<Number, Number> portfolioSeries = new XYChart.Series<>();
-        portfolioSeries.setName("Carteira");
+        long totalMeses = java.time.temporal.ChronoUnit.MONTHS.between(dataInicio, dataFim);
+        if (totalMeses < 1) totalMeses = 1;
 
-        XYChart.Series<Number, Number> cdiSeries = new XYChart.Series<>();
-        cdiSeries.setName(String.format("CDI (%.2f%% a.a.)", rateCdi * 100));
+        // Rentabilidade total da carteira
+        double rentTotalCarteira = (patrimonioAtual - totalInvestido) * 100.0 / totalInvestido;
 
-        XYChart.Series<Number, Number> selicSeries = new XYChart.Series<>();
-        selicSeries.setName(String.format("SELIC (%.2f%% a.a.)", rateSelic * 100));
+        // Taxa mensal implícita da carteira
+        long mesesTotaisCarteira = calcularMesesDesdeInvestimentoMaisAntigo(investments, today);
+        if (mesesTotaisCarteira < 1) mesesTotaisCarteira = 1;
+        double taxaMensalCarteira =
+                Math.pow(1 + rentTotalCarteira / 100.0, 1.0 / mesesTotaisCarteira) - 1;
 
-        XYChart.Series<Number, Number> ipcaSeries = new XYChart.Series<>();
-        ipcaSeries.setName(String.format("IPCA (%.2f%% a.a.)", rateIpca * 100));
+        // Taxa mensal do benchmark selecionado
+        double taxaAnualBench = switch (selectedBenchmark) {
+            case "SELIC" -> rateSelic;
+            case "IPCA"  -> rateIpca;
+            default      -> rateCdi;
+        };
+        double taxaMensalBench = Math.pow(1 + taxaAnualBench, 1.0 / 12) - 1;
 
-        XYChart.Series<Number, Number> ibovSeries = new XYChart.Series<>();
-        ibovSeries.setName("IBOVESPA");
+        // Séries
+        XYChart.Series<String, Number> carteiraSeries = new XYChart.Series<>();
+        carteiraSeries.setName("Carteira");
 
-        double monthlyRateCDI = Math.pow(1 + rateCdi, 1.0/12) - 1;
-        double monthlyRateSELIC = Math.pow(1 + rateSelic, 1.0/12) - 1;
-        double monthlyRateIPCA = Math.pow(1 + rateIpca, 1.0/12) - 1;
+        XYChart.Series<String, Number> benchSeries = new XYChart.Series<>();
+        benchSeries.setName(selectedBenchmark);
 
-        // IBOVESPA: estimate annual return from daily change % extrapolated to 12 months
-        double ibovAnnual = !Double.isNaN(rateIbov) ? (rateIbov / 100.0) * 12 : Double.NaN;
-        double monthlyRateIBOV = !Double.isNaN(ibovAnnual) ? Math.pow(1 + ibovAnnual, 1.0/12) - 1 : 0;
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM/yy");
+        long pontosGrafico = Math.min(totalMeses, mesesTotaisCarteira);
 
-        // Carteira: taxa mensal implícita baseada na idade real do investimento mais antigo
-        long currentTotal = daily.getTotalPatrimony(today);
-        double totalReturnPct = totalInvested > 0
-                ? ((currentTotal - totalInvested) * 100.0) / totalInvested : 0;
-        long totalMonthsInvested = calcularMesesDesdeInvestimentoMaisAntigo(investments, today);
-        if (totalMonthsInvested < 1) totalMonthsInvested = 1;
-        double portfolioMonthlyRate = Math.pow(1 + totalReturnPct / 100.0, 1.0 / totalMonthsInvested) - 1;
+        for (long m = 0; m <= pontosGrafico; m++) {
+            String label = dataInicio.plusMonths(m).format(fmt);
+            double rentCart  = (Math.pow(1 + taxaMensalCarteira, m) - 1) * 100;
+            double rentBench = (Math.pow(1 + taxaMensalBench,   m) - 1) * 100;
+            carteiraSeries.getData().add(new XYChart.Data<>(label, rentCart));
+            benchSeries.getData().add(new XYChart.Data<>(label, rentBench));
+        }
 
-        for (int month = 0; month <= monthsRange; month++) {
-            double rentCDI = (Math.pow(1 + monthlyRateCDI, month) - 1) * 100;
-            cdiSeries.getData().add(new XYChart.Data<>(month, rentCDI));
+        comparisonChart.getData().addAll(carteiraSeries, benchSeries);
 
-            double rentSELIC = (Math.pow(1 + monthlyRateSELIC, month) - 1) * 100;
-            selicSeries.getData().add(new XYChart.Data<>(month, rentSELIC));
-
-            double rentIPCA = (Math.pow(1 + monthlyRateIPCA, month) - 1) * 100;
-            ipcaSeries.getData().add(new XYChart.Data<>(month, rentIPCA));
-
-            if (!Double.isNaN(ibovAnnual)) {
-                double rentIBOV = (Math.pow(1 + monthlyRateIBOV, month) - 1) * 100;
-                ibovSeries.getData().add(new XYChart.Data<>(month, rentIBOV));
+        // Estilizar linhas após renderização
+        Platform.runLater(() -> {
+            if (carteiraSeries.getNode() != null) {
+                carteiraSeries.getNode().setStyle("-fx-stroke: #f59e0b; -fx-stroke-width: 2.5px;");
             }
+            if (benchSeries.getNode() != null) {
+                benchSeries.getNode().setStyle("-fx-stroke: #22c55e; -fx-stroke-width: 2px;");
+            }
+        });
 
-            double rentPortfolio = (Math.pow(1 + portfolioMonthlyRate, month) - 1) * 100;
-            portfolioSeries.getData().add(new XYChart.Data<>(month, rentPortfolio));
-        }
+        // Atualizar métricas laterais
+        long rendimentoReais = patrimonioAtual - totalInvestido;
+        double rentBenchTotal = (Math.pow(1 + taxaMensalBench, mesesTotaisCarteira) - 1) * 100;
 
-        // Configurar eixo X com inteiros (meses)
-        NumberAxis xAxis = (NumberAxis) comparisonChart.getXAxis();
-        xAxis.setAutoRanging(false);
-        xAxis.setLowerBound(0);
-        xAxis.setUpperBound(monthsRange);
-        xAxis.setTickUnit(Math.max(1, Math.ceil(monthsRange / 12.0)));
-        xAxis.setMinorTickCount(0);
+        String corGanho = rendimentoReais >= 0
+                ? "-fx-text-fill: #22c55e; -fx-font-weight: bold; -fx-font-size: 16px;"
+                : "-fx-text-fill: #ef4444; -fx-font-weight: bold; -fx-font-size: 16px;";
 
-        comparisonChart.getData().addAll(portfolioSeries, cdiSeries, selicSeries, ipcaSeries);
-        if (!ibovSeries.getData().isEmpty()) {
-            comparisonChart.getData().add(ibovSeries);
-        }
+        metricRendimentoLabel.setText(daily.brl(rendimentoReais));
+        metricRendimentoLabel.setStyle(corGanho);
 
-        applySeriesStyle(portfolioSeries, "#22c55e", 3);
-        applySeriesStyle(cdiSeries, "#3b82f6", 2);
-        applySeriesStyle(selicSeries, "#f59e0b", 2);
-        applySeriesStyle(ipcaSeries, "#ef4444", 2);
-        if (!ibovSeries.getData().isEmpty()) {
-            applySeriesStyle(ibovSeries, "#8b5cf6", 2);
-        }
+        metricRentabilidadeLabel.setText(String.format("%.2f%%", rentTotalCarteira));
+        metricRentabilidadeLabel.setStyle(corGanho);
+
+        metricBenchmarkLabel.setText(String.format("%.2f%%", rentBenchTotal));
+        metricBenchmarkLabel.setStyle(
+                "-fx-text-fill: #3b82f6; -fx-font-weight: bold; -fx-font-size: 16px;");
     }
 
     private record RankEntry(String name, String ticker, double changePercent, long valueCents) {}
@@ -641,14 +758,6 @@ public final class DashboardPage implements Page {
                 .orElse(1L);
     }
 
-    private void applySeriesStyle(XYChart.Series<Number, Number> series, String color, int width) {
-        series.nodeProperty().addListener((obs, oldNode, newNode) -> {
-            if (newNode != null) {
-                newNode.setStyle("-fx-stroke: " + color + "; -fx-stroke-width: " + width + "px;");
-            }
-        });
-    }
-
     private void updateInvestmentsByCategory(List<InvestmentType> investments,
                                              Map<Long, Long> currentValues,
                                              long totalPatrimony) {
@@ -735,13 +844,6 @@ public final class DashboardPage implements Page {
                 nonTickered.add(inv);
             }
         }
-
-        // DEBUG
-        System.out.println("=== AGRUPAMENTO CATEGORIA: " + category.getDisplayName() + " ===");
-        for (var entry : grouped.entrySet()) {
-            System.out.println(entry.getKey() + " → " + entry.getValue().size() + " compras");
-        }
-        System.out.println("============================================");
 
         // Ordenar grupos por valor total
         List<Map.Entry<String, List<InvestmentType>>> sortedGroups = new ArrayList<>(grouped.entrySet());
@@ -941,7 +1043,8 @@ public final class DashboardPage implements Page {
             double alocacao = (currentValueCents * 100.0) / totalPatrimony;
             nodes.add(createInfoBox("% Alocação", String.format("%.1f%%", alocacao)));
             nodes.add(createInfoBox("Preço Médio", String.format("R$ %.2f", precoMedio)));
-            nodes.add(createInfoBox("Último Preço", String.format("R$ %.2f", ultimoPreco)));
+            nodes.add(createInfoBox("Último Preço", String.format("R$ %.2f",
+                    BrapiClient.hasToken() ? ultimoPreco : precoMedio)));
             nodes.add(createInfoBox("Qtd Total", String.valueOf(qtdTotal)));
 
             if (inv.investmentDate() != null) {
