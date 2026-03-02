@@ -427,14 +427,19 @@ public final class DashboardPage implements Page {
         comparisonChart.setLegendVisible(true);
         comparisonChart.setMinHeight(300);
 
-        HBox chartRow = new HBox(0, comparisonChart, metricsPanel);
+        HBox chartRow = new HBox(0, comparisonChart);
         HBox.setHgrow(comparisonChart, Priority.ALWAYS);
         chartRow.setAlignment(Pos.TOP_LEFT);
+
+        // metricsPanel fica fora do chartRow, em coluna separada à direita
+        HBox contentRow = new HBox(12, chartRow, metricsPanel);
+        HBox.setHgrow(chartRow, Priority.ALWAYS);
+        contentRow.setAlignment(Pos.TOP_LEFT);
 
         // Barra de filtro de período
         buildFilterBar();
 
-        box.getChildren().addAll(title, benchBar, filterBar, datePickerBox, chartRow);
+        box.getChildren().addAll(title, benchBar, filterBar, datePickerBox, contentRow);
         return box;
     }
 
@@ -598,7 +603,8 @@ public final class DashboardPage implements Page {
 
         comparisonChart.getData().addAll(carteiraSeries, benchSeries);
 
-        // Estilizar linhas após renderização
+        // Estilizar linhas e ícones de legenda após renderização
+        // Carteira → laranja/amarelo (#f59e0b), Benchmark → verde (#22c55e)
         Platform.runLater(() -> {
             if (carteiraSeries.getNode() != null) {
                 carteiraSeries.getNode().setStyle("-fx-stroke: #f59e0b; -fx-stroke-width: 2.5px;");
@@ -606,6 +612,11 @@ public final class DashboardPage implements Page {
             if (benchSeries.getNode() != null) {
                 benchSeries.getNode().setStyle("-fx-stroke: #22c55e; -fx-stroke-width: 2px;");
             }
+            // Corrigir ícones da legenda para combinar com as cores das linhas
+            javafx.scene.Node sym0 = comparisonChart.lookup(".series0.chart-legend-item-symbol");
+            if (sym0 != null) sym0.setStyle("-fx-background-color: #f59e0b, white;");
+            javafx.scene.Node sym1 = comparisonChart.lookup(".series1.chart-legend-item-symbol");
+            if (sym1 != null) sym1.setStyle("-fx-background-color: #22c55e, white;");
         });
 
         // Atualizar métricas laterais
@@ -651,23 +662,29 @@ public final class DashboardPage implements Page {
                 }
             }
 
-            // Agrupar por ticker (evita duplicatas no painel)
+            // Agrupar por ticker — garante uma entrada única por ticker no ranking
             if (!withTicker.isEmpty()) {
                 Map<String, List<InvestmentType>> tickerGroups = new LinkedHashMap<>();
                 for (InvestmentType inv : withTicker) {
                     tickerGroups.computeIfAbsent(
-                            inv.ticker().toUpperCase().trim(), k -> new ArrayList<>()
+                            inv.ticker().trim().toUpperCase(), k -> new ArrayList<>()
                     ).add(inv);
                 }
 
-                // Buscar tickers únicos em batch
+                // Buscar tickers únicos em batch (sem chamadas individuais por compra)
                 String tickersStr = String.join(",", tickerGroups.keySet());
-                Map<String, BrapiClient.StockData> stockMap = new HashMap<>();
+                Map<String, BrapiClient.StockData> rawMap = new HashMap<>();
                 try {
-                    stockMap = BrapiClient.fetchMultipleStocks(tickersStr);
+                    rawMap = BrapiClient.fetchMultipleStocks(tickersStr);
                 } catch (Exception ignored) {}
 
-                // Uma entrada por ticker (soma de todas as compras)
+                // Normalizar chaves para uppercase — evita falha de lookup por casing da API
+                final Map<String, BrapiClient.StockData> stockMap = new HashMap<>();
+                for (var e : rawMap.entrySet()) {
+                    stockMap.put(e.getKey().toUpperCase().trim(), e.getValue());
+                }
+
+                // Uma entrada por ticker (soma dos valores de todas as compras do grupo)
                 for (var tickerEntry : tickerGroups.entrySet()) {
                     String ticker = tickerEntry.getKey();
                     List<InvestmentType> group = tickerEntry.getValue();
@@ -679,24 +696,27 @@ public final class DashboardPage implements Page {
                             .mapToLong(inv -> currentValues.getOrDefault((long) inv.id(), 0L))
                             .sum();
 
+                    if (totalValue <= 0) continue; // ignorar tickers sem valor atual
+
                     String displayName = group.size() == 1 ? group.get(0).name() : ticker;
                     entries.add(new RankEntry(displayName, ticker, change, totalValue));
                 }
             }
 
-            // Fixed income: estimate daily variation = annual rate / 252
+            // Renda fixa: variação diária estimada = taxa anual / 252
             for (InvestmentType inv : withoutTicker) {
-                double dailyChange = 0;
-                if (inv.profitability() != null) {
-                    dailyChange = inv.profitability().doubleValue() / 252.0;
-                }
                 long value = currentValues.getOrDefault((long) inv.id(), 0L);
+                if (value <= 0) continue; // ignorar ativos sem valor atual
+                double dailyChange = inv.profitability() != null
+                        ? inv.profitability().doubleValue() / 252.0
+                        : 0;
                 entries.add(new RankEntry(inv.name(), null, dailyChange, value));
             }
 
-            // Sort by |changePercent| descending, limit to 8
+            // Ordenar por |changePercent| decrescente, limitar a 8
             entries.sort((a, b) -> Double.compare(Math.abs(b.changePercent()), Math.abs(a.changePercent())));
-            if (entries.size() > 8) entries = entries.subList(0, 8);
+            // Copiar para novo ArrayList — subList retorna view que pode causar CME na thread UI
+            if (entries.size() > 8) entries = new ArrayList<>(entries.subList(0, 8));
 
             return entries;
         }).thenAcceptAsync(entries -> Platform.runLater(() -> {
@@ -832,14 +852,14 @@ public final class DashboardPage implements Page {
 
         VBox investmentsList = new VBox(8);
 
-        // ✅ AGRUPAR POR TICKER
+        // Agrupar por ticker normalizado: trim + uppercase evita "AURE3" vs "aure3 " separados
         Map<String, List<InvestmentType>> grouped = new LinkedHashMap<>();
         List<InvestmentType> nonTickered = new ArrayList<>();
 
         for (InvestmentType inv : investments) {
             if (inv.ticker() != null && !inv.ticker().isBlank()) {
-                String tickerUpper = inv.ticker().toUpperCase().trim();
-                grouped.computeIfAbsent(tickerUpper, k -> new ArrayList<>()).add(inv);
+                String tickerKey = inv.ticker().trim().toUpperCase();
+                grouped.computeIfAbsent(tickerKey, k -> new ArrayList<>()).add(inv);
             } else {
                 nonTickered.add(inv);
             }
@@ -890,6 +910,36 @@ public final class DashboardPage implements Page {
 
     private HBox buildGroupedStockRow(String ticker, List<InvestmentType> investments,
                                       long totalValueCents, long totalPatrimony) {
+        // ─── Calcular consolidado (null quantity tratado como 0) ───
+        int qtdTotal = 0;
+        double somaPrecoQtd = 0;
+        long totalInvestido = 0;
+        LocalDate dataInvestimento = null;
+
+        for (InvestmentType inv : investments) {
+            int qty = (inv.quantity() != null) ? inv.quantity() : 0;
+            double preco = (inv.purchasePrice() != null) ? inv.purchasePrice().doubleValue() : 0.0;
+
+            qtdTotal += qty;
+            somaPrecoQtd += preco * qty;
+            totalInvestido += (long)(preco * qty * 100);
+
+            // Data mais recente do grupo — calculada no mesmo loop
+            if (inv.investmentDate() != null) {
+                if (dataInvestimento == null || inv.investmentDate().isAfter(dataInvestimento)) {
+                    dataInvestimento = inv.investmentDate();
+                }
+            }
+        }
+
+        // Cópias finais para captura nas lambdas
+        final double precoMedio = (qtdTotal > 0) ? somaPrecoQtd / qtdTotal : 0.0;
+        final int qtdFinal = qtdTotal;
+        final double precoMedioFinal = precoMedio;
+        final String tickerFinal = ticker;
+        final double alocacao = totalPatrimony > 0 ? (totalValueCents * 100.0) / totalPatrimony : 0;
+
+        // ─── Construir UI ───
         HBox row = new HBox(16);
         row.setAlignment(Pos.CENTER_LEFT);
         row.setStyle("-fx-padding: 12; -fx-background-color: rgba(255,255,255,0.04); " +
@@ -898,38 +948,14 @@ public final class DashboardPage implements Page {
         VBox mainInfo = new VBox(4);
         Label nameLabel = new Label(ticker);
         nameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
-
-        Label countLabel = new Label(investments.size() + (investments.size() == 1 ? " compra" : " compras"));
-        countLabel.setStyle("-fx-font-size: 11px; -fx-opacity: 0.6;");
-        mainInfo.getChildren().addAll(nameLabel, countLabel);
+        Label qtdSubLabel = new Label("Qtd: " + qtdFinal);
+        qtdSubLabel.setStyle("-fx-font-size: 11px; -fx-opacity: 0.6;");
+        mainInfo.getChildren().addAll(nameLabel, qtdSubLabel);
         row.getChildren().add(mainInfo);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         row.getChildren().add(spacer);
-
-        // ✅ CALCULAR CONSOLIDADO
-        int qtdTotal = 0;
-        double somaPrecoQtd = 0;
-        long totalInvestido = 0;
-
-        for (InvestmentType inv : investments) {
-            if (inv.quantity() != null && inv.quantity() > 0) {
-                qtdTotal += inv.quantity();
-
-                if (inv.purchasePrice() != null) {
-                    double preco = inv.purchasePrice().doubleValue();
-                    somaPrecoQtd += (preco * inv.quantity());
-                    totalInvestido += (long)(preco * inv.quantity() * 100);
-                }
-            }
-        }
-
-        double precoMedio = qtdTotal > 0 ? somaPrecoQtd / qtdTotal : 0;
-        double posicaoAtual = totalValueCents / 100.0;
-        double ultimoPreco = qtdTotal > 0 ? posicaoAtual / qtdTotal : 0;
-        double rentabilidade = precoMedio > 0 ? ((ultimoPreco - precoMedio) / precoMedio) * 100 : 0;
-        double alocacao = totalPatrimony > 0 ? (totalValueCents * 100.0) / totalPatrimony : 0;
 
         // Ticker Badge
         VBox tickerBox = new VBox(2);
@@ -941,30 +967,62 @@ public final class DashboardPage implements Page {
         tickerBox.getChildren().addAll(tickerLabel, tickerHint);
         row.getChildren().add(tickerBox);
 
-        // Valores
-        row.getChildren().add(createInfoBox("Valor Investido", daily.brl(totalInvestido)));
+        // Labels atualizados assincronamente (Posição Atual e Rentabilidade)
+        Label rentLabel = new Label("...");
+        rentLabel.setStyle("-fx-opacity: 0.5; -fx-font-size: 12px;");
 
         Label posicaoLabel = new Label(daily.brl(totalValueCents));
         posicaoLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+
+        row.getChildren().add(createInfoBox("Valor Investido", daily.brl(totalInvestido)));
         row.getChildren().add(createInfoBox("Posição Atual", posicaoLabel));
-
-        Label rentLabel;
-        if (!BrapiClient.hasToken()) {
-            rentLabel = new Label("—");
-            rentLabel.setStyle("-fx-opacity: 0.45; -fx-font-size: 12px;");
-        } else {
-            rentLabel = new Label(String.format("%+.2f%%", rentabilidade));
-            rentLabel.setStyle((rentabilidade >= 0 ? "-fx-text-fill: #22c55e;" : "-fx-text-fill: #ef4444;") +
-                    " -fx-font-weight: bold; -fx-font-size: 12px;");
-        }
         row.getChildren().add(createInfoBox("Rentabilidade", rentLabel));
-
         row.getChildren().add(createInfoBox("% Alocação", String.format("%.1f%%", alocacao)));
-        row.getChildren().add(createInfoBox("Preço Médio", String.format("R$ %.2f", precoMedio)));
-        row.getChildren().add(createInfoBox("Último Preço", String.format("R$ %.2f",
-                BrapiClient.hasToken() ? ultimoPreco : precoMedio)));
+        // Qtd Total e Preço Médio são dados locais — sempre visíveis, independente de token
+        row.getChildren().add(createInfoBox("Qtd Total", String.valueOf(qtdFinal)));
+        row.getChildren().add(createInfoBox("Preço Médio", String.format("R$ %.2f", precoMedioFinal)));
 
-        row.getChildren().add(createInfoBox("Qtd Total", String.valueOf(qtdTotal)));
+        if (dataInvestimento != null) {
+            row.getChildren().add(createInfoBox("Data Investimento",
+                    dataInvestimento.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))));
+        }
+
+        // ─── Busca assíncrona do preço atual via Brapi ───
+        if (BrapiClient.hasToken() && qtdFinal > 0) {
+            CompletableFuture.supplyAsync(() -> {
+                try {
+                    return BrapiClient.fetchStockData(tickerFinal);
+                } catch (Exception e) {
+                    return null;
+                }
+            }).thenAcceptAsync(data -> Platform.runLater(() -> {
+                if (data != null && data.isValid()) {
+                    double precoAtual = data.regularMarketPrice();
+                    long posicaoAtualCents = (long)(precoAtual * qtdFinal * 100);
+                    double rent = precoMedioFinal > 0
+                            ? ((precoAtual - precoMedioFinal) / precoMedioFinal) * 100
+                            : 0;
+
+                    posicaoLabel.setText(daily.brl(posicaoAtualCents));
+                    posicaoLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+
+                    rentLabel.setText(String.format("%+.2f%%", rent));
+                    rentLabel.setStyle(
+                            (rent >= 0 ? "-fx-text-fill: #22c55e;" : "-fx-text-fill: #ef4444;") +
+                            " -fx-font-weight: bold; -fx-font-size: 12px;");
+                } else {
+                    // Brapi falhou: fallback para totalValueCents
+                    posicaoLabel.setText(daily.brl(totalValueCents));
+                    posicaoLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+                    rentLabel.setText("—");
+                    rentLabel.setStyle("-fx-opacity: 0.45; -fx-font-size: 12px;");
+                }
+            }));
+        } else {
+            // Sem token: mostrar "—" na rentabilidade
+            rentLabel.setText("—");
+            rentLabel.setStyle("-fx-opacity: 0.45; -fx-font-size: 12px;");
+        }
 
         return row;
     }
