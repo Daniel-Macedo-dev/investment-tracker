@@ -7,6 +7,7 @@ import com.daniel.core.service.DiversificationCalculator;
 import com.daniel.core.service.DiversificationCalculator.*;
 import com.daniel.infrastructure.api.BcbClient;
 import com.daniel.infrastructure.api.BrapiClient;
+import com.daniel.infrastructure.persistence.repository.AppSettingsRepository;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -56,6 +57,11 @@ public final class DashboardPage implements Page {
     private final DatePicker fromPicker = new DatePicker();
     private final DatePicker toPicker = new DatePicker();
     private final HBox datePickerBox = new HBox(8);
+
+    private final Label tokenWarningBanner = new Label(
+            "⚠️  Token Brapi não configurado — cotações de ações usam preço de compra como referência. " +
+            "Configure seu token na página Configurações para ver rentabilidade real.");
+    private final AppSettingsRepository settingsRepo = new AppSettingsRepository();
 
     public DashboardPage(DailyTrackingUseCase dailyTrackingUseCase) {
         this.daily = dailyTrackingUseCase;
@@ -129,7 +135,14 @@ public final class DashboardPage implements Page {
         buildFilterBar();
         comparisonBox.getChildren().addAll(comparisonTitle, filterBar, datePickerBox, comparisonChart);
 
-        root.getChildren().addAll(h1, cards, h2, chartsRow, comparisonBox, investmentsByCategoryContainer);
+        tokenWarningBanner.setWrapText(true);
+        tokenWarningBanner.setStyle(
+                "-fx-background-color: #78350f; -fx-text-fill: #fde68a; " +
+                "-fx-padding: 10 14; -fx-background-radius: 6; -fx-font-size: 12px;");
+        tokenWarningBanner.setVisible(false);
+        tokenWarningBanner.setManaged(false);
+
+        root.getChildren().addAll(h1, tokenWarningBanner, cards, h2, chartsRow, comparisonBox, investmentsByCategoryContainer);
 
         scrollPane.setContent(root);
         scrollPane.setFitToWidth(true);
@@ -143,6 +156,9 @@ public final class DashboardPage implements Page {
 
     @Override
     public void onShow() {
+        boolean hasToken = BrapiClient.hasToken();
+        tokenWarningBanner.setVisible(!hasToken);
+        tokenWarningBanner.setManaged(!hasToken);
         refreshData();
         if (!ratesFetched) {
             fetchRealRates();
@@ -441,9 +457,17 @@ public final class DashboardPage implements Page {
         double monthlyRateSELIC = Math.pow(1 + rateSelic, 1.0/12) - 1;
         double monthlyRateIPCA = Math.pow(1 + rateIpca, 1.0/12) - 1;
 
-        // IBOVESPA: estimate annual return from daily change * 252 trading days
+        // IBOVESPA: estimate annual return from daily change % extrapolated to 12 months
         double ibovAnnual = !Double.isNaN(rateIbov) ? (rateIbov / 100.0) * 12 : Double.NaN;
         double monthlyRateIBOV = !Double.isNaN(ibovAnnual) ? Math.pow(1 + ibovAnnual, 1.0/12) - 1 : 0;
+
+        // Carteira: taxa mensal implícita baseada na idade real do investimento mais antigo
+        long currentTotal = daily.getTotalPatrimony(today);
+        double totalReturnPct = totalInvested > 0
+                ? ((currentTotal - totalInvested) * 100.0) / totalInvested : 0;
+        long totalMonthsInvested = calcularMesesDesdeInvestimentoMaisAntigo(investments, today);
+        if (totalMonthsInvested < 1) totalMonthsInvested = 1;
+        double portfolioMonthlyRate = Math.pow(1 + totalReturnPct / 100.0, 1.0 / totalMonthsInvested) - 1;
 
         for (int month = 0; month <= monthsRange; month++) {
             double rentCDI = (Math.pow(1 + monthlyRateCDI, month) - 1) * 100;
@@ -460,10 +484,17 @@ public final class DashboardPage implements Page {
                 ibovSeries.getData().add(new XYChart.Data<>(month, rentIBOV));
             }
 
-            long currentTotal = daily.getTotalPatrimony(today);
-            double rentPortfolio = ((currentTotal - totalInvested) * 100.0) / totalInvested;
+            double rentPortfolio = (Math.pow(1 + portfolioMonthlyRate, month) - 1) * 100;
             portfolioSeries.getData().add(new XYChart.Data<>(month, rentPortfolio));
         }
+
+        // Configurar eixo X com inteiros (meses)
+        NumberAxis xAxis = (NumberAxis) comparisonChart.getXAxis();
+        xAxis.setAutoRanging(false);
+        xAxis.setLowerBound(0);
+        xAxis.setUpperBound(monthsRange);
+        xAxis.setTickUnit(Math.max(1, Math.ceil(monthsRange / 12.0)));
+        xAxis.setMinorTickCount(0);
 
         comparisonChart.getData().addAll(portfolioSeries, cdiSeries, selicSeries, ipcaSeries);
         if (!ibovSeries.getData().isEmpty()) {
@@ -503,26 +534,36 @@ public final class DashboardPage implements Page {
                 }
             }
 
-            // Fetch tickers in batch
+            // Agrupar por ticker (evita duplicatas no painel)
             if (!withTicker.isEmpty()) {
-                StringBuilder tickers = new StringBuilder();
+                Map<String, List<InvestmentType>> tickerGroups = new LinkedHashMap<>();
                 for (InvestmentType inv : withTicker) {
-                    if (tickers.length() > 0) tickers.append(",");
-                    tickers.append(inv.ticker());
+                    tickerGroups.computeIfAbsent(
+                            inv.ticker().toUpperCase().trim(), k -> new ArrayList<>()
+                    ).add(inv);
                 }
+
+                // Buscar tickers únicos em batch
+                String tickersStr = String.join(",", tickerGroups.keySet());
+                Map<String, BrapiClient.StockData> stockMap = new HashMap<>();
                 try {
-                    Map<String, BrapiClient.StockData> stockMap = BrapiClient.fetchMultipleStocks(tickers.toString());
-                    for (InvestmentType inv : withTicker) {
-                        BrapiClient.StockData data = stockMap.get(inv.ticker().toUpperCase());
-                        double change = (data != null && data.isValid()) ? data.regularMarketChangePercent() : 0;
-                        long value = currentValues.getOrDefault((long) inv.id(), 0L);
-                        entries.add(new RankEntry(inv.name(), inv.ticker(), change, value));
-                    }
-                } catch (Exception e) {
-                    for (InvestmentType inv : withTicker) {
-                        long value = currentValues.getOrDefault((long) inv.id(), 0L);
-                        entries.add(new RankEntry(inv.name(), inv.ticker(), 0, value));
-                    }
+                    stockMap = BrapiClient.fetchMultipleStocks(tickersStr);
+                } catch (Exception ignored) {}
+
+                // Uma entrada por ticker (soma de todas as compras)
+                for (var tickerEntry : tickerGroups.entrySet()) {
+                    String ticker = tickerEntry.getKey();
+                    List<InvestmentType> group = tickerEntry.getValue();
+
+                    BrapiClient.StockData data = stockMap.get(ticker);
+                    double change = (data != null && data.isValid()) ? data.regularMarketChangePercent() : 0;
+
+                    long totalValue = group.stream()
+                            .mapToLong(inv -> currentValues.getOrDefault((long) inv.id(), 0L))
+                            .sum();
+
+                    String displayName = group.size() == 1 ? group.get(0).name() : ticker;
+                    entries.add(new RankEntry(displayName, ticker, change, totalValue));
                 }
             }
 
@@ -590,6 +631,14 @@ public final class DashboardPage implements Page {
 
         row.getChildren().addAll(nameBox, rightBox);
         return row;
+    }
+
+    private long calcularMesesDesdeInvestimentoMaisAntigo(List<InvestmentType> investments, LocalDate today) {
+        return investments.stream()
+                .filter(inv -> inv.investmentDate() != null)
+                .mapToLong(inv -> java.time.temporal.ChronoUnit.MONTHS.between(inv.investmentDate(), today))
+                .max()
+                .orElse(1L);
     }
 
     private void applySeriesStyle(XYChart.Series<Number, Number> series, String color, int width) {
@@ -797,16 +846,22 @@ public final class DashboardPage implements Page {
         posicaoLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
         row.getChildren().add(createInfoBox("Posição Atual", posicaoLabel));
 
-        Label rentLabel = new Label(String.format("%+.2f%%", rentabilidade));
-        rentLabel.setStyle((rentabilidade >= 0 ? "-fx-text-fill: #22c55e;" : "-fx-text-fill: #ef4444;") +
-                " -fx-font-weight: bold; -fx-font-size: 12px;");
+        Label rentLabel;
+        if (!BrapiClient.hasToken()) {
+            rentLabel = new Label("—");
+            rentLabel.setStyle("-fx-opacity: 0.45; -fx-font-size: 12px;");
+        } else {
+            rentLabel = new Label(String.format("%+.2f%%", rentabilidade));
+            rentLabel.setStyle((rentabilidade >= 0 ? "-fx-text-fill: #22c55e;" : "-fx-text-fill: #ef4444;") +
+                    " -fx-font-weight: bold; -fx-font-size: 12px;");
+        }
         row.getChildren().add(createInfoBox("Rentabilidade", rentLabel));
 
         row.getChildren().add(createInfoBox("% Alocação", String.format("%.1f%%", alocacao)));
         row.getChildren().add(createInfoBox("Preço Médio", String.format("R$ %.2f", precoMedio)));
-        row.getChildren().add(createInfoBox("Último Preço", String.format("R$ %.2f", ultimoPreco)));
+        row.getChildren().add(createInfoBox("Último Preço", String.format("R$ %.2f",
+                BrapiClient.hasToken() ? ultimoPreco : precoMedio)));
 
-        // ✅ QUANTIDADE TOTAL
         row.getChildren().add(createInfoBox("Qtd Total", String.valueOf(qtdTotal)));
 
         return row;
@@ -872,9 +927,15 @@ public final class DashboardPage implements Page {
             nodes.add(createInfoBox("Posição Atual", posicaoLabel));
 
             double rentabilidade = ((ultimoPreco - precoMedio) / precoMedio) * 100;
-            Label rentLabel = new Label(String.format("%+.2f%%", rentabilidade));
-            rentLabel.setStyle((rentabilidade >= 0 ? "-fx-text-fill: #22c55e;" : "-fx-text-fill: #ef4444;") +
-                    " -fx-font-weight: bold; -fx-font-size: 12px;");
+            Label rentLabel;
+            if (!BrapiClient.hasToken()) {
+                rentLabel = new Label("—");
+                rentLabel.setStyle("-fx-opacity: 0.45; -fx-font-size: 12px;");
+            } else {
+                rentLabel = new Label(String.format("%+.2f%%", rentabilidade));
+                rentLabel.setStyle((rentabilidade >= 0 ? "-fx-text-fill: #22c55e;" : "-fx-text-fill: #ef4444;") +
+                        " -fx-font-weight: bold; -fx-font-size: 12px;");
+            }
             nodes.add(createInfoBox("Rentabilidade", rentLabel));
 
             double alocacao = (currentValueCents * 100.0) / totalPatrimony;
