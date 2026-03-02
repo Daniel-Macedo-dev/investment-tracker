@@ -6,6 +6,7 @@ import com.google.gson.*;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 public final class BrapiClient {
@@ -312,6 +313,164 @@ public final class BrapiClient {
         } catch (Exception e) {
             return 0L;
         }
+    }
+
+    // ── Cache para retorno anualizado do IBOVESPA ──
+    private static final long IBOV_CACHE_TTL_MS = TimeUnit.HOURS.toMillis(1);
+    private static volatile double cachedIbovReturn = Double.NaN;
+    private static volatile long cachedIbovTimestamp = 0;
+
+    /**
+     * Retorno do IBOVESPA nos últimos 12 meses via dados históricos da Brapi.
+     * Requer token configurado. Retorna decimal anual (ex: 0.15 = 15%).
+     */
+    public static Optional<Double> fetchIbovespaReturn() {
+        if (!Double.isNaN(cachedIbovReturn)
+                && System.currentTimeMillis() - cachedIbovTimestamp < IBOV_CACHE_TTL_MS) {
+            return Optional.of(cachedIbovReturn);
+        }
+
+        String token = getToken();
+        if (token == null || token.isBlank()) {
+            System.err.println("[IBOV] Token não encontrado");
+            return Optional.empty();
+        }
+
+        // Tentar histórico 3mo (máximo do plano gratuito)
+        Optional<Double> hist = fetchIbovFromHistorical(token);
+        if (hist.isPresent()) {
+            cachedIbovReturn = hist.get();
+            cachedIbovTimestamp = System.currentTimeMillis();
+            return hist;
+        }
+
+        // Fallback: quote básico — usa regularMarketChangePercent (variação diária)
+        // anualizado como estimativa grosseira
+        System.err.println("[IBOV] Histórico falhou, tentando quote básico...");
+        try {
+            StockData data = fetchStockData("^BVSP");
+            if (data != null && data.isValid()) {
+                double dailyPct = data.regularMarketChangePercent() / 100.0;
+                double annualized = Math.pow(1 + dailyPct, 252) - 1;
+                cachedIbovReturn = annualized;
+                cachedIbovTimestamp = System.currentTimeMillis();
+                System.err.println("[IBOV] Fallback quote: diário="
+                        + String.format("%.4f%%", dailyPct * 100)
+                        + " anualizado=" + String.format("%.2f%%", annualized * 100));
+                return Optional.of(annualized);
+            }
+        } catch (Exception e) {
+            System.err.println("[IBOV] Fallback quote falhou: " + e.getMessage());
+        }
+
+        return Optional.empty();
+    }
+
+    private static Optional<Double> fetchIbovFromHistorical(String token) {
+        try {
+            HttpUrl httpUrl = HttpUrl.parse(BASE_URL + QUOTE_ENDPOINT + "/%5EBVSP")
+                    .newBuilder()
+                    .addQueryParameter("range", "3mo")
+                    .addQueryParameter("interval", "1mo")
+                    .addQueryParameter("token", token.trim())
+                    .build();
+
+            System.err.println("[IBOV] URL: " + httpUrl.toString().replaceAll("token=.*", "token=***"));
+
+            Request request = new Request.Builder()
+                    .url(httpUrl)
+                    .get()
+                    .addHeader("User-Agent", "Investment-Tracker/1.0")
+                    .build();
+
+            try (Response response = client.newCall(request).execute()) {
+                if (response.body() == null) {
+                    System.err.println("[IBOV] body nulo, HTTP " + response.code());
+                    return Optional.empty();
+                }
+
+                String jsonResponse = response.body().string();
+
+                if (!response.isSuccessful()) {
+                    System.err.println("[IBOV] HTTP " + response.code() + " body: " + jsonResponse);
+                    return Optional.empty();
+                }
+
+                System.err.println("[IBOV] Resposta (500 chars): "
+                        + jsonResponse.substring(0, Math.min(jsonResponse.length(), 500)));
+
+                JsonObject root = gson.fromJson(jsonResponse, JsonObject.class);
+
+                // Checar campo error (pode ser boolean true ou string)
+                if (root.has("error")) {
+                    JsonElement errEl = root.get("error");
+                    if (errEl.isJsonPrimitive()) {
+                        JsonPrimitive ep = errEl.getAsJsonPrimitive();
+                        if ((ep.isBoolean() && ep.getAsBoolean()) || ep.isString()) {
+                            System.err.println("[IBOV] error: " + errEl);
+                            return Optional.empty();
+                        }
+                    } else {
+                        System.err.println("[IBOV] error (objeto): " + errEl);
+                        return Optional.empty();
+                    }
+                }
+
+                JsonArray results = root.getAsJsonArray("results");
+                if (results == null || results.isEmpty()) {
+                    System.err.println("[IBOV] results vazio/nulo");
+                    return Optional.empty();
+                }
+
+                JsonObject result = results.get(0).getAsJsonObject();
+                System.err.println("[IBOV] Result keys: " + result.keySet());
+
+                JsonArray hist = result.getAsJsonArray("historicalDataPrice");
+                if (hist == null || hist.isEmpty()) {
+                    System.err.println("[IBOV] historicalDataPrice nulo/vazio");
+                    return Optional.empty();
+                }
+
+                System.err.println("[IBOV] hist entries=" + hist.size()
+                        + " primeira=" + hist.get(0)
+                        + " última=" + hist.get(hist.size() - 1));
+
+                // Extrair preço: close → adjustedClose → open (fallback)
+                double firstPrice = extractPrice(hist.get(0).getAsJsonObject());
+                double lastPrice = extractPrice(hist.get(hist.size() - 1).getAsJsonObject());
+
+                // Se último preço é 0 (mês incompleto), pegar o penúltimo
+                if (lastPrice <= 0 && hist.size() > 2) {
+                    lastPrice = extractPrice(hist.get(hist.size() - 2).getAsJsonObject());
+                }
+
+                System.err.println("[IBOV] firstPrice=" + firstPrice + " lastPrice=" + lastPrice);
+
+                if (firstPrice <= 0 || lastPrice <= 0) {
+                    System.err.println("[IBOV] preço inválido");
+                    return Optional.empty();
+                }
+
+                double retornoPeriodo = (lastPrice / firstPrice) - 1;
+                int meses = Math.max(hist.size() - 1, 1);
+                double retornoAnual = Math.pow(1 + retornoPeriodo, 12.0 / meses) - 1;
+
+                System.err.println("[IBOV] Retorno " + meses + "m: "
+                        + String.format("%.2f%%", retornoPeriodo * 100)
+                        + " → anual: " + String.format("%.2f%%", retornoAnual * 100));
+                return Optional.of(retornoAnual);
+            }
+        } catch (Exception e) {
+            System.err.println("[IBOV] Exceção hist: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    private static double extractPrice(JsonObject entry) {
+        double v = getDoubleOrZero(entry, "close");
+        if (v <= 0) v = getDoubleOrZero(entry, "adjustedClose");
+        if (v <= 0) v = getDoubleOrZero(entry, "open");
+        return v;
     }
 
     public static boolean testConnection() {
