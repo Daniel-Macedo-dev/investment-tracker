@@ -170,13 +170,7 @@ public final class DashboardPage implements Page {
             double selic = BcbClient.fetchSelic().orElse(-1.0);
             double ipca = BcbClient.fetchIpca().orElse(-1.0);
 
-            double ibov = Double.NaN;
-            try {
-                BrapiClient.StockData data = BrapiClient.fetchStockData("^BVSP");
-                if (data != null && data.isValid()) {
-                    ibov = data.regularMarketChangePercent();
-                }
-            } catch (Exception ignored) {}
+            double ibov = BrapiClient.fetchIbovespaReturn().orElse(Double.NaN);
 
             return new double[]{cdi, selic, ipca, ibov};
         }).thenAcceptAsync(rates -> Platform.runLater(() -> {
@@ -355,9 +349,9 @@ public final class DashboardPage implements Page {
         // Botões de benchmark
         ToggleGroup benchTg = new ToggleGroup();
         HBox benchBar = new HBox(8);
-        benchBar.setAlignment(Pos.CENTER_LEFT);
+        benchBar.setAlignment(Pos.CENTER_RIGHT);
 
-        for (String bench : List.of("CDI", "SELIC", "IPCA")) {
+        for (String bench : List.of("CDI", "SELIC", "IPCA", "IBOVESPA")) {
             ToggleButton btn = new ToggleButton(bench);
             btn.setToggleGroup(benchTg);
             if (bench.equals("CDI")) {
@@ -414,6 +408,7 @@ public final class DashboardPage implements Page {
         metricsPanel.setMinWidth(160);
         metricsPanel.setPadding(new Insets(4, 0, 0, 20));
         metricsPanel.getChildren().addAll(
+                benchBar,
                 buildMetricBox("Rendimento", metricRendimentoLabel),
                 buildMetricBox("Rentabilidade", metricRentabilidadeLabel),
                 buildMetricBoxCustomTitle(metricBenchmarkTitleLabel, metricBenchmarkLabel)
@@ -439,7 +434,7 @@ public final class DashboardPage implements Page {
         // Barra de filtro de período
         buildFilterBar();
 
-        box.getChildren().addAll(title, benchBar, filterBar, datePickerBox, contentRow);
+        box.getChildren().addAll(title, filterBar, datePickerBox, contentRow);
         return box;
     }
 
@@ -577,9 +572,10 @@ public final class DashboardPage implements Page {
 
         // Taxa mensal do benchmark selecionado
         double taxaAnualBench = switch (selectedBenchmark) {
-            case "SELIC" -> rateSelic;
-            case "IPCA"  -> rateIpca;
-            default      -> rateCdi;
+            case "SELIC"    -> rateSelic;
+            case "IPCA"     -> rateIpca;
+            case "IBOVESPA" -> Double.isNaN(rateIbov) ? 0.0 : rateIbov;
+            default         -> rateCdi;
         };
         double taxaMensalBench = Math.pow(1 + taxaAnualBench, 1.0 / 12) - 1;
 
@@ -619,21 +615,23 @@ public final class DashboardPage implements Page {
             if (sym1 != null) sym1.setStyle("-fx-background-color: #22c55e, white;");
         });
 
-        // Atualizar métricas laterais
-        long rendimentoReais = patrimonioAtual - totalInvestido;
-        double rentBenchTotal = (Math.pow(1 + taxaMensalBench, mesesTotaisCarteira) - 1) * 100;
+        // Atualizar métricas laterais — sincronizadas com o período do gráfico
+        double rentCartPeriodo  = (Math.pow(1 + taxaMensalCarteira, pontosGrafico) - 1) * 100;
+        double rentBenchPeriodo = (Math.pow(1 + taxaMensalBench,    pontosGrafico) - 1) * 100;
+        long rendimentoPeriodo  = Math.round(totalInvestido * rentCartPeriodo / 100.0);
 
-        String corGanho = rendimentoReais >= 0
+        String corGanho = rendimentoPeriodo >= 0
                 ? "-fx-text-fill: #22c55e; -fx-font-weight: bold; -fx-font-size: 16px;"
                 : "-fx-text-fill: #ef4444; -fx-font-weight: bold; -fx-font-size: 16px;";
 
-        metricRendimentoLabel.setText(daily.brl(rendimentoReais));
+        metricRendimentoLabel.setText(daily.brl(rendimentoPeriodo));
         metricRendimentoLabel.setStyle(corGanho);
 
-        metricRentabilidadeLabel.setText(String.format("%.2f%%", rentTotalCarteira));
+        metricRentabilidadeLabel.setText(String.format("%.2f%%", rentCartPeriodo));
         metricRentabilidadeLabel.setStyle(corGanho);
 
-        metricBenchmarkLabel.setText(String.format("%.2f%%", rentBenchTotal));
+        boolean ibovUnavailable = "IBOVESPA".equals(selectedBenchmark) && Double.isNaN(rateIbov);
+        metricBenchmarkLabel.setText(ibovUnavailable ? "—" : String.format("%.2f%%", rentBenchPeriodo));
         metricBenchmarkLabel.setStyle(
                 "-fx-text-fill: #3b82f6; -fx-font-weight: bold; -fx-font-size: 16px;");
     }
