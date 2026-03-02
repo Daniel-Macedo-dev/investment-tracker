@@ -92,8 +92,14 @@ public final class Schema {
                 CREATE INDEX IF NOT EXISTS idx_investment_snapshots_date 
                     ON investment_snapshots(date DESC);
                 
-                CREATE INDEX IF NOT EXISTS idx_investment_snapshots_type 
+                CREATE INDEX IF NOT EXISTS idx_investment_snapshots_type
                     ON investment_snapshots(investment_type_id);
+
+                -- Configurações do app
+                CREATE TABLE IF NOT EXISTS app_settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                );
                 """;
     }
 
