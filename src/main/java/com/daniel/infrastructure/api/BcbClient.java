@@ -13,6 +13,9 @@ public final class BcbClient {
     private static final String BASE_URL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.";
     private static final String SUFFIX = "/dados/ultimos/1?formato=json";
 
+    // SELIC (432): taxa anual em % → decimal anual (ex: 13.25 → 0.1325)
+    // CDI   (12):  taxa DIÁRIA em % → convertida para decimal anual
+    // IPCA  (13522): variação MENSAL em % → convertida para decimal anual
     private static final int SERIES_SELIC = 432;
     private static final int SERIES_CDI = 12;
     private static final int SERIES_IPCA = 13522;
@@ -76,7 +79,21 @@ public final class BcbClient {
                 JsonObject entry = array.get(0).getAsJsonObject();
                 String valorStr = entry.get("valor").getAsString();
                 double percent = Double.parseDouble(valorStr.replace(",", "."));
-                double decimal = percent / 100.0;
+
+                // Normalizar para decimal anual
+                double decimal;
+                if (seriesId == SERIES_CDI) {
+                    // CDI retorna taxa DIÁRIA em % → converter para anual
+                    double dailyDecimal = percent / 100.0;
+                    decimal = Math.pow(1 + dailyDecimal, 252) - 1;
+                } else if (seriesId == SERIES_IPCA) {
+                    // IPCA retorna variação MENSAL em % → converter para anual
+                    double monthlyDecimal = percent / 100.0;
+                    decimal = Math.pow(1 + monthlyDecimal, 12) - 1;
+                } else {
+                    // SELIC retorna taxa ANUAL em % → apenas dividir por 100
+                    decimal = percent / 100.0;
+                }
 
                 cache.put(seriesId, new CachedRate(decimal, System.currentTimeMillis()));
                 return Optional.of(decimal);
