@@ -434,10 +434,11 @@ public final class DiversificationPage implements Page {
 
         var idealRows = FXCollections.<AllocationRow>observableArrayList();
         for (var sug : suggestions) {
+            double targetPct = profile.getOrDefault(sug.category(), 0.0) * 100.0;
             idealRows.add(new AllocationRow(
                     sug.category(),
                     daily.brl(sug.idealCents()),
-                    String.format("%.1f%%", (sug.idealCents() * 100.0 / referencePatrimony))
+                    String.format("%.1f%%", targetPct)
             ));
         }
         idealTable.setItems(idealRows);
@@ -493,10 +494,11 @@ public final class DiversificationPage implements Page {
 
             var idealRows = FXCollections.<AllocationRow>observableArrayList();
             for (var sug : suggestions) {
+                double targetPct = customProfile.getOrDefault(sug.category(), 0.0) * 100.0;
                 idealRows.add(new AllocationRow(
                         sug.category(),
                         daily.brl(sug.idealCents()),
-                        String.format("%.1f%%", (sug.idealCents() * 100.0 / referencePatrimony))
+                        String.format("%.1f%%", targetPct)
                 ));
             }
             idealTable.setItems(idealRows);
