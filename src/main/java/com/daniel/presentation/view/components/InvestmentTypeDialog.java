@@ -6,10 +6,10 @@ import com.daniel.core.domain.entity.Enums.InvestmentTypeEnum;
 import com.daniel.core.domain.entity.Enums.IndexTypeEnum;
 import com.daniel.core.util.Money;
 import com.daniel.infrastructure.api.BrapiClient;
-import com.daniel.presentation.view.components.TickerAutocompleteField;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
@@ -48,6 +48,7 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
     private final TextField hybridIndexField = new TextField();
 
     private final TextField investedValueField = new TextField();
+    private final Label autoFillLabel = new Label("✓ Calculado automaticamente");
 
     private final ComboBox<InvestmentTypeEnum> typeCombo = new ComboBox<>();
     private final ComboBox<IndexTypeEnum> indexCombo = new ComboBox<>();
@@ -57,31 +58,45 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
     private final TextField purchasePriceField = new TextField();
     private final TextField quantityField = new TextField();
 
-    // ✅ ADICIONAR: Timer para debounce
-    private Timer debounceTimer;
+    // Container VBoxes for visibility control
+    private VBox indexFieldsBox;
+    private VBox rentabilitySection;
+    private VBox ativoCard;
+    private VBox fixedRateBox;
+    private VBox benchmarkBox;
+    private VBox hybridBox;
 
+    private Timer debounceTimer;
     private final boolean isEdit;
 
     public InvestmentTypeDialog(String title, InvestmentTypeData existing) {
         this.isEdit = existing != null;
 
         setTitle(title);
-        setHeaderText(isEdit ? "Edite os dados do investimento" : "Preencha os dados do novo investimento");
+        setHeaderText(null);
+
+        // Apply dark theme
+        getDialogPane().getStylesheets().add(
+                getClass().getResource("/styles/app.css").toExternalForm());
+        getDialogPane().getStyleClass().add("dark-dialog");
 
         ButtonType confirmButton = new ButtonType(isEdit ? "Atualizar" : "Criar", ButtonBar.ButtonData.OK_DONE);
         getDialogPane().getButtonTypes().addAll(confirmButton, ButtonType.CANCEL);
+
+        // Size
+        getDialogPane().setMinWidth(680);
+        getDialogPane().setPrefWidth(720);
+        getDialogPane().setMinHeight(600);
+        getDialogPane().setPrefHeight(650);
 
         TabPane tabPane = new TabPane();
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
         Tab tab1 = new Tab("Dados Básicos", buildBasicTab());
         Tab tab2 = new Tab("Tipo & Rentabilidade", buildTypeTab());
-
         tabPane.getTabs().addAll(tab1, tab2);
 
         getDialogPane().setContent(tabPane);
-        getDialogPane().setMinWidth(700);
-        getDialogPane().setMinHeight(900);
 
         if (existing != null) {
             fillExistingData(existing);
@@ -89,43 +104,15 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
             datePicker.setValue(LocalDate.now());
         }
 
-        typeCombo.valueProperty().addListener((o, a, b) -> {
-            updateTypeVisibility();
-        });
-
+        // Listeners
+        typeCombo.valueProperty().addListener((o, a, b) -> updateTypeVisibility());
         categoryCombo.valueProperty().addListener((o, a, b) -> {
             updateRentabilityVisibility();
             updateTypeComboItems();
         });
 
-        // ✅ SUBSTITUIR: Listeners com debounce para auto-preenchimento
-        purchasePriceField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (debounceTimer != null) {
-                debounceTimer.cancel();
-            }
-            debounceTimer = new Timer();
-            debounceTimer.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    Platform.runLater(() -> updateInvestedValueForStock());
-                }
-            }, 500);
-        });
-
-        quantityField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (debounceTimer != null) {
-                debounceTimer.cancel();
-            }
-            debounceTimer = new Timer();
-            debounceTimer.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    Platform.runLater(() -> updateInvestedValueForStock());
-                }
-            }, 500);
-        });
-
-        // Também calcular ao pressionar Enter
+        purchasePriceField.textProperty().addListener((obs, oldVal, newVal) -> scheduleAutoFill());
+        quantityField.textProperty().addListener((obs, oldVal, newVal) -> scheduleAutoFill());
         purchasePriceField.setOnAction(e -> updateInvestedValueForStock());
         quantityField.setOnAction(e -> updateInvestedValueForStock());
 
@@ -141,209 +128,231 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         });
 
         setResultConverter(buttonType -> {
-            if (buttonType == confirmButton) {
-                return buildResult();
-            }
+            if (buttonType == confirmButton) return buildResult();
             return null;
         });
 
         Button btn = (Button) getDialogPane().lookupButton(confirmButton);
         btn.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
-            if (!validate()) {
-                event.consume();
-            }
+            if (!validate()) event.consume();
+        });
+
+        // Style buttons after layout
+        Platform.runLater(() -> {
+            Button confirmBtn = (Button) getDialogPane().lookupButton(confirmButton);
+            if (confirmBtn != null) confirmBtn.getStyleClass().add("primary-btn");
+            Button cancelBtn = (Button) getDialogPane().lookupButton(ButtonType.CANCEL);
+            if (cancelBtn != null) cancelBtn.getStyleClass().add("ghost-btn");
         });
 
         updateTypeVisibility();
         updateRentabilityVisibility();
     }
 
-    private VBox buildBasicTab() {
-        VBox box = new VBox(12);
-        box.setPadding(new Insets(16));
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
+    private VBox buildCard(String title, Node... children) {
+        VBox card = new VBox(10);
+        card.getStyleClass().add("card");
+        if (title != null && !title.isBlank()) {
+            Label lbl = new Label(title);
+            lbl.getStyleClass().add("card-title");
+            card.getChildren().add(lbl);
+        }
+        card.getChildren().addAll(children);
+        return card;
+    }
+
+    private ScrollPane wrapInScroll(VBox content) {
+        ScrollPane sp = new ScrollPane(content);
+        sp.setFitToWidth(true);
+        sp.getStyleClass().add("scroll-pane");
+        return sp;
+    }
+
+    private void scheduleAutoFill() {
+        if (debounceTimer != null) debounceTimer.cancel();
+        debounceTimer = new Timer();
+        debounceTimer.schedule(new TimerTask() {
+            @Override public void run() {
+                Platform.runLater(() -> updateInvestedValueForStock());
+            }
+        }, 500);
+    }
+
+    // ── Tab builders ─────────────────────────────────────────────────────────
+
+    private ScrollPane buildBasicTab() {
+        // Card 1: Identificação
         Label nameLabel = new Label("Nome do Investimento *");
         nameLabel.setStyle("-fx-font-weight: bold;");
         nameField.setPromptText("Ex: Tesouro Selic 2027, Ações PETR4...");
+        VBox identCard = buildCard("Identificação", nameLabel, nameField);
 
-        Label catLabel = new Label("Categoria *");
-        catLabel.setStyle("-fx-font-weight: bold;");
+        // Card 2: Classificação (categoria + liquidez lado a lado)
         categoryCombo.getItems().addAll(CategoryEnum.values());
         categoryCombo.setPromptText("Selecione a categoria");
         categoryCombo.setCellFactory(lv -> new CategoryCell());
         categoryCombo.setButtonCell(new CategoryCell());
+        categoryCombo.setMaxWidth(Double.MAX_VALUE);
 
-        Label liqLabel = new Label("Liquidez *");
-        liqLabel.setStyle("-fx-font-weight: bold;");
         liquidityCombo.getItems().addAll(LiquidityEnum.values());
         liquidityCombo.setPromptText("Selecione a liquidez");
         liquidityCombo.setCellFactory(lv -> new LiquidityCell());
         liquidityCombo.setButtonCell(new LiquidityCell());
+        liquidityCombo.setMaxWidth(Double.MAX_VALUE);
 
+        VBox catBox = new VBox(4, new Label("Categoria *"), categoryCombo);
+        VBox liqBox = new VBox(4, new Label("Liquidez *"), liquidityCombo);
+        HBox.setHgrow(catBox, Priority.ALWAYS);
+        HBox.setHgrow(liqBox, Priority.ALWAYS);
+        HBox classifRow = new HBox(12, catBox, liqBox);
+
+        VBox classifCard = buildCard("Classificação", classifRow);
+
+        // Card 3: Data
         Label dateLabel = new Label("Data do Investimento *");
         dateLabel.setStyle("-fx-font-weight: bold;");
         datePicker.setPromptText("Selecione a data");
+        datePicker.setMaxWidth(Double.MAX_VALUE);
+        VBox dateCard = buildCard("Data", dateLabel, datePicker);
 
-        box.getChildren().addAll(
-                nameLabel, nameField,
-                catLabel, categoryCombo,
-                liqLabel, liquidityCombo,
-                dateLabel, datePicker
-        );
+        VBox content = new VBox(14, identCard, classifCard, dateCard);
+        content.setPadding(new Insets(14));
 
-        return box;
+        return wrapInScroll(content);
     }
 
-    private VBox buildTypeTab() {
-        VBox box = new VBox(12);
-        box.setPadding(new Insets(16));
-
-        Label typeLabel = new Label("Tipo de Investimento");
-        typeLabel.setStyle("-fx-font-weight: bold;");
+    private ScrollPane buildTypeTab() {
+        // ── Card 1: Tipo de Investimento ──
         typeCombo.getItems().addAll(InvestmentTypeEnum.values());
         typeCombo.setPromptText("Selecione o tipo");
+        typeCombo.setMaxWidth(Double.MAX_VALUE);
         typeCombo.setCellFactory(lv -> new ListCell<>() {
-            @Override
-            protected void updateItem(InvestmentTypeEnum item, boolean empty) {
+            @Override protected void updateItem(InvestmentTypeEnum item, boolean empty) {
                 super.updateItem(item, empty);
                 setText(empty || item == null ? "" : typeDisplayName(item));
             }
         });
         typeCombo.setButtonCell(new ListCell<>() {
-            @Override
-            protected void updateItem(InvestmentTypeEnum item, boolean empty) {
+            @Override protected void updateItem(InvestmentTypeEnum item, boolean empty) {
                 super.updateItem(item, empty);
                 setText(empty || item == null ? "" : typeDisplayName(item));
             }
         });
 
-        Label indexLabel = new Label("Índice");
-        indexLabel.setStyle("-fx-font-weight: bold;");
+        // Index fields (visible only for POS_FIXADO / HIBRIDO)
         indexCombo.getItems().addAll(IndexTypeEnum.values());
         indexCombo.setPromptText("CDI, Selic, IPCA");
-
-        Label indexPercentLabel = new Label("Percentual do Índice");
-        indexPercentLabel.setStyle("-fx-font-weight: bold;");
+        indexCombo.setMaxWidth(Double.MAX_VALUE);
         indexPercentageField.setPromptText("1.0 = 100%, 1.05 = 105%");
 
-        Label modeLabel = new Label("Modalidade de Rentabilidade:");
-        modeLabel.setStyle("-fx-font-weight: bold;");
+        indexFieldsBox = new VBox(8,
+                new Label("Índice"), indexCombo,
+                new Label("Percentual do Índice"), indexPercentageField);
+        indexFieldsBox.setVisible(false);
+        indexFieldsBox.setManaged(false);
+
+        VBox typeCard = buildCard("Tipo de Investimento",
+                new Label("Tipo *"), typeCombo, indexFieldsBox);
+
+        // ── Card 2: Rentabilidade ──
         rentabilityModeCombo.getItems().addAll(RentabilityMode.values());
         rentabilityModeCombo.setValue(RentabilityMode.FIXED_RATE);
+        rentabilityModeCombo.setMaxWidth(Double.MAX_VALUE);
         rentabilityModeCombo.setCellFactory(lv -> new ListCell<>() {
-            @Override
-            protected void updateItem(RentabilityMode item, boolean empty) {
+            @Override protected void updateItem(RentabilityMode item, boolean empty) {
                 super.updateItem(item, empty);
                 setText(empty || item == null ? "" : item.getDisplay());
             }
         });
         rentabilityModeCombo.setButtonCell(new ListCell<>() {
-            @Override
-            protected void updateItem(RentabilityMode item, boolean empty) {
+            @Override protected void updateItem(RentabilityMode item, boolean empty) {
                 super.updateItem(item, empty);
                 setText(empty || item == null ? "" : item.getDisplay());
             }
         });
 
-        Label profitLabel = new Label("Rentabilidade Anual (%)");
-        profitLabel.setStyle("-fx-font-weight: bold;");
+        // Fixed rate sub-box
         profitabilityField.setPromptText("Ex: 13.75");
         profitabilityField.setTextFormatter(createDecimalFormatter());
+        fixedRateBox = new VBox(6, new Label("Rentabilidade Anual (%)"), profitabilityField);
 
-        Label profitHint = new Label("💡 Opcional para Ações, Fundos Imobiliários e Fundos de Investimento");
-        profitHint.setStyle("-fx-font-size: 11px; -fx-opacity: 0.7;");
-
-        Label benchmarkLabel = new Label("Benchmark:");
-        benchmarkLabel.setStyle("-fx-font-weight: bold;");
+        // Benchmark sub-box
         benchmarkCombo.getItems().addAll("CDI", "SELIC", "IPCA");
         benchmarkCombo.setValue("CDI");
-
-        Label benchmarkPercentLabel = new Label("Percentual do Benchmark:");
-        benchmarkPercentLabel.setStyle("-fx-font-weight: bold;");
+        benchmarkCombo.setMaxWidth(Double.MAX_VALUE);
         benchmarkPercentField.setPromptText("110 (= 110% do CDI)");
+        benchmarkBox = new VBox(6,
+                new Label("Benchmark"), benchmarkCombo,
+                new Label("Percentual do Benchmark"), benchmarkPercentField);
 
-        Label hybridFixedLabel = new Label("Taxa Fixa (Híbrido):");
-        hybridFixedLabel.setStyle("-fx-font-weight: bold;");
+        // Hybrid sub-box
         hybridFixedField.setPromptText("5.0");
-
-        Label hybridIndexLabel = new Label("Taxa do Índice:");
-        hybridIndexLabel.setStyle("-fx-font-weight: bold;");
         hybridIndexField.setPromptText("4.5 (IPCA)");
+        hybridBox = new VBox(6,
+                new Label("Taxa Fixa (% a.a.)"), hybridFixedField,
+                new Label("Taxa do Índice (% a.a.)"), hybridIndexField);
 
-        Label tickerLabel = new Label("Ticker (para ações/FIIs)");
-        tickerLabel.setStyle("-fx-font-weight: bold;");
+        Label profitHint = new Label("💡 Não aplicável para Ações, FIIs e Criptomoedas.");
+        profitHint.setStyle("-fx-font-size: 11px; -fx-opacity: 0.7;");
+        profitHint.setWrapText(true);
 
-        Label purchaseLabel = new Label("Preço de Compra");
-        purchaseLabel.setStyle("-fx-font-weight: bold;");
+        rentabilitySection = new VBox(10,
+                new Label("Modalidade:"), rentabilityModeCombo,
+                fixedRateBox, benchmarkBox, hybridBox,
+                profitHint);
+
+        VBox rentCard = buildCard("Rentabilidade", rentabilitySection);
+
+        // ── Card 3: Ativo (apenas ACAO) ──
         purchasePriceField.setPromptText("R$ 35,50");
         purchasePriceField.setTextFormatter(Money.currencyFormatterEditable());
-
-        Label qtyLabel = new Label("Quantidade");
-        qtyLabel.setStyle("-fx-font-weight: bold;");
         quantityField.setPromptText("100");
 
-        Label valueLabel = new Label("Valor Investido *");
-        valueLabel.setStyle("-fx-font-weight: bold;");
+        ativoCard = buildCard("Ativo",
+                new Label("Ticker"), tickerField,
+                new Label("Preço de Compra"), purchasePriceField,
+                new Label("Quantidade"), quantityField);
+        ativoCard.setVisible(false);
+        ativoCard.setManaged(false);
+
+        // ── Card 4: Valor Investido ──
         investedValueField.setPromptText("R$ 0,00");
-        //investedValueField.setTextFormatter(Money.currencyFormatterEditable());
         Money.applyFormatOnBlur(investedValueField);
+
+        autoFillLabel.setStyle("-fx-text-fill: #22c55e; -fx-font-size: 11px;");
+        autoFillLabel.setVisible(false);
+        autoFillLabel.setManaged(false);
 
         Label valueHint = new Label("💡 Para ações/FIIs, preenchido automaticamente (Preço × Quantidade)");
         valueHint.setStyle("-fx-font-size: 11px; -fx-opacity: 0.7;");
+        valueHint.setWrapText(true);
 
-        box.getChildren().addAll(
-                typeLabel, typeCombo,
-                indexLabel, indexCombo,
-                indexPercentLabel, indexPercentageField,
-                modeLabel, rentabilityModeCombo,
-                profitLabel, profitabilityField, profitHint,
-                benchmarkLabel, benchmarkCombo,
-                benchmarkPercentLabel, benchmarkPercentField,
-                hybridFixedLabel, hybridFixedField,
-                hybridIndexLabel, hybridIndexField,
-                tickerLabel, tickerField,
-                purchaseLabel, purchasePriceField,
-                qtyLabel, quantityField,
-                valueLabel, investedValueField, valueHint
-        );
+        VBox valueCard = buildCard("Valor Investido",
+                new Label("Valor Investido *"), investedValueField,
+                autoFillLabel, valueHint);
 
-        return box;
+        VBox content = new VBox(14, typeCard, rentCard, ativoCard, valueCard);
+        content.setPadding(new Insets(14));
+
+        return wrapInScroll(content);
     }
+
+    // ── Visibility updaters ───────────────────────────────────────────────────
 
     private void updateTypeVisibility() {
         InvestmentTypeEnum type = typeCombo.getValue();
 
-        indexCombo.setVisible(false);
-        indexCombo.setManaged(false);
-        indexPercentageField.setVisible(false);
-        indexPercentageField.setManaged(false);
-        tickerField.setVisible(false);
-        tickerField.setManaged(false);
-        purchasePriceField.setVisible(false);
-        purchasePriceField.setManaged(false);
-        quantityField.setVisible(false);
-        quantityField.setManaged(false);
+        setVisible(indexFieldsBox, false);
+        setVisible(ativoCard, false);
 
         if (type == null) return;
 
         switch (type) {
-            case POS_FIXADO, HIBRIDO -> {
-                indexCombo.setVisible(true);
-                indexCombo.setManaged(true);
-                indexPercentageField.setVisible(true);
-                indexPercentageField.setManaged(true);
-            }
-            case ACAO -> {
-                tickerField.setVisible(true);
-                tickerField.setManaged(true);
-                purchasePriceField.setVisible(true);
-                purchasePriceField.setManaged(true);
-                quantityField.setVisible(true);
-                quantityField.setManaged(true);
-            }
-            case FUNDO -> {
-                // Fundo: only invested value (already always visible), no ticker required
-            }
+            case POS_FIXADO, HIBRIDO -> setVisible(indexFieldsBox, true);
+            case ACAO -> setVisible(ativoCard, true);
+            case PREFIXADO, FUNDO -> { /* no extra fields */ }
         }
     }
 
@@ -353,25 +362,33 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
 
         boolean isVariableIncome = cat == CategoryEnum.ACOES ||
                 cat == CategoryEnum.FUNDOS_IMOBILIARIOS ||
-                cat == CategoryEnum.FUNDOS;
+                cat == CategoryEnum.CRIPTOMOEDAS;
 
-        rentabilityModeCombo.setVisible(!isVariableIncome);
-        rentabilityModeCombo.setManaged(!isVariableIncome);
+        setVisible(rentabilitySection, !isVariableIncome);
 
-        if (isVariableIncome) {
-            profitabilityField.setVisible(false);
-            profitabilityField.setManaged(false);
-            benchmarkCombo.setVisible(false);
-            benchmarkCombo.setManaged(false);
-            benchmarkPercentField.setVisible(false);
-            benchmarkPercentField.setManaged(false);
-            hybridFixedField.setVisible(false);
-            hybridFixedField.setManaged(false);
-            hybridIndexField.setVisible(false);
-            hybridIndexField.setManaged(false);
-        } else {
+        if (!isVariableIncome) {
             updateRentabilityModeInputs();
         }
+    }
+
+    private void updateRentabilityModeInputs() {
+        setVisible(fixedRateBox, false);
+        setVisible(benchmarkBox, false);
+        setVisible(hybridBox, false);
+
+        if (currentRentabilityMode == null) return;
+
+        switch (currentRentabilityMode) {
+            case FIXED_RATE     -> setVisible(fixedRateBox, true);
+            case BENCHMARK_PERCENT -> setVisible(benchmarkBox, true);
+            case HYBRID         -> setVisible(hybridBox, true);
+        }
+    }
+
+    private static void setVisible(Node node, boolean visible) {
+        if (node == null) return;
+        node.setVisible(visible);
+        node.setManaged(visible);
     }
 
     private void updateTypeComboItems() {
@@ -408,66 +425,23 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         };
     }
 
-    private void updateRentabilityModeInputs() {
-        profitabilityField.setVisible(false);
-        profitabilityField.setManaged(false);
-        benchmarkCombo.setVisible(false);
-        benchmarkCombo.setManaged(false);
-        benchmarkPercentField.setVisible(false);
-        benchmarkPercentField.setManaged(false);
-        hybridFixedField.setVisible(false);
-        hybridFixedField.setManaged(false);
-        hybridIndexField.setVisible(false);
-        hybridIndexField.setManaged(false);
-
-        if (currentRentabilityMode == null) return;
-
-        switch (currentRentabilityMode) {
-            case FIXED_RATE -> {
-                profitabilityField.setVisible(true);
-                profitabilityField.setManaged(true);
-            }
-            case BENCHMARK_PERCENT -> {
-                benchmarkCombo.setVisible(true);
-                benchmarkCombo.setManaged(true);
-                benchmarkPercentField.setVisible(true);
-                benchmarkPercentField.setManaged(true);
-            }
-            case HYBRID -> {
-                hybridFixedField.setVisible(true);
-                hybridFixedField.setManaged(true);
-                hybridIndexField.setVisible(true);
-                hybridIndexField.setManaged(true);
-            }
-        }
-    }
+    // ── Auto-fill ────────────────────────────────────────────────────────────
 
     private void updateInvestedValueForStock() {
         String priceText = purchasePriceField.getText();
         String qtyText = quantityField.getText();
 
-        if (priceText == null || priceText.isBlank() || priceText.equals("R$ 0,00")) {
-            return;
-        }
-
-        if (qtyText == null || qtyText.isBlank() || qtyText.equals("0")) {
-            return;
-        }
+        if (priceText == null || priceText.isBlank() || priceText.equals("R$ 0,00")) return;
+        if (qtyText == null || qtyText.isBlank() || qtyText.equals("0")) return;
 
         long priceCents = Money.textToCentsOrZero(priceText);
-        if (priceCents == 0) {
-            return;
-        }
+        if (priceCents == 0) return;
 
         String cleanQty = qtyText.trim().replaceAll("[^0-9]", "");
-        if (cleanQty.isEmpty()) {
-            return;
-        }
+        if (cleanQty.isEmpty()) return;
 
         int quantity = Integer.parseInt(cleanQty);
-        if (quantity == 0) {
-            return;
-        }
+        if (quantity == 0) return;
 
         long totalCents = priceCents * quantity;
         double totalValue = totalCents / 100.0;
@@ -477,6 +451,7 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         Platform.runLater(() -> {
             investedValueField.setText(formatted);
             investedValueField.positionCaret(formatted.length());
+            setVisible(autoFillLabel, true);
         });
     }
 
@@ -498,59 +473,43 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         });
     }
 
+    // ── Fill / validate / build result ───────────────────────────────────────
+
     private void fillExistingData(InvestmentTypeData data) {
         nameField.setText(data.name());
 
         if (data.category() != null) {
-            try {
-                categoryCombo.setValue(CategoryEnum.valueOf(data.category()));
-            } catch (Exception ignored) {}
+            try { categoryCombo.setValue(CategoryEnum.valueOf(data.category())); } catch (Exception ignored) {}
         }
-
         if (data.liquidity() != null) {
-            try {
-                liquidityCombo.setValue(LiquidityEnum.valueOf(data.liquidity()));
-            } catch (Exception ignored) {}
+            try { liquidityCombo.setValue(LiquidityEnum.valueOf(data.liquidity())); } catch (Exception ignored) {}
         }
-
         if (data.investmentDate() != null) {
             datePicker.setValue(data.investmentDate());
         }
-
         if (data.profitability() != null) {
             profitabilityField.setText(data.profitability().toString());
         }
-
         if (data.investedValue() != null) {
             long cents = data.investedValue().multiply(BigDecimal.valueOf(100)).longValue();
             investedValueField.setText(Money.centsToText(cents));
         }
-
         if (data.typeOfInvestment() != null) {
-            try {
-                typeCombo.setValue(InvestmentTypeEnum.valueOf(data.typeOfInvestment()));
-            } catch (Exception ignored) {}
+            try { typeCombo.setValue(InvestmentTypeEnum.valueOf(data.typeOfInvestment())); } catch (Exception ignored) {}
         }
-
         if (data.indexType() != null) {
-            try {
-                indexCombo.setValue(IndexTypeEnum.valueOf(data.indexType()));
-            } catch (Exception ignored) {}
+            try { indexCombo.setValue(IndexTypeEnum.valueOf(data.indexType())); } catch (Exception ignored) {}
         }
-
         if (data.indexPercentage() != null) {
             indexPercentageField.setText(data.indexPercentage().toString());
         }
-
         if (data.ticker() != null) {
             tickerField.setText(data.ticker());
         }
-
         if (data.purchasePrice() != null) {
             long cents = data.purchasePrice().multiply(BigDecimal.valueOf(100)).longValue();
             purchasePriceField.setText(Money.centsToText(cents));
         }
-
         if (data.quantity() != null) {
             quantityField.setText(data.quantity().toString());
         }
@@ -559,37 +518,25 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
     private boolean validate() {
         StringBuilder errors = new StringBuilder();
 
-        if (nameField.getText().isBlank()) {
-            errors.append("• Nome é obrigatório\n");
-        }
-
-        if (categoryCombo.getValue() == null) {
-            errors.append("• Categoria é obrigatória\n");
-        }
-
-        if (liquidityCombo.getValue() == null) {
-            errors.append("• Liquidez é obrigatória\n");
-        }
-
-        if (datePicker.getValue() == null) {
-            errors.append("• Data é obrigatória\n");
-        }
+        if (nameField.getText().isBlank()) errors.append("• Nome é obrigatório\n");
+        if (categoryCombo.getValue() == null) errors.append("• Categoria é obrigatória\n");
+        if (liquidityCombo.getValue() == null) errors.append("• Liquidez é obrigatória\n");
+        if (datePicker.getValue() == null) errors.append("• Data é obrigatória\n");
 
         CategoryEnum selectedCategory = categoryCombo.getValue();
         if (selectedCategory != null) {
             boolean isVariableIncome = selectedCategory == CategoryEnum.ACOES ||
                     selectedCategory == CategoryEnum.FUNDOS_IMOBILIARIOS ||
-                    selectedCategory == CategoryEnum.FUNDOS;
+                    selectedCategory == CategoryEnum.CRIPTOMOEDAS;
+            boolean isFunds = selectedCategory == CategoryEnum.FUNDOS;
 
-            if (!isVariableIncome && profitabilityField.getText().isBlank() &&
+            if (!isVariableIncome && !isFunds && profitabilityField.getText().isBlank() &&
                     currentRentabilityMode == RentabilityMode.FIXED_RATE) {
-                errors.append("• Rentabilidade é obrigatória para " + selectedCategory.getDisplayName() + "\n");
+                errors.append("• Rentabilidade é obrigatória para ").append(selectedCategory.getDisplayName()).append("\n");
             }
         }
 
-        if (investedValueField.getText().isBlank()) {
-            errors.append("• Valor é obrigatório\n");
-        }
+        if (investedValueField.getText().isBlank()) errors.append("• Valor é obrigatório\n");
 
         if (errors.length() > 0) {
             Alert alert = new Alert(Alert.AlertType.ERROR);
@@ -636,9 +583,7 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         Integer quantity = null;
         if (!quantityField.getText().isBlank()) {
             String cleanQty = quantityField.getText().trim().replaceAll("[^0-9]", "");
-            if (!cleanQty.isEmpty()) {
-                quantity = Integer.parseInt(cleanQty);
-            }
+            if (!cleanQty.isEmpty()) quantity = Integer.parseInt(cleanQty);
         }
 
         return new InvestmentTypeData(
@@ -647,35 +592,30 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         );
     }
 
+    // ── Formatters ───────────────────────────────────────────────────────────
+
     private TextFormatter<String> createDecimalFormatter() {
         return new TextFormatter<>(change -> {
             String text = change.getControlNewText();
-            if (text.matches("\\d*[.,]?\\d{0,2}")) {
-                return change;
-            }
+            if (text.matches("\\d*[.,]?\\d{0,2}")) return change;
             return null;
         });
     }
+
+    // ── List cells ───────────────────────────────────────────────────────────
 
     private static class CategoryCell extends ListCell<CategoryEnum> {
         @Override
         protected void updateItem(CategoryEnum item, boolean empty) {
             super.updateItem(item, empty);
             if (empty || item == null) {
-                setGraphic(null);
-                setText(null);
+                setGraphic(null); setText(null);
             } else {
-                HBox box = new HBox(8);
-                box.setStyle("-fx-alignment: center-left;");
-
                 Circle circle = new Circle(5);
                 circle.setFill(Color.web(item.getColor()));
-
-                Label label = new Label(item.getDisplayName());
-
-                box.getChildren().addAll(circle, label);
-                setGraphic(box);
-                setText(null);
+                HBox box = new HBox(8, circle, new Label(item.getDisplayName()));
+                box.setStyle("-fx-alignment: center-left;");
+                setGraphic(box); setText(null);
             }
         }
     }
@@ -685,23 +625,18 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         protected void updateItem(LiquidityEnum item, boolean empty) {
             super.updateItem(item, empty);
             if (empty || item == null) {
-                setGraphic(null);
-                setText(null);
+                setGraphic(null); setText(null);
             } else {
-                HBox box = new HBox(8);
-                box.setStyle("-fx-alignment: center-left;");
-
                 Circle circle = new Circle(5);
                 circle.setFill(Color.web(item.getColor()));
-
-                Label label = new Label(item.getDisplayName());
-
-                box.getChildren().addAll(circle, label);
-                setGraphic(box);
-                setText(null);
+                HBox box = new HBox(8, circle, new Label(item.getDisplayName()));
+                box.setStyle("-fx-alignment: center-left;");
+                setGraphic(box); setText(null);
             }
         }
     }
+
+    // ── Data record ──────────────────────────────────────────────────────────
 
     public record InvestmentTypeData(
             String name,
