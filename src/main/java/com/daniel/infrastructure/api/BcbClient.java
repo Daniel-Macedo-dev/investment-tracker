@@ -15,10 +15,10 @@ public final class BcbClient {
 
     // SELIC (432): taxa anual em % → decimal anual (ex: 13.25 → 0.1325)
     // CDI   (12):  taxa DIÁRIA em % → convertida para decimal anual
-    // IPCA  (13522): variação MENSAL em % → convertida para decimal anual
+    // IPCA  (433): variação MENSAL em % → convertida para decimal anual
     private static final int SERIES_SELIC = 432;
     private static final int SERIES_CDI = 12;
-    private static final int SERIES_IPCA = 13522;
+    private static final int SERIES_IPCA = 433;
 
     private static final long CACHE_TTL_MS = TimeUnit.HOURS.toMillis(1);
 
