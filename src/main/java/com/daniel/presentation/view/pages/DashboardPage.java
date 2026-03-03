@@ -43,7 +43,9 @@ public final class DashboardPage implements Page {
     private final LineChart<String, Number> comparisonChart = new LineChart<>(compXAxis, compYAxis);
 
     private final VBox investmentsByCategoryContainer = new VBox(16);
-    private final VBox rankPanel = new VBox(8);
+    private final VBox rankPanelAltas = new VBox(8);
+    private final VBox rankPanelBaixas = new VBox(8);
+    private final HBox rankPanel = new HBox(12);
 
     private double rateCdi = 0.135;
     private double rateSelic = 0.1175;
@@ -122,13 +124,26 @@ public final class DashboardPage implements Page {
         waterfallBox.getChildren().addAll(waterfallTitle, waterfallChart);
 
         rankPanel.getStyleClass().add("card");
-        rankPanel.setMinWidth(280);
-        rankPanel.setMaxWidth(280);
-        Label rankTitle = new Label("Top Rentabilidade Hoje");
-        rankTitle.getStyleClass().add("card-title");
-        Label rankLoading = new Label("Carregando...");
-        rankLoading.getStyleClass().add("muted");
-        rankPanel.getChildren().addAll(rankTitle, rankLoading);
+        rankPanel.setMinWidth(560);
+        rankPanel.setMaxWidth(560);
+
+        rankPanelAltas.setMinWidth(260);
+        rankPanelAltas.setMaxWidth(260);
+        rankPanelBaixas.setMinWidth(260);
+        rankPanelBaixas.setMaxWidth(260);
+
+        Label altasTitle = new Label("🟢 Maiores Altas");
+        altasTitle.getStyleClass().add("card-title");
+        altasTitle.setStyle("-fx-text-fill: #22c55e;");
+        rankPanelAltas.getChildren().add(altasTitle);
+
+        Label baixasTitle = new Label("🔴 Maiores Baixas");
+        baixasTitle.getStyleClass().add("card-title");
+        baixasTitle.setStyle("-fx-text-fill: #ef4444;");
+        rankPanelBaixas.getChildren().add(baixasTitle);
+
+        Separator vertSep = new Separator(javafx.geometry.Orientation.VERTICAL);
+        rankPanel.getChildren().addAll(rankPanelAltas, vertSep, rankPanelBaixas);
 
         chartsRow.getChildren().addAll(pieBox, waterfallBox, rankPanel);
 
@@ -615,9 +630,9 @@ public final class DashboardPage implements Page {
             if (sym1 != null) sym1.setStyle("-fx-background-color: #22c55e, white;");
         });
 
-        // Atualizar métricas laterais — sincronizadas com o período do gráfico
-        double rentCartPeriodo  = (Math.pow(1 + taxaMensalCarteira, pontosGrafico) - 1) * 100;
-        double rentBenchPeriodo = (Math.pow(1 + taxaMensalBench,    pontosGrafico) - 1) * 100;
+        // Atualizar métricas laterais — sincronizadas com o período do filtro selecionado
+        double rentCartPeriodo  = (Math.pow(1 + taxaMensalCarteira, (double) totalMeses) - 1) * 100;
+        double rentBenchPeriodo = (Math.pow(1 + taxaMensalBench,    (double) totalMeses) - 1) * 100;
         long rendimentoPeriodo  = Math.round(totalInvestido * rentCartPeriodo / 100.0);
 
         String corGanho = rendimentoPeriodo >= 0
@@ -639,11 +654,12 @@ public final class DashboardPage implements Page {
     private record RankEntry(String name, String ticker, double changePercent, long valueCents) {}
 
     private void updateRankPanel(List<InvestmentType> investments, Map<Long, Long> currentValues) {
-        // Keep the title, show loading
-        rankPanel.getChildren().removeIf(n -> !(n instanceof Label l && l.getStyleClass().contains("card-title")));
+        // Keep the titles, show loading
+        rankPanelAltas.getChildren().removeIf(n -> !(n instanceof Label l && l.getStyleClass().contains("card-title")));
+        rankPanelBaixas.getChildren().removeIf(n -> !(n instanceof Label l && l.getStyleClass().contains("card-title")));
         Label loading = new Label("Carregando...");
         loading.getStyleClass().add("muted");
-        rankPanel.getChildren().add(loading);
+        rankPanelAltas.getChildren().add(loading);
 
         CompletableFuture.supplyAsync(() -> {
             List<RankEntry> entries = new ArrayList<>();
@@ -711,24 +727,49 @@ public final class DashboardPage implements Page {
                 entries.add(new RankEntry(inv.name(), null, dailyChange, value));
             }
 
-            // Ordenar por |changePercent| decrescente, limitar a 8
-            entries.sort((a, b) -> Double.compare(Math.abs(b.changePercent()), Math.abs(a.changePercent())));
-            // Copiar para novo ArrayList — subList retorna view que pode causar CME na thread UI
-            if (entries.size() > 8) entries = new ArrayList<>(entries.subList(0, 8));
-
+            // Retornar lista completa; separação em altas/baixas feita no Platform.runLater
             return entries;
         }).thenAcceptAsync(entries -> Platform.runLater(() -> {
-            rankPanel.getChildren().removeIf(n -> !(n instanceof Label l && l.getStyleClass().contains("card-title")));
+            rankPanelAltas.getChildren().removeIf(n -> !(n instanceof Label l && l.getStyleClass().contains("card-title")));
+            rankPanelBaixas.getChildren().removeIf(n -> !(n instanceof Label l && l.getStyleClass().contains("card-title")));
 
             if (entries.isEmpty()) {
-                Label empty = new Label("Nenhum ativo cadastrado");
+                Label empty = new Label("Nenhum ativo");
                 empty.getStyleClass().add("muted");
-                rankPanel.getChildren().add(empty);
+                rankPanelAltas.getChildren().add(empty);
                 return;
             }
 
-            for (RankEntry entry : entries) {
-                rankPanel.getChildren().add(buildRankRow(entry));
+            List<RankEntry> altas = entries.stream()
+                    .filter(e -> e.changePercent() >= 0)
+                    .sorted((a, b) -> Double.compare(b.changePercent(), a.changePercent()))
+                    .limit(4)
+                    .toList();
+
+            List<RankEntry> baixas = entries.stream()
+                    .filter(e -> e.changePercent() < 0)
+                    .sorted((a, b) -> Double.compare(a.changePercent(), b.changePercent()))
+                    .limit(4)
+                    .toList();
+
+            if (altas.isEmpty()) {
+                Label empty = new Label("Sem altas hoje");
+                empty.getStyleClass().add("muted");
+                rankPanelAltas.getChildren().add(empty);
+            } else {
+                for (RankEntry entry : altas) {
+                    rankPanelAltas.getChildren().add(buildRankRow(entry));
+                }
+            }
+
+            if (baixas.isEmpty()) {
+                Label empty = new Label("Sem baixas hoje");
+                empty.getStyleClass().add("muted");
+                rankPanelBaixas.getChildren().add(empty);
+            } else {
+                for (RankEntry entry : baixas) {
+                    rankPanelBaixas.getChildren().add(buildRankRow(entry));
+                }
             }
         }));
     }
