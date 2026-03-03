@@ -319,6 +319,7 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
 
         // ── Card 4: Valor Investido ──
         investedValueField.setPromptText("R$ 0,00");
+        investedValueField.setTextFormatter(Money.currencyFormatterEditable());
         Money.applyFormatOnBlur(investedValueField);
 
         autoFillLabel.setStyle("-fx-text-fill: #22c55e; -fx-font-size: 11px;");
