@@ -136,7 +136,7 @@ public final class SimulationPage implements Page {
         box.getStyleClass().add("card");
 
         Label label = new Label("Tipo de Investimento:");
-        label.getStyleClass().add("form-label");
+        label.getStyleClass().add("card-title");
 
         ToggleGroup group = new ToggleGroup();
 
@@ -304,7 +304,7 @@ public final class SimulationPage implements Page {
         Label title = new Label("Resultado da Simulação");
         title.getStyleClass().add("card-title");
 
-        resultLabel.getStyleClass().add("simulation-result");
+        resultLabel.getStyleClass().add("big-value");
 
         box.getChildren().addAll(title, resultLabel);
         return box;

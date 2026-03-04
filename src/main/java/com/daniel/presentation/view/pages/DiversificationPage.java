@@ -26,6 +26,7 @@ public final class DiversificationPage implements Page {
 
     private final DailyTrackingUseCase daily;
     private final VBox root = new VBox(16);
+    private final ScrollPane scrollPane = new ScrollPane();
 
     private final ToggleGroup methodGroup = new ToggleGroup();
     private final RadioButton arcaRadio = new RadioButton("Método ARCA (Primo Rico)");
@@ -54,7 +55,7 @@ public final class DiversificationPage implements Page {
         h1.getStyleClass().add("h1");
 
         Label subtitle = new Label("Analise e otimize a distribuição dos seus investimentos");
-        subtitle.getStyleClass().add("muted");
+        subtitle.getStyleClass().add("page-subtitle");
 
         VBox patrimonyBox = buildPatrimonyCard();
         VBox methodBox = buildMethodSelector();
@@ -70,11 +71,15 @@ public final class DiversificationPage implements Page {
         VBox suggestionsBox = buildSuggestionsTable();
 
         root.getChildren().addAll(h1, subtitle, patrimonyBox, calculationBox, methodBox, tablesRow, suggestionsBox);
+
+        scrollPane.setContent(root);
+        scrollPane.setFitToWidth(true);
+        scrollPane.getStyleClass().add("scroll-pane");
     }
 
     @Override
     public Parent view() {
-        return root;
+        return scrollPane;
     }
 
     @Override
@@ -95,10 +100,10 @@ public final class DiversificationPage implements Page {
         rebalanceByContributionRadio.setSelected(true);
 
         Label contributionHint = new Label("💰 Recomenda apenas APORTES nas categorias abaixo do ideal (sem vender)");
-        contributionHint.getStyleClass().addAll("muted", "text-xs");
+        contributionHint.getStyleClass().add("text-helper");
 
         Label targetHint = new Label("🎯 Calcula quanto aportar em cada categoria para atingir um patrimônio alvo");
-        targetHint.getStyleClass().addAll("muted", "text-xs");
+        targetHint.getStyleClass().add("text-helper");
 
         // Campo de patrimônio alvo (visível apenas no modo alvo)
         Label targetLabel = new Label("Patrimônio Alvo:");
@@ -144,7 +149,7 @@ public final class DiversificationPage implements Page {
         arcaRadio.setSelected(true);
 
         Label arcaHint = new Label("📊 Renda Fixa 40% • Ações 30% • Outros 25% • Cripto 5%");
-        arcaHint.getStyleClass().addAll("muted", "text-xs");
+        arcaHint.getStyleClass().add("text-helper");
 
         buildCustomInputs();
         customInputsBox.setVisible(false);
@@ -192,7 +197,7 @@ public final class DiversificationPage implements Page {
         }
 
         Label hint = new Label("💡 As porcentagens devem somar 100%");
-        hint.getStyleClass().addAll("muted", "text-xs");
+        hint.getStyleClass().add("text-helper");
 
         customInputsBox.getChildren().addAll(customTitle, grid, hint);
     }
@@ -204,7 +209,7 @@ public final class DiversificationPage implements Page {
         Label title = new Label("Patrimônio Atual");
         title.getStyleClass().add("card-title");
 
-        totalPatrimonyLabel.getStyleClass().addAll("big-value", "text-xl");
+        totalPatrimonyLabel.getStyleClass().add("big-value");
 
         box.getChildren().addAll(title, totalPatrimonyLabel);
         return box;
@@ -249,7 +254,9 @@ public final class DiversificationPage implements Page {
         percentCol.setCellValueFactory(c -> c.getValue().percentageProperty());
 
         currentTable.getColumns().setAll(catCol, valueCol, percentCol);
-        currentTable.setPlaceholder(new Label("Nenhum dado disponível"));
+        Label currentPh = new Label("Nenhum dado disponível");
+        currentPh.getStyleClass().add("text-helper");
+        currentTable.setPlaceholder(currentPh);
 
         box.getChildren().addAll(title, currentTable);
         VBox.setVgrow(currentTable, Priority.ALWAYS);
@@ -295,7 +302,9 @@ public final class DiversificationPage implements Page {
         percentCol.setCellValueFactory(c -> c.getValue().percentageProperty());
 
         idealTable.getColumns().setAll(catCol, valueCol, percentCol);
-        idealTable.setPlaceholder(new Label("Selecione um método"));
+        Label idealPh = new Label("Selecione um método");
+        idealPh.getStyleClass().add("text-helper");
+        idealTable.setPlaceholder(idealPh);
 
         box.getChildren().addAll(title, idealTable);
         VBox.setVgrow(idealTable, Priority.ALWAYS);
@@ -356,8 +365,11 @@ public final class DiversificationPage implements Page {
         });
 
         suggestionsTable.getColumns().setAll(catCol, actionCol);
-        suggestionsTable.setPlaceholder(new Label("Sua carteira está perfeitamente balanceada!"));
+        Label suggPh = new Label("Sua carteira está perfeitamente balanceada!");
+        suggPh.getStyleClass().add("text-helper");
+        suggestionsTable.setPlaceholder(suggPh);
 
+        VBox.setVgrow(suggestionsTable, Priority.ALWAYS);
         box.getChildren().addAll(title, suggestionsTable);
         return box;
     }
@@ -465,7 +477,9 @@ public final class DiversificationPage implements Page {
             }
 
             if (Math.abs(total - 100.0) > 0.1) {
-                idealTable.setPlaceholder(new Label("⚠️ As porcentagens devem somar 100%!"));
+                Label errPh1 = new Label("⚠️ As porcentagens devem somar 100%!");
+                errPh1.getStyleClass().add("status-warning");
+                idealTable.setPlaceholder(errPh1);
                 idealTable.getItems().clear();
                 suggestionsTable.getItems().clear();
                 return;
@@ -513,7 +527,9 @@ public final class DiversificationPage implements Page {
             suggestionsTable.setItems(suggestionRows);
 
         } catch (NumberFormatException e) {
-            idealTable.setPlaceholder(new Label("⚠️ Valores inválidos nas porcentagens"));
+            Label errPh2 = new Label("⚠️ Valores inválidos nas porcentagens");
+            errPh2.getStyleClass().add("status-warning");
+            idealTable.setPlaceholder(errPh2);
             idealTable.getItems().clear();
             suggestionsTable.getItems().clear();
         }

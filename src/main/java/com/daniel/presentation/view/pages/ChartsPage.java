@@ -79,6 +79,7 @@ public final class ChartsPage implements Page {
         chart.setLegendVisible(false);
         chart.setCreateSymbols(true);
 
+        VBox.setVgrow(chart, Priority.ALWAYS);
         root.getChildren().addAll(h1, top, chart);
 
         picker.valueProperty().addListener((o, a, b) -> reload());

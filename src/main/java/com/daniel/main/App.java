@@ -32,6 +32,8 @@ public class App extends Application {
         var css = getClass().getResource("/styles/app.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
 
+        stage.setMinWidth(900);
+        stage.setMinHeight(600);
         stage.setTitle("Investment Tracker");
         stage.setScene(scene);
         stage.show();

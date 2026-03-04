@@ -42,7 +42,7 @@ public final class ConfiguracoesPage implements Page {
         h1.getStyleClass().add("h1");
 
         Label subtitle = new Label("Gerencie tokens de API e preferências do app");
-        subtitle.getStyleClass().add("muted");
+        subtitle.getStyleClass().add("page-subtitle");
 
         root.getChildren().addAll(h1, subtitle, buildBrapiSection(), buildBcbSection(), buildAboutSection());
 
@@ -109,7 +109,7 @@ public final class ConfiguracoesPage implements Page {
         tokenField.getStyleClass().add("code-field");
 
         Label tokenHint = new Label("Obtenha seu token gratuito em brapi.dev");
-        tokenHint.getStyleClass().addAll("muted", "text-xs");
+        tokenHint.getStyleClass().add("text-helper");
 
         tokenStatusLabel.setWrapText(true);
         updateTokenStatus(tokenField.getText());
@@ -145,7 +145,7 @@ public final class ConfiguracoesPage implements Page {
         title.getStyleClass().add("card-title");
 
         Label hint = new Label("Busca as taxas oficiais CDI, SELIC e IPCA direto da API do BCB.");
-        hint.getStyleClass().addAll("muted", "text-sm");
+        hint.getStyleClass().add("text-helper");
 
         GridPane grid = new GridPane();
         grid.getStyleClass().add("rate-grid");
@@ -162,7 +162,7 @@ public final class ConfiguracoesPage implements Page {
         ipcaValueLabel.getStyleClass().addAll("text-bold", "state-positive");
         grid.add(ipcaValueLabel, 1, 2);
 
-        bcbLastUpdateLabel.getStyleClass().addAll("muted", "text-xs");
+        bcbLastUpdateLabel.getStyleClass().add("text-helper");
 
         Button updateBtn = new Button("Atualizar CDI / SELIC / IPCA");
         updateBtn.getStyleClass().add("primary-btn");
@@ -180,13 +180,13 @@ public final class ConfiguracoesPage implements Page {
         title.getStyleClass().add("card-title");
 
         Label version = new Label("Investment Tracker v0.5.0");
-        version.getStyleClass().addAll("text-bold", "text-lg");
+        version.getStyleClass().add("text-lg");
 
         Label apis = new Label("APIs utilizadas:\n• Brapi (brapi.dev) — Cotações da B3\n• BCB (api.bcb.gov.br) — Taxas oficiais");
-        apis.getStyleClass().addAll("muted", "text-sm");
+        apis.getStyleClass().add("muted");
 
         Label privacy = new Label("Privacidade: todos os dados são armazenados localmente. Nenhum dado é enviado a servidores externos além das chamadas às APIs acima.");
-        privacy.getStyleClass().addAll("muted", "text-xs");
+        privacy.getStyleClass().add("text-helper");
         privacy.setWrapText(true);
 
         card.getChildren().addAll(title, version, apis, privacy);

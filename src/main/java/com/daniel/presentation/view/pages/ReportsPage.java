@@ -102,6 +102,7 @@ public final class ReportsPage implements Page {
                 card("Lucro Realizado", lucroRealizadoLabel)
         );
 
+        VBox.setVgrow(table, Priority.ALWAYS);
         box.getChildren().addAll(cards, table);
         return box;
     }
@@ -110,8 +111,8 @@ public final class ReportsPage implements Page {
         VBox b = new VBox(6);
         b.getStyleClass().add("card");
         Label t = new Label(title);
-        t.getStyleClass().add("muted");
-        value.getStyleClass().addAll("big-value", "text-lg");
+        t.getStyleClass().add("card-title");
+        value.getStyleClass().add("big-value");
         b.getChildren().addAll(t, value);
         HBox.setHgrow(b, Priority.ALWAYS);
         return b;
@@ -152,6 +153,9 @@ public final class ReportsPage implements Page {
         });
         valueCol.setPrefWidth(150);
 
+        Label emptyPh = new Label("Nenhum lançamento neste período");
+        emptyPh.getStyleClass().add("text-helper");
+        table.setPlaceholder(emptyPh);
         table.getColumns().setAll(dateCol, typeCol, descCol, valueCol);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
     }

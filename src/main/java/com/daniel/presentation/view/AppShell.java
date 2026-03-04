@@ -11,6 +11,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
 import javafx.scene.layout.*;
+import javafx.scene.Scene;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -36,8 +37,22 @@ public final class AppShell {
         content.getStyleClass().add("content-host");
         root.setLeft(sidebar());
         root.setCenter(content);
+
+        root.sceneProperty().addListener((obs, oldScene, newScene) -> {
+            if (newScene != null) {
+                applyCompact(root, newScene.getWidth());
+                newScene.widthProperty().addListener((o, old, w) ->
+                        applyCompact(root, w.doubleValue()));
+            }
+        });
+
         go("Dashboard");
         return root;
+    }
+
+    private static void applyCompact(BorderPane root, double width) {
+        if (width < 1100) root.getStyleClass().add("compact");
+        else root.getStyleClass().remove("compact");
     }
 
     private Parent sidebar() {

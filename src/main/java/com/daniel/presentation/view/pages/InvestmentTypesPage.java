@@ -61,8 +61,9 @@ public final class InvestmentTypesPage implements Page {
         actions.getStyleClass().add("actions-bar");
 
         Label hint = new Label("💡 Crie investimentos com todos os detalhes para acompanhar rentabilidade!");
-        hint.getStyleClass().add("muted");
+        hint.getStyleClass().add("text-helper");
 
+        VBox.setVgrow(table, Priority.ALWAYS);
         root.getChildren().addAll(h1, hint, actions, table);
 
         refresh();
@@ -177,6 +178,9 @@ public final class InvestmentTypesPage implements Page {
         });
         valueCol.setPrefWidth(140);
 
+        Label emptyPh = new Label("Nenhum investimento cadastrado ainda");
+        emptyPh.getStyleClass().add("text-helper");
+        table.setPlaceholder(emptyPh);
         table.getColumns().setAll(nameCol, catCol, liqCol, dateCol, profCol, valueCol);
     }
 

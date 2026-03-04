@@ -100,37 +100,37 @@ public final class DashboardPage implements Page {
                 card("Lucro/Prejuízo Total", profitLabel),
                 card("vs CDI", cdiComparisonLabel)
         );
+        cards.getStyleClass().add("dashboard-kpi-row");
 
         Label h2 = new Label("Análise da Carteira");
         h2.getStyleClass().add("section-title");
 
         HBox chartsRow = new HBox(12);
-        HBox.setHgrow(pieChart, Priority.ALWAYS);
-        HBox.setHgrow(waterfallChart, Priority.ALWAYS);
 
         VBox pieBox = new VBox(8);
         pieBox.getStyleClass().add("card");
+        HBox.setHgrow(pieBox, Priority.ALWAYS);
         Label pieTitle = new Label("Diversificação por Categoria");
         pieTitle.getStyleClass().add("card-title");
         pieChart.setMinHeight(300);
         pieChart.setLegendSide(Side.RIGHT);
+        VBox.setVgrow(pieChart, Priority.ALWAYS);
         pieBox.getChildren().addAll(pieTitle, pieChart);
 
         VBox waterfallBox = new VBox(8);
         waterfallBox.getStyleClass().add("card");
+        HBox.setHgrow(waterfallBox, Priority.ALWAYS);
         Label waterfallTitle = new Label("Distribuição de Valores");
         waterfallTitle.getStyleClass().add("card-title");
         waterfallChart.setMinHeight(300);
+        VBox.setVgrow(waterfallChart, Priority.ALWAYS);
         waterfallBox.getChildren().addAll(waterfallTitle, waterfallChart);
 
         rankPanel.getStyleClass().add("card");
-        rankPanel.setMinWidth(560);
-        rankPanel.setMaxWidth(560);
+        HBox.setHgrow(rankPanel, Priority.ALWAYS);
 
-        rankPanelAltas.setMinWidth(260);
-        rankPanelAltas.setMaxWidth(260);
-        rankPanelBaixas.setMinWidth(260);
-        rankPanelBaixas.setMaxWidth(260);
+        HBox.setHgrow(rankPanelAltas, Priority.ALWAYS);
+        HBox.setHgrow(rankPanelBaixas, Priority.ALWAYS);
 
         Label altasTitle = new Label("🟢 Maiores Altas");
         altasTitle.getStyleClass().addAll("card-title", "pos");
@@ -346,7 +346,7 @@ public final class DashboardPage implements Page {
         box.getStyleClass().add("card");
 
         Label title = new Label("Performance da sua carteira");
-        title.getStyleClass().addAll("card-title", "section-header");
+        title.getStyleClass().add("section-header");
 
         // Botões de benchmark
         ToggleGroup benchTg = new ToggleGroup();
@@ -1188,7 +1188,7 @@ public final class DashboardPage implements Page {
         VBox box = new VBox(6);
         box.getStyleClass().add("card");
         Label t = new Label(title);
-        t.getStyleClass().add("muted");
+        t.getStyleClass().add("card-title");
         value.getStyleClass().add("big-value");
         box.getChildren().addAll(t, value);
         HBox.setHgrow(box, Priority.ALWAYS);
