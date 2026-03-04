@@ -8,6 +8,7 @@ import com.daniel.core.service.DailyTrackingUseCase;
 import com.daniel.core.service.DiversificationCalculator;
 import com.daniel.core.service.DiversificationCalculator.*;
 import com.daniel.core.util.Money;
+import com.daniel.presentation.view.PageHeader;
 
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -49,17 +50,19 @@ public final class DiversificationPage implements Page {
     public DiversificationPage(DailyTrackingUseCase dailyTrackingUseCase) {
         this.daily = dailyTrackingUseCase;
 
-        root.setPadding(new Insets(16));
+        root.getStyleClass().add("page-root");
 
-        Label h1 = new Label("Calculadora de Diversificação");
-        h1.getStyleClass().add("h1");
-
-        Label subtitle = new Label("Analise e otimize a distribuição dos seus investimentos");
-        subtitle.getStyleClass().add("page-subtitle");
+        PageHeader header = new PageHeader("Diversificação",
+                "Analise e otimize a distribuição dos seus investimentos");
 
         VBox patrimonyBox = buildPatrimonyCard();
+
+        // Controls row: method + calculation type side by side
         VBox methodBox = buildMethodSelector();
         VBox calculationBox = buildCalculationType();
+        HBox.setHgrow(methodBox, Priority.ALWAYS);
+        HBox.setHgrow(calculationBox, Priority.ALWAYS);
+        HBox controlsRow = new HBox(12, calculationBox, methodBox);
 
         HBox tablesRow = new HBox(12);
         VBox currentBox = buildCurrentAllocationTable();
@@ -70,11 +73,11 @@ public final class DiversificationPage implements Page {
 
         VBox suggestionsBox = buildSuggestionsTable();
 
-        root.getChildren().addAll(h1, subtitle, patrimonyBox, calculationBox, methodBox, tablesRow, suggestionsBox);
+        root.getChildren().addAll(header, patrimonyBox, controlsRow, tablesRow, suggestionsBox);
 
         scrollPane.setContent(root);
         scrollPane.setFitToWidth(true);
-        scrollPane.getStyleClass().add("scroll-pane");
+        scrollPane.getStyleClass().add("page-scroll");
     }
 
     @Override
@@ -92,7 +95,7 @@ public final class DiversificationPage implements Page {
         VBox box = new VBox(12);
         box.getStyleClass().add("card");
 
-        Label title = new Label("Tipo de Cálculo");
+        Label title = new Label("TIPO DE CÁLCULO");
         title.getStyleClass().add("card-title");
 
         rebalanceByContributionRadio.setToggleGroup(calculationTypeGroup);
@@ -141,7 +144,7 @@ public final class DiversificationPage implements Page {
         VBox box = new VBox(12);
         box.getStyleClass().add("card");
 
-        Label title = new Label("Método de Diversificação");
+        Label title = new Label("MÉTODO DE DIVERSIFICAÇÃO");
         title.getStyleClass().add("card-title");
 
         arcaRadio.setToggleGroup(methodGroup);
@@ -204,12 +207,12 @@ public final class DiversificationPage implements Page {
 
     private VBox buildPatrimonyCard() {
         VBox box = new VBox(8);
-        box.getStyleClass().add("card");
+        box.getStyleClass().add("kpi-card");
 
-        Label title = new Label("Patrimônio Atual");
-        title.getStyleClass().add("card-title");
+        Label title = new Label("PATRIMÔNIO ATUAL");
+        title.getStyleClass().add("kpi-label");
 
-        totalPatrimonyLabel.getStyleClass().add("big-value");
+        totalPatrimonyLabel.getStyleClass().add("kpi-value");
 
         box.getChildren().addAll(title, totalPatrimonyLabel);
         return box;
@@ -219,7 +222,7 @@ public final class DiversificationPage implements Page {
         VBox box = new VBox(10);
         box.getStyleClass().add("card");
 
-        Label title = new Label("Distribuição Atual");
+        Label title = new Label("DISTRIBUIÇÃO ATUAL");
         title.getStyleClass().add("card-title");
 
         currentTable.getStyleClass().add("table-analytic");
@@ -267,7 +270,7 @@ public final class DiversificationPage implements Page {
         VBox box = new VBox(10);
         box.getStyleClass().add("card");
 
-        Label title = new Label("Distribuição Ideal");
+        Label title = new Label("DISTRIBUIÇÃO IDEAL");
         title.getStyleClass().add("card-title");
 
         idealTable.getStyleClass().add("table-analytic");
@@ -315,7 +318,7 @@ public final class DiversificationPage implements Page {
         VBox box = new VBox(10);
         box.getStyleClass().add("card");
 
-        Label title = new Label("Sugestões de Aporte");
+        Label title = new Label("SUGESTÕES DE APORTE");
         title.getStyleClass().add("card-title");
 
         suggestionsTable.getStyleClass().add("table-analytic");

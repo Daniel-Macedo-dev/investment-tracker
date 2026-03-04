@@ -5,9 +5,11 @@ import com.daniel.core.service.InvestmentCalculator;
 import com.daniel.core.util.Money;
 import com.daniel.infrastructure.api.BcbClient;
 import com.daniel.infrastructure.api.BrapiClient;
+import com.daniel.presentation.view.PageHeader;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.chart.*;
 import javafx.scene.control.*;
@@ -53,6 +55,7 @@ public final class SimulationPage implements Page {
     private final Label sliderValueLabel = new Label("0%");
 
     private final Label resultLabel = new Label("—");
+    private final Label resultSubLabel = new Label("Preencha os campos e clique em Calcular");
     private final LineChart<Number, Number> projectionChart;
 
     private final Label ratesStatusLabel = new Label();
@@ -63,31 +66,50 @@ public final class SimulationPage implements Page {
 
     private InvestmentTypeEnum currentType = InvestmentTypeEnum.PREFIXADO;
 
+    // Visibility-controlled VBoxes
+    private VBox fixedRateSection;
+    private VBox benchmarkSection;
+    private VBox hybridSection;
+    private VBox stockSection;
+    private VBox rentabilityModeSection;
+
     public SimulationPage() {
-        root.setPadding(new Insets(16));
+        root.getStyleClass().add("page-root");
 
-        Label h1 = new Label("Simulação de Investimentos");
-        h1.getStyleClass().add("h1");
-
-        HBox typeSelector = buildTypeSelector();
-        VBox inputsBox = buildInputsBox();
+        PageHeader header = new PageHeader("Simulação",
+                "Projete o rendimento dos seus investimentos");
 
         NumberAxis xAxis = new NumberAxis();
         NumberAxis yAxis = new NumberAxis();
         xAxis.setLabel("Meses");
         yAxis.setLabel("Valor (R$)");
         projectionChart = new LineChart<>(xAxis, yAxis);
-        projectionChart.setTitle("Projeção de Rentabilidade");
-        projectionChart.setMinHeight(400);
+        projectionChart.setTitle(null);
+        projectionChart.setMinHeight(360);
         projectionChart.setCreateSymbols(false);
 
-        VBox resultBox = buildResultBox();
+        HBox typeSelector = buildTypeSelector();
+        VBox baseParamsCard = buildBaseParamsCard();
+        VBox rentabilityCard = buildRentabilityCard();
+        VBox stockCard = buildStockCard();
+        VBox resultCard = buildResultCard();
 
-        root.getChildren().addAll(h1, typeSelector, inputsBox, resultBox, projectionChart);
+        VBox chartCard = new VBox(8);
+        chartCard.getStyleClass().add("chart-card");
+        Label chartTitle = new Label("PROJEÇÃO DE RENTABILIDADE");
+        chartTitle.getStyleClass().add("card-title");
+        VBox.setVgrow(projectionChart, Priority.ALWAYS);
+        chartCard.getChildren().addAll(chartTitle, projectionChart);
+
+        root.getChildren().addAll(header, typeSelector, baseParamsCard,
+                rentabilityCard, stockCard, resultCard, chartCard);
 
         scrollPane.setContent(root);
         scrollPane.setFitToWidth(true);
-        scrollPane.getStyleClass().add("scroll-pane");
+        scrollPane.getStyleClass().add("page-scroll");
+
+        updateInputsVisibility();
+        updateRentabilityInputs();
     }
 
     @Override
@@ -124,7 +146,7 @@ public final class SimulationPage implements Page {
             } else {
                 String time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
                 ratesStatusLabel.setText(String.format(
-                        "Taxas atualizadas em %s — CDI: %.2f%% | SELIC: %.2f%% | IPCA: %.2f%%",
+                        "Taxas atualizadas %s — CDI: %.2f%% | SELIC: %.2f%% | IPCA: %.2f%%",
                         time, rateCdi * 100, rateSelic * 100, rateIpca * 100));
                 applyRatesStatusStyle("text-xs", "state-positive");
             }
@@ -132,18 +154,19 @@ public final class SimulationPage implements Page {
     }
 
     private HBox buildTypeSelector() {
-        HBox box = new HBox(10);
-        box.getStyleClass().add("card");
+        HBox box = new HBox(16);
+        box.getStyleClass().add("toolbar");
+        box.setAlignment(Pos.CENTER_LEFT);
 
-        Label label = new Label("Tipo de Investimento:");
-        label.getStyleClass().add("card-title");
+        Label label = new Label("Tipo:");
+        label.getStyleClass().add("form-label");
 
         ToggleGroup group = new ToggleGroup();
 
         RadioButton prefixadoRadio = new RadioButton("Prefixado");
         RadioButton posfixadoRadio = new RadioButton("Pós-fixado");
         RadioButton hibridoRadio = new RadioButton("Híbrido");
-        RadioButton acaoRadio = new RadioButton("Ação/FII");
+        RadioButton acaoRadio = new RadioButton("Ação / FII");
 
         prefixadoRadio.setToggleGroup(group);
         posfixadoRadio.setToggleGroup(group);
@@ -165,9 +188,12 @@ public final class SimulationPage implements Page {
         return box;
     }
 
-    private VBox buildInputsBox() {
+    private VBox buildBaseParamsCard() {
         VBox box = new VBox(12);
         box.getStyleClass().add("card");
+
+        Label title = new Label("PARÂMETROS BASE");
+        title.getStyleClass().add("card-title");
 
         Label initialLabel = new Label("Valor Inicial:");
         initialLabel.getStyleClass().add("form-label");
@@ -180,7 +206,26 @@ public final class SimulationPage implements Page {
         monthsCombo.getItems().addAll(1, 3, 6, 12, 24, 36, 48, 60, 120);
         monthsCombo.setValue(12);
 
-        Label modeLabel = new Label("Modalidade de Rentabilidade:");
+        HBox row = new HBox(12);
+        VBox initialBox = new VBox(6, initialLabel, initialValueField);
+        VBox monthsBox = new VBox(6, monthsLabel, monthsCombo);
+        HBox.setHgrow(initialBox, Priority.ALWAYS);
+        HBox.setHgrow(monthsBox, Priority.ALWAYS);
+        monthsCombo.setMaxWidth(Double.MAX_VALUE);
+        row.getChildren().addAll(initialBox, monthsBox);
+
+        box.getChildren().addAll(title, row);
+        return box;
+    }
+
+    private VBox buildRentabilityCard() {
+        VBox box = new VBox(12);
+        box.getStyleClass().add("card");
+
+        Label title = new Label("MODALIDADE DE RENTABILIDADE");
+        title.getStyleClass().add("card-title");
+
+        Label modeLabel = new Label("Modalidade:");
         modeLabel.getStyleClass().add("form-label");
         rentabilityModeCombo.getItems().addAll(RentabilityMode.values());
         rentabilityModeCombo.setValue(RentabilityMode.FIXED_RATE);
@@ -198,32 +243,76 @@ public final class SimulationPage implements Page {
                 setText(empty || item == null ? "" : item.getDisplay());
             }
         });
+        rentabilityModeCombo.setMaxWidth(Double.MAX_VALUE);
 
         rentabilityModeCombo.valueProperty().addListener((obs, old, newVal) -> {
             currentRentabilityMode = newVal;
             updateRentabilityInputs();
         });
 
+        rentabilityModeSection = new VBox(10);
+
+        // Fixed rate section
         Label fixedLabel = new Label("Taxa Anual (%):");
         fixedLabel.getStyleClass().add("form-label");
         fixedRateField.setPromptText("12.50");
+        fixedRateSection = new VBox(6, fixedLabel, fixedRateField);
 
+        // Benchmark section
         Label benchmarkLabel = new Label("Benchmark:");
         benchmarkLabel.getStyleClass().add("form-label");
         benchmarkCombo.getItems().addAll("CDI", "SELIC", "IPCA");
         benchmarkCombo.setValue("CDI");
+        benchmarkCombo.setMaxWidth(Double.MAX_VALUE);
 
         Label benchmarkPercentLabel = new Label("Percentual do Benchmark:");
         benchmarkPercentLabel.getStyleClass().add("form-label");
         benchmarkPercentField.setPromptText("110 (= 110% do CDI)");
 
-        Label hybridLabel = new Label("Taxa Fixa (Híbrido):");
+        HBox benchRow = new HBox(12);
+        VBox benchBox = new VBox(6, benchmarkLabel, benchmarkCombo);
+        VBox benchPctBox = new VBox(6, benchmarkPercentLabel, benchmarkPercentField);
+        HBox.setHgrow(benchBox, Priority.ALWAYS);
+        HBox.setHgrow(benchPctBox, Priority.ALWAYS);
+        benchRow.getChildren().addAll(benchBox, benchPctBox);
+        benchmarkSection = new VBox(8, benchRow, ratesStatusLabel);
+
+        // Hybrid section
+        Label hybridLabel = new Label("Taxa Fixa (% a.a.):");
         hybridLabel.getStyleClass().add("form-label");
         hybridFixedField.setPromptText("5.0");
 
         Label indexLabel = new Label("Taxa do Índice (% a.a.):");
         indexLabel.getStyleClass().add("form-label");
         indexRateField.setPromptText("4.5 (IPCA estimado)");
+
+        HBox hybridRow = new HBox(12);
+        VBox hybFixedBox = new VBox(6, hybridLabel, hybridFixedField);
+        VBox hybIdxBox = new VBox(6, indexLabel, indexRateField);
+        HBox.setHgrow(hybFixedBox, Priority.ALWAYS);
+        HBox.setHgrow(hybIdxBox, Priority.ALWAYS);
+        hybridRow.getChildren().addAll(hybFixedBox, hybIdxBox);
+        hybridSection = new VBox(8, hybridRow);
+
+        rentabilityModeSection.getChildren().addAll(
+                new VBox(6, modeLabel, rentabilityModeCombo),
+                fixedRateSection, benchmarkSection, hybridSection);
+
+        Button calculateBtn = new Button("Calcular Simulação");
+        calculateBtn.getStyleClass().add("button");
+        calculateBtn.setMaxWidth(Double.MAX_VALUE);
+        calculateBtn.setOnAction(e -> calculate());
+
+        box.getChildren().addAll(title, rentabilityModeSection, calculateBtn);
+        return box;
+    }
+
+    private VBox buildStockCard() {
+        VBox box = new VBox(12);
+        box.getStyleClass().add("card");
+
+        Label title = new Label("DADOS DO ATIVO");
+        title.getStyleClass().add("card-title");
 
         Label tickerLabel = new Label("Ticker:");
         tickerLabel.getStyleClass().add("form-label");
@@ -246,13 +335,13 @@ public final class SimulationPage implements Page {
 
         Label currentPriceLabel = new Label("Preço Atual (automático):");
         currentPriceLabel.getStyleClass().add("form-label");
-        currentPriceField.setPromptText("Será preenchido automaticamente");
+        currentPriceField.setPromptText("Preenchido automaticamente");
         currentPriceField.setTextFormatter(Money.currencyFormatterEditable());
         currentPriceField.setDisable(true);
 
         Label dividendsLabel = new Label("Dividendos Estimados (automático):");
         dividendsLabel.getStyleClass().add("form-label");
-        dividendsField.setPromptText("Será calculado automaticamente");
+        dividendsField.setPromptText("Calculado automaticamente");
         dividendsField.setTextFormatter(Money.currencyFormatterEditable());
         dividendsField.setDisable(true);
 
@@ -269,89 +358,66 @@ public final class SimulationPage implements Page {
                 calculateStock();
             }
         });
+        sliderValueLabel.getStyleClass().addAll("text-bold", "state-positive");
+        HBox sliderRow = new HBox(12, priceVariationSlider, sliderValueLabel);
+        HBox.setHgrow(priceVariationSlider, Priority.ALWAYS);
+        sliderRow.setAlignment(Pos.CENTER_LEFT);
+
+        HBox row1 = new HBox(12);
+        VBox tickerBox = new VBox(6, tickerLabel, tickerField);
+        VBox priceBox = new VBox(6, purchasePriceLabel, purchasePriceField);
+        VBox qtyBox = new VBox(6, quantityLabel, quantityField);
+        HBox.setHgrow(tickerBox, Priority.ALWAYS);
+        HBox.setHgrow(priceBox, Priority.ALWAYS);
+        HBox.setHgrow(qtyBox, Priority.ALWAYS);
+        row1.getChildren().addAll(tickerBox, priceBox, qtyBox);
+
+        HBox row2 = new HBox(12);
+        VBox curPriceBox = new VBox(6, currentPriceLabel, currentPriceField);
+        VBox divBox = new VBox(6, dividendsLabel, dividendsField);
+        HBox.setHgrow(curPriceBox, Priority.ALWAYS);
+        HBox.setHgrow(divBox, Priority.ALWAYS);
+        row2.getChildren().addAll(curPriceBox, divBox);
 
         Button calculateBtn = new Button("Calcular Simulação");
-        calculateBtn.getStyleClass().add("primary-btn");
+        calculateBtn.getStyleClass().add("button");
+        calculateBtn.setMaxWidth(Double.MAX_VALUE);
         calculateBtn.setOnAction(e -> calculate());
 
-        box.getChildren().addAll(
-                initialLabel, initialValueField,
-                monthsLabel, monthsCombo,
-                modeLabel, rentabilityModeCombo,
-                fixedLabel, fixedRateField,
-                benchmarkLabel, benchmarkCombo, ratesStatusLabel,
-                benchmarkPercentLabel, benchmarkPercentField,
-                hybridLabel, hybridFixedField,
-                indexLabel, indexRateField,
-                tickerLabel, tickerField,
-                purchasePriceLabel, purchasePriceField,
-                quantityLabel, quantityField,
-                currentPriceLabel, currentPriceField,
-                dividendsLabel, dividendsField,
-                variationLabel, new HBox(10, priceVariationSlider, sliderValueLabel),
-                calculateBtn
-        );
+        box.getChildren().addAll(title, row1, row2,
+                new VBox(6, variationLabel, sliderRow), calculateBtn);
 
-        updateInputsVisibility();
-        updateRentabilityInputs();
+        stockSection = box;
         return box;
     }
 
-    private VBox buildResultBox() {
+    private VBox buildResultCard() {
         VBox box = new VBox(8);
-        box.getStyleClass().add("card");
+        box.getStyleClass().add("kpi-card");
 
-        Label title = new Label("Resultado da Simulação");
-        title.getStyleClass().add("card-title");
+        Label title = new Label("RESULTADO DA SIMULAÇÃO");
+        title.getStyleClass().add("kpi-label");
 
-        resultLabel.getStyleClass().add("big-value");
+        resultLabel.getStyleClass().add("kpi-value");
+        resultSubLabel.getStyleClass().add("text-helper");
 
-        box.getChildren().addAll(title, resultLabel);
+        box.getChildren().addAll(title, resultLabel, resultSubLabel);
         return box;
     }
 
     private void updateInputsVisibility() {
-        fixedRateField.setVisible(false);
-        fixedRateField.setManaged(false);
-        benchmarkCombo.setVisible(false);
-        benchmarkCombo.setManaged(false);
-        benchmarkPercentField.setVisible(false);
-        benchmarkPercentField.setManaged(false);
-        hybridFixedField.setVisible(false);
-        hybridFixedField.setManaged(false);
-        indexRateField.setVisible(false);
-        indexRateField.setManaged(false);
-        tickerField.setVisible(false);
-        tickerField.setManaged(false);
-        purchasePriceField.setVisible(false);
-        purchasePriceField.setManaged(false);
-        quantityField.setVisible(false);
-        quantityField.setManaged(false);
-        currentPriceField.setVisible(false);
-        currentPriceField.setManaged(false);
-        dividendsField.setVisible(false);
-        dividendsField.setManaged(false);
-        priceVariationSlider.setVisible(false);
-        priceVariationSlider.setManaged(false);
-        rentabilityModeCombo.setVisible(false);
-        rentabilityModeCombo.setManaged(false);
+        boolean isAcao = currentType == InvestmentTypeEnum.ACAO;
 
-        if (currentType == InvestmentTypeEnum.ACAO) {
-            tickerField.setVisible(true);
-            tickerField.setManaged(true);
-            purchasePriceField.setVisible(true);
-            purchasePriceField.setManaged(true);
-            quantityField.setVisible(true);
-            quantityField.setManaged(true);
-            currentPriceField.setVisible(true);
-            currentPriceField.setManaged(true);
-            dividendsField.setVisible(true);
-            dividendsField.setManaged(true);
-            priceVariationSlider.setVisible(true);
-            priceVariationSlider.setManaged(true);
-        } else {
-            rentabilityModeCombo.setVisible(true);
-            rentabilityModeCombo.setManaged(true);
+        if (rentabilityModeSection != null) {
+            rentabilityModeSection.setVisible(!isAcao);
+            rentabilityModeSection.setManaged(!isAcao);
+        }
+        if (stockSection != null) {
+            stockSection.setVisible(isAcao);
+            stockSection.setManaged(isAcao);
+        }
+
+        if (!isAcao) {
             updateRentabilityInputs();
         }
     }
@@ -359,33 +425,27 @@ public final class SimulationPage implements Page {
     private void updateRentabilityInputs() {
         if (currentType == InvestmentTypeEnum.ACAO) return;
 
-        fixedRateField.setVisible(false);
-        fixedRateField.setManaged(false);
-        benchmarkCombo.setVisible(false);
-        benchmarkCombo.setManaged(false);
-        benchmarkPercentField.setVisible(false);
-        benchmarkPercentField.setManaged(false);
-        hybridFixedField.setVisible(false);
-        hybridFixedField.setManaged(false);
-        indexRateField.setVisible(false);
-        indexRateField.setManaged(false);
+        if (fixedRateSection == null) return;
+
+        fixedRateSection.setVisible(false);
+        fixedRateSection.setManaged(false);
+        benchmarkSection.setVisible(false);
+        benchmarkSection.setManaged(false);
+        hybridSection.setVisible(false);
+        hybridSection.setManaged(false);
 
         switch (currentRentabilityMode) {
             case FIXED_RATE -> {
-                fixedRateField.setVisible(true);
-                fixedRateField.setManaged(true);
+                fixedRateSection.setVisible(true);
+                fixedRateSection.setManaged(true);
             }
             case BENCHMARK_PERCENT -> {
-                benchmarkCombo.setVisible(true);
-                benchmarkCombo.setManaged(true);
-                benchmarkPercentField.setVisible(true);
-                benchmarkPercentField.setManaged(true);
+                benchmarkSection.setVisible(true);
+                benchmarkSection.setManaged(true);
             }
             case HYBRID -> {
-                hybridFixedField.setVisible(true);
-                hybridFixedField.setManaged(true);
-                indexRateField.setVisible(true);
-                indexRateField.setManaged(true);
+                hybridSection.setVisible(true);
+                hybridSection.setManaged(true);
             }
         }
     }
@@ -429,6 +489,7 @@ public final class SimulationPage implements Page {
 
             if (capital == 0 || months == 0) {
                 resultLabel.setText("Preencha valor inicial e período");
+                resultSubLabel.setText("");
                 return;
             }
 
@@ -438,16 +499,16 @@ public final class SimulationPage implements Page {
             double result = capital * Math.pow(1 + monthlyRate, months);
             double profit = result - capital;
 
-            resultLabel.setText(String.format(
-                    "Montante: R$ %.2f | Lucro: R$ %.2f (%.1f%%)",
-                    result, profit, (profit / capital) * 100
-            ));
+            resultLabel.setText(String.format("R$ %.2f", result).replace('.', ','));
+            resultSubLabel.setText(String.format("Lucro: R$ %.2f (%.1f%%) em %d meses",
+                    profit, (profit / capital) * 100, months).replace('.', ','));
             applyResultStyle(true);
 
             updateChartMonths(capital, monthlyRate, months, "Renda Fixa");
 
         } catch (Exception e) {
-            resultLabel.setText("Erro: Verifique os campos");
+            resultLabel.setText("Verifique os campos");
+            resultSubLabel.setText("");
             applyResultStyle(false);
         }
     }
@@ -514,10 +575,9 @@ public final class SimulationPage implements Page {
             double rentabilidade = (lucro / valorInvestido) * 100;
             double lucroTotal = (valorAtual + dividends) - valorInvestido;
 
-            resultLabel.setText(String.format(
-                    "Investido: R$ %.2f | Atual: R$ %.2f | Lucro: R$ %.2f (%.2f%%)",
-                    valorInvestido, valorAtual, lucroTotal, rentabilidade
-            ));
+            resultLabel.setText(String.format("R$ %.2f", valorAtual).replace('.', ','));
+            resultSubLabel.setText(String.format("Investido: R$ %.2f | Lucro: R$ %.2f (%.2f%%)",
+                    valorInvestido, lucroTotal, rentabilidade).replace('.', ','));
 
             applyResultStyle(lucroTotal >= 0);
 
@@ -529,10 +589,12 @@ public final class SimulationPage implements Page {
             projectionChart.getData().add(series);
 
         } catch (NumberFormatException e) {
-            resultLabel.setText("Erro: Quantidade deve ser um número");
+            resultLabel.setText("Quantidade deve ser um número");
+            resultSubLabel.setText("");
             applyResultStyle(false);
         } catch (Exception e) {
-            resultLabel.setText("Erro: Preencha todos os campos corretamente");
+            resultLabel.setText("Preencha todos os campos corretamente");
+            resultSubLabel.setText("");
             applyResultStyle(false);
         }
     }

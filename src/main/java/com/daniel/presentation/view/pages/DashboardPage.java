@@ -8,6 +8,7 @@ import com.daniel.core.service.DiversificationCalculator.*;
 import com.daniel.infrastructure.api.BcbClient;
 import com.daniel.infrastructure.api.BrapiClient;
 import com.daniel.infrastructure.persistence.repository.AppSettingsRepository;
+import com.daniel.presentation.view.PageHeader;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -89,40 +90,39 @@ public final class DashboardPage implements Page {
         comparisonChart.setCreateSymbols(false);
         comparisonChart.setAnimated(false);
 
-        root.setPadding(new Insets(16));
+        root.getStyleClass().add("page-root");
 
-        Label h1 = new Label("Dashboard");
-        h1.getStyleClass().add("h1");
+        PageHeader header = new PageHeader("Dashboard", "Resumo do seu portfólio de investimentos");
 
         HBox cards = new HBox(12,
-                card("Data", dateLabel),
-                card("Patrimônio Total", totalLabel),
-                card("Lucro/Prejuízo Total", profitLabel),
-                card("vs CDI", cdiComparisonLabel)
+                kpiCard("Data", dateLabel),
+                kpiCard("Patrimônio Total", totalLabel),
+                kpiCard("Lucro / Prejuízo", profitLabel),
+                kpiCard("vs CDI", cdiComparisonLabel)
         );
         cards.getStyleClass().add("dashboard-kpi-row");
 
-        Label h2 = new Label("Análise da Carteira");
+        Label h2 = new Label("ANÁLISE DA CARTEIRA");
         h2.getStyleClass().add("section-title");
 
         HBox chartsRow = new HBox(12);
 
         VBox pieBox = new VBox(8);
-        pieBox.getStyleClass().add("card");
+        pieBox.getStyleClass().add("chart-card");
         HBox.setHgrow(pieBox, Priority.ALWAYS);
-        Label pieTitle = new Label("Diversificação por Categoria");
+        Label pieTitle = new Label("DIVERSIFICAÇÃO");
         pieTitle.getStyleClass().add("card-title");
-        pieChart.setMinHeight(300);
+        pieChart.setMinHeight(280);
         pieChart.setLegendSide(Side.RIGHT);
         VBox.setVgrow(pieChart, Priority.ALWAYS);
         pieBox.getChildren().addAll(pieTitle, pieChart);
 
         VBox waterfallBox = new VBox(8);
-        waterfallBox.getStyleClass().add("card");
+        waterfallBox.getStyleClass().add("chart-card");
         HBox.setHgrow(waterfallBox, Priority.ALWAYS);
-        Label waterfallTitle = new Label("Distribuição de Valores");
+        Label waterfallTitle = new Label("DISTRIBUIÇÃO DE VALORES");
         waterfallTitle.getStyleClass().add("card-title");
-        waterfallChart.setMinHeight(300);
+        waterfallChart.setMinHeight(280);
         VBox.setVgrow(waterfallChart, Priority.ALWAYS);
         waterfallBox.getChildren().addAll(waterfallTitle, waterfallChart);
 
@@ -132,11 +132,11 @@ public final class DashboardPage implements Page {
         HBox.setHgrow(rankPanelAltas, Priority.ALWAYS);
         HBox.setHgrow(rankPanelBaixas, Priority.ALWAYS);
 
-        Label altasTitle = new Label("🟢 Maiores Altas");
+        Label altasTitle = new Label("MAIORES ALTAS");
         altasTitle.getStyleClass().addAll("card-title", "pos");
         rankPanelAltas.getChildren().add(altasTitle);
 
-        Label baixasTitle = new Label("🔴 Maiores Baixas");
+        Label baixasTitle = new Label("MAIORES BAIXAS");
         baixasTitle.getStyleClass().addAll("card-title", "neg");
         rankPanelBaixas.getChildren().add(baixasTitle);
 
@@ -152,11 +152,11 @@ public final class DashboardPage implements Page {
         tokenWarningBanner.setVisible(false);
         tokenWarningBanner.setManaged(false);
 
-        root.getChildren().addAll(h1, tokenWarningBanner, cards, h2, chartsRow, comparisonBox, investmentsByCategoryContainer);
+        root.getChildren().addAll(header, tokenWarningBanner, cards, h2, chartsRow, comparisonBox, investmentsByCategoryContainer);
 
         scrollPane.setContent(root);
         scrollPane.setFitToWidth(true);
-        scrollPane.getStyleClass().add("scroll-pane");
+        scrollPane.getStyleClass().add("page-scroll");
     }
 
     @Override
@@ -343,10 +343,10 @@ public final class DashboardPage implements Page {
 
     private VBox buildComparisonSection() {
         VBox box = new VBox(12);
-        box.getStyleClass().add("card");
+        box.getStyleClass().add("chart-card");
 
-        Label title = new Label("Performance da sua carteira");
-        title.getStyleClass().add("section-header");
+        Label title = new Label("PERFORMANCE DA CARTEIRA");
+        title.getStyleClass().add("section-title");
 
         // Botões de benchmark
         ToggleGroup benchTg = new ToggleGroup();
@@ -1184,12 +1184,12 @@ public final class DashboardPage implements Page {
         };
     }
 
-    private VBox card(String title, Label value) {
+    private VBox kpiCard(String title, Label value) {
         VBox box = new VBox(6);
-        box.getStyleClass().add("card");
+        box.getStyleClass().add("kpi-card");
         Label t = new Label(title);
-        t.getStyleClass().add("card-title");
-        value.getStyleClass().add("big-value");
+        t.getStyleClass().add("kpi-label");
+        value.getStyleClass().add("kpi-value");
         box.getChildren().addAll(t, value);
         HBox.setHgrow(box, Priority.ALWAYS);
         return box;

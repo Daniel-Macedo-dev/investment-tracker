@@ -3,6 +3,7 @@ package com.daniel.presentation.view.pages;
 import com.daniel.infrastructure.api.BcbClient;
 import com.daniel.infrastructure.api.BrapiClient;
 import com.daniel.infrastructure.persistence.repository.AppSettingsRepository;
+import com.daniel.presentation.view.PageHeader;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -36,19 +37,16 @@ public final class ConfiguracoesPage implements Page {
     private final Label bcbLastUpdateLabel = new Label("Nunca atualizado");
 
     public ConfiguracoesPage() {
-        root.setPadding(new Insets(16));
+        root.getStyleClass().add("page-root");
 
-        Label h1 = new Label("Configurações");
-        h1.getStyleClass().add("h1");
+        PageHeader header = new PageHeader("Configurações",
+                "Gerencie tokens de API e preferências do app");
 
-        Label subtitle = new Label("Gerencie tokens de API e preferências do app");
-        subtitle.getStyleClass().add("page-subtitle");
-
-        root.getChildren().addAll(h1, subtitle, buildBrapiSection(), buildBcbSection(), buildAboutSection());
+        root.getChildren().addAll(header, buildBrapiSection(), buildBcbSection(), buildAboutSection());
 
         scrollPane.setContent(root);
         scrollPane.setFitToWidth(true);
-        scrollPane.getStyleClass().add("scroll-pane");
+        scrollPane.getStyleClass().add("page-scroll");
     }
 
     @Override
@@ -75,10 +73,10 @@ public final class ConfiguracoesPage implements Page {
     private void updateTokenStatus(String token) {
         tokenStatusLabel.getStyleClass().removeAll("status-success", "status-warning", "status-danger", "status-neutral");
         if (token == null || token.isBlank()) {
-            tokenStatusLabel.setText("⚠️ Token não configurado. Cotações usarão preço de compra como fallback.");
+            tokenStatusLabel.setText("Token não configurado — cotações de ações usarão preço de compra como referência.");
             tokenStatusLabel.getStyleClass().add("status-warning");
         } else {
-            tokenStatusLabel.setText("✅ Token configurado.");
+            tokenStatusLabel.setText("Token configurado.");
             tokenStatusLabel.getStyleClass().add("status-success");
         }
     }
@@ -89,21 +87,21 @@ public final class ConfiguracoesPage implements Page {
         String ipca = settings.get("rate_ipca").orElse(null);
         String lastUpdate = settings.get("rate_last_update").orElse(null);
 
-        cdiValueLabel.setText(cdi != null ? String.format("%.2f%% a.a.", Double.parseDouble(cdi) * 100) : "—");
-        selicValueLabel.setText(selic != null ? String.format("%.2f%% a.a.", Double.parseDouble(selic) * 100) : "—");
-        ipcaValueLabel.setText(ipca != null ? String.format("%.2f%% a.a.", Double.parseDouble(ipca) * 100) : "—");
-        bcbLastUpdateLabel.setText(lastUpdate != null ? "Última atualização: " + lastUpdate : "Nunca atualizado");
+        cdiValueLabel.setText(cdi != null ? String.format("%.2f%%", Double.parseDouble(cdi) * 100) : "—");
+        selicValueLabel.setText(selic != null ? String.format("%.2f%%", Double.parseDouble(selic) * 100) : "—");
+        ipcaValueLabel.setText(ipca != null ? String.format("%.2f%%", Double.parseDouble(ipca) * 100) : "—");
+        bcbLastUpdateLabel.setText(lastUpdate != null ? "Atualizado em: " + lastUpdate : "Nunca atualizado");
     }
 
     private VBox buildBrapiSection() {
-        VBox card = new VBox(12);
+        VBox card = new VBox(14);
         card.getStyleClass().add("card");
 
-        Label title = new Label("API Brapi — Cotações de Ações");
+        Label title = new Label("API BRAPI — COTAÇÕES DE AÇÕES");
         title.getStyleClass().add("card-title");
 
-        Label tokenLabel = new Label("Token Brapi *");
-        tokenLabel.getStyleClass().add("text-bold");
+        Label tokenLabel = new Label("Token Brapi");
+        tokenLabel.getStyleClass().add("form-label");
 
         tokenField.setPromptText("Cole seu token aqui...");
         tokenField.getStyleClass().add("code-field");
@@ -121,16 +119,19 @@ public final class ConfiguracoesPage implements Page {
         testBtn.setOnAction(e -> testToken());
 
         Button saveBtn = new Button("Salvar Configurações");
-        saveBtn.getStyleClass().add("primary-btn");
+        saveBtn.getStyleClass().add("button");
         saveBtn.setOnAction(e -> saveSettings());
 
         HBox btnRow = new HBox(10, testBtn, saveBtn);
         btnRow.setAlignment(Pos.CENTER_LEFT);
 
+        Separator sep = new Separator();
+
         card.getChildren().addAll(
                 title,
-                tokenLabel, tokenField, tokenHint,
+                new VBox(6, tokenLabel, tokenField, tokenHint),
                 tokenStatusLabel,
+                sep,
                 autoUpdateCheckbox,
                 btnRow
         );
@@ -138,79 +139,83 @@ public final class ConfiguracoesPage implements Page {
     }
 
     private VBox buildBcbSection() {
-        VBox card = new VBox(12);
+        VBox card = new VBox(14);
         card.getStyleClass().add("card");
 
-        Label title = new Label("Benchmarks — Banco Central do Brasil");
+        Label title = new Label("BENCHMARKS — BANCO CENTRAL DO BRASIL");
         title.getStyleClass().add("card-title");
 
-        Label hint = new Label("Busca as taxas oficiais CDI, SELIC e IPCA direto da API do BCB.");
+        Label hint = new Label("Taxas oficiais CDI, SELIC e IPCA da API do BCB.");
         hint.getStyleClass().add("text-helper");
 
-        GridPane grid = new GridPane();
-        grid.getStyleClass().add("rate-grid");
-
-        grid.add(new Label("CDI:"), 0, 0);
-        cdiValueLabel.getStyleClass().addAll("text-bold", "state-positive");
-        grid.add(cdiValueLabel, 1, 0);
-
-        grid.add(new Label("SELIC:"), 0, 1);
-        selicValueLabel.getStyleClass().addAll("text-bold", "state-positive");
-        grid.add(selicValueLabel, 1, 1);
-
-        grid.add(new Label("IPCA:"), 0, 2);
-        ipcaValueLabel.getStyleClass().addAll("text-bold", "state-positive");
-        grid.add(ipcaValueLabel, 1, 2);
+        // Rate KPI row
+        HBox rateRow = new HBox(12,
+                rateKpi("CDI a.a.", cdiValueLabel),
+                rateKpi("SELIC a.a.", selicValueLabel),
+                rateKpi("IPCA a.a.", ipcaValueLabel)
+        );
 
         bcbLastUpdateLabel.getStyleClass().add("text-helper");
 
         Button updateBtn = new Button("Atualizar CDI / SELIC / IPCA");
-        updateBtn.getStyleClass().add("primary-btn");
+        updateBtn.getStyleClass().add("button");
         updateBtn.setOnAction(e -> fetchBcbRates(updateBtn));
 
-        card.getChildren().addAll(title, hint, grid, bcbLastUpdateLabel, updateBtn);
+        card.getChildren().addAll(title, hint, rateRow, bcbLastUpdateLabel, updateBtn);
         return card;
+    }
+
+    private VBox rateKpi(String label, Label valueLabel) {
+        VBox box = new VBox(4);
+        box.getStyleClass().add("kpi-card");
+        HBox.setHgrow(box, Priority.ALWAYS);
+        Label lbl = new Label(label);
+        lbl.getStyleClass().add("kpi-label");
+        valueLabel.getStyleClass().addAll("kpi-value", "state-positive");
+        box.getChildren().addAll(lbl, valueLabel);
+        return box;
     }
 
     private VBox buildAboutSection() {
         VBox card = new VBox(12);
         card.getStyleClass().add("card");
 
-        Label title = new Label("Sobre");
+        Label title = new Label("SOBRE O APP");
         title.getStyleClass().add("card-title");
 
         Label version = new Label("Investment Tracker v0.5.0");
         version.getStyleClass().add("text-lg");
 
-        Label apis = new Label("APIs utilizadas:\n• Brapi (brapi.dev) — Cotações da B3\n• BCB (api.bcb.gov.br) — Taxas oficiais");
+        Label apis = new Label("APIs utilizadas: Brapi (brapi.dev) para cotações da B3 e BCB (api.bcb.gov.br) para taxas oficiais.");
         apis.getStyleClass().add("muted");
+        apis.setWrapText(true);
 
-        Label privacy = new Label("Privacidade: todos os dados são armazenados localmente. Nenhum dado é enviado a servidores externos além das chamadas às APIs acima.");
+        Label privacy = new Label("Todos os dados são armazenados localmente. Nenhum dado pessoal é enviado a servidores externos além das chamadas às APIs acima.");
         privacy.getStyleClass().add("text-helper");
         privacy.setWrapText(true);
 
-        card.getChildren().addAll(title, version, apis, privacy);
+        card.getChildren().addAll(title, version, new Separator(), apis, privacy);
         return card;
     }
 
     private void testToken() {
         String token = tokenField.getText().trim();
         if (token.isBlank()) {
-            tokenStatusLabel.setText("⚠️ Digite um token antes de testar.");
+            tokenStatusLabel.setText("Digite um token antes de testar.");
             setTokenStatusClass("status-warning");
             return;
         }
 
-        tokenStatusLabel.setText("🔄 Testando conexão...");
+        tokenStatusLabel.setText("Testando conexão...");
         setTokenStatusClass("status-neutral");
 
         CompletableFuture.supplyAsync(() -> BrapiClient.testConnectionWithToken(token))
                 .thenAcceptAsync(ok -> Platform.runLater(() -> {
                     if (ok) {
-                        tokenStatusLabel.setText("✅ Token válido! Conexão estabelecida com sucesso.");
+                        tokenStatusLabel.setText("Token válido! Conexão estabelecida com sucesso.");
                         setTokenStatusClass("status-success");
                     } else {
-                        tokenStatusLabel.setText("❌ Token inválido ou sem conexão com a Brapi.");
+                        tokenStatusLabel.setText("Token inválido ou sem conexão com a Brapi.");
                         setTokenStatusClass("status-danger");
                     }
                 }));
@@ -237,6 +242,10 @@ public final class ConfiguracoesPage implements Page {
         alert.setTitle("Configurações Salvas");
         alert.setHeaderText(null);
         alert.setContentText("Configurações salvas com sucesso!");
+        try {
+            alert.getDialogPane().getStylesheets().add(
+                    getClass().getResource("/styles/app.css").toExternalForm());
+        } catch (Exception ignored) {}
         alert.showAndWait();
     }
 
@@ -257,26 +266,26 @@ public final class ConfiguracoesPage implements Page {
 
             if (rates[0] > 0) {
                 settings.set("rate_cdi", String.valueOf(rates[0]));
-                cdiValueLabel.setText(String.format("%.2f%% a.a.", rates[0] * 100));
+                cdiValueLabel.setText(String.format("%.2f%%", rates[0] * 100));
                 anySuccess = true;
             }
             if (rates[1] > 0) {
                 settings.set("rate_selic", String.valueOf(rates[1]));
-                selicValueLabel.setText(String.format("%.2f%% a.a.", rates[1] * 100));
+                selicValueLabel.setText(String.format("%.2f%%", rates[1] * 100));
                 anySuccess = true;
             }
             if (rates[2] > 0) {
                 settings.set("rate_ipca", String.valueOf(rates[2]));
-                ipcaValueLabel.setText(String.format("%.2f%% a.a.", rates[2] * 100));
+                ipcaValueLabel.setText(String.format("%.2f%%", rates[2] * 100));
                 anySuccess = true;
             }
 
             if (anySuccess) {
                 String now = LocalDateTime.now().format(DT_FMT);
                 settings.set("rate_last_update", now);
-                bcbLastUpdateLabel.setText("Última atualização: " + now);
+                bcbLastUpdateLabel.setText("Atualizado em: " + now);
             } else {
-                bcbLastUpdateLabel.setText("⚠️ Falha ao buscar taxas. Verifique sua conexão.");
+                bcbLastUpdateLabel.setText("Falha ao buscar taxas. Verifique sua conexão.");
             }
         }));
     }

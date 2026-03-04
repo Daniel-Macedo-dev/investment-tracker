@@ -2,9 +2,11 @@ package com.daniel.presentation.view.pages;
 
 import com.daniel.core.domain.entity.Transaction;
 import com.daniel.core.service.DailyTrackingUseCase;
+import com.daniel.presentation.view.PageHeader;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -18,7 +20,9 @@ public final class ReportsPage implements Page {
 
     private final DailyTrackingUseCase daily;
 
-    private final BorderPane root = new BorderPane();
+    private final VBox root = new VBox(20);
+    private final ScrollPane scrollPane = new ScrollPane();
+
     private final Button btnPrevMonth = new Button("◀");
     private final Button btnNextMonth = new Button("▶");
     private final Button btnCurrentMonth = new Button("Mês Atual");
@@ -37,28 +41,11 @@ public final class ReportsPage implements Page {
     public ReportsPage(DailyTrackingUseCase daily) {
         this.daily = daily;
 
-        root.setPadding(new Insets(16));
-        root.setTop(top());
-        root.setCenter(center());
+        root.getStyleClass().add("page-root");
 
-        buildTable();
-    }
+        PageHeader header = new PageHeader("Extrato", "Registro de compras e vendas por período");
 
-    @Override
-    public Parent view() {
-        return root;
-    }
-
-    @Override
-    public void onShow() {
-        currentMonth = YearMonth.now();
-        reload();
-    }
-
-    private Parent top() {
-        Label h1 = new Label("Extrato de Investimentos");
-        h1.getStyleClass().add("h1");
-
+        // ── Month Nav Toolbar ────────────────────────────────────────────────
         btnPrevMonth.getStyleClass().add("icon-btn");
         btnNextMonth.getStyleClass().add("icon-btn");
         btnCurrentMonth.getStyleClass().add("ghost-btn");
@@ -67,52 +54,64 @@ public final class ReportsPage implements Page {
             currentMonth = currentMonth.minusMonths(1);
             reload();
         });
-
         btnNextMonth.setOnAction(e -> {
             currentMonth = currentMonth.plusMonths(1);
             reload();
         });
-
         btnCurrentMonth.setOnAction(e -> {
             currentMonth = YearMonth.now();
             reload();
         });
 
-        monthLabel.getStyleClass().add("text-lg");
-
-        HBox nav = new HBox(8, btnPrevMonth, btnNextMonth, new Separator(), btnCurrentMonth);
-        nav.getStyleClass().add("actions-bar");
+        monthLabel.getStyleClass().addAll("text-lg", "text-strong");
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        HBox bar = new HBox(10, h1, spacer, monthLabel, nav);
-        bar.getStyleClass().add("header-row");
-        return bar;
-    }
+        HBox navToolbar = new HBox(8, monthLabel, spacer,
+                btnPrevMonth, btnNextMonth, new Separator(javafx.geometry.Orientation.VERTICAL), btnCurrentMonth);
+        navToolbar.getStyleClass().add("toolbar");
+        navToolbar.setAlignment(Pos.CENTER_LEFT);
 
-    private Parent center() {
-        VBox box = new VBox(12);
-
-        // Cards de resumo
-        HBox cards = new HBox(12);
-        cards.getChildren().addAll(
-                card("Total Compras", totalComprasLabel),
-                card("Total Vendas", totalVendasLabel),
-                card("Lucro Realizado", lucroRealizadoLabel)
+        // ── KPI Cards ────────────────────────────────────────────────────────
+        HBox kpiRow = new HBox(12,
+                kpiCard("Total Compras", totalComprasLabel),
+                kpiCard("Total Vendas", totalVendasLabel),
+                kpiCard("Lucro Realizado", lucroRealizadoLabel)
         );
 
+        // ── Table ────────────────────────────────────────────────────────────
+        buildTable();
         VBox.setVgrow(table, Priority.ALWAYS);
-        box.getChildren().addAll(cards, table);
-        return box;
+
+        VBox tableCard = new VBox(12, table);
+        tableCard.getStyleClass().add("card");
+        VBox.setVgrow(tableCard, Priority.ALWAYS);
+
+        root.getChildren().addAll(header, navToolbar, kpiRow, tableCard);
+
+        scrollPane.setContent(root);
+        scrollPane.setFitToWidth(true);
+        scrollPane.getStyleClass().add("page-scroll");
     }
 
-    private VBox card(String title, Label value) {
+    @Override
+    public Parent view() {
+        return scrollPane;
+    }
+
+    @Override
+    public void onShow() {
+        currentMonth = YearMonth.now();
+        reload();
+    }
+
+    private VBox kpiCard(String title, Label value) {
         VBox b = new VBox(6);
-        b.getStyleClass().add("card");
+        b.getStyleClass().add("kpi-card");
         Label t = new Label(title);
-        t.getStyleClass().add("card-title");
-        value.getStyleClass().add("big-value");
+        t.getStyleClass().add("kpi-label");
+        value.getStyleClass().add("kpi-value");
         b.getChildren().addAll(t, value);
         HBox.setHgrow(b, Priority.ALWAYS);
         return b;
@@ -127,7 +126,7 @@ public final class ReportsPage implements Page {
 
         TableColumn<ExtractRow, String> typeCol = new TableColumn<>("Tipo");
         typeCol.setCellValueFactory(v -> new SimpleStringProperty(v.getValue().type));
-        typeCol.setPrefWidth(150);
+        typeCol.setPrefWidth(100);
 
         TableColumn<ExtractRow, String> descCol = new TableColumn<>("Descrição");
         descCol.setCellValueFactory(v -> new SimpleStringProperty(v.getValue().description));
@@ -153,15 +152,25 @@ public final class ReportsPage implements Page {
         });
         valueCol.setPrefWidth(150);
 
-        Label emptyPh = new Label("Nenhum lançamento neste período");
-        emptyPh.getStyleClass().add("text-helper");
-        table.setPlaceholder(emptyPh);
+        VBox emptyState = new VBox(8);
+        emptyState.getStyleClass().add("empty-state");
+        emptyState.setAlignment(Pos.CENTER);
+        Label emptyIcon = new Label("📋");
+        emptyIcon.getStyleClass().add("empty-icon");
+        Label emptyTitle = new Label("Nenhum lançamento neste período");
+        emptyTitle.getStyleClass().add("empty-title");
+        Label emptyHint = new Label("Registre compras ou vendas para vê-las aqui");
+        emptyHint.getStyleClass().add("empty-hint");
+        emptyState.getChildren().addAll(emptyIcon, emptyTitle, emptyHint);
+        table.setPlaceholder(emptyState);
+
         table.getColumns().setAll(dateCol, typeCol, descCol, valueCol);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
     }
 
     private void reload() {
-        monthLabel.setText(currentMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy", new Locale("pt", "BR"))));
+        monthLabel.setText(currentMonth.format(
+                DateTimeFormatter.ofPattern("MMMM 'de' yyyy", new Locale("pt", "BR"))));
 
         List<Transaction> transactions = daily.listTransactions(currentMonth);
 
@@ -205,12 +214,13 @@ public final class ReportsPage implements Page {
         long lucro = totalVendas - totalCompras;
         lucroRealizadoLabel.setText((lucro >= 0 ? "+ " : "- ") + daily.brl(Math.abs(lucro)));
 
-        totalComprasLabel.getStyleClass().removeAll("pos", "neg");
-        totalComprasLabel.getStyleClass().add("neg");
-        totalVendasLabel.getStyleClass().removeAll("pos", "neg");
-        totalVendasLabel.getStyleClass().add("pos");
-        lucroRealizadoLabel.getStyleClass().removeAll("pos", "neg");
-        lucroRealizadoLabel.getStyleClass().add(lucro >= 0 ? "pos" : "neg");
+        // Reset then apply state colors
+        totalComprasLabel.getStyleClass().removeAll("pos", "neg", "kpi-value");
+        totalComprasLabel.getStyleClass().addAll("kpi-value", "neg");
+        totalVendasLabel.getStyleClass().removeAll("pos", "neg", "kpi-value");
+        totalVendasLabel.getStyleClass().addAll("kpi-value", "pos");
+        lucroRealizadoLabel.getStyleClass().removeAll("pos", "neg", "kpi-value");
+        lucroRealizadoLabel.getStyleClass().addAll("kpi-value", lucro >= 0 ? "pos" : "neg");
     }
 
     private record ExtractRow(

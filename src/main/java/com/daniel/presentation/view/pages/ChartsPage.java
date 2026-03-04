@@ -2,14 +2,13 @@ package com.daniel.presentation.view.pages;
 
 import com.daniel.core.domain.entity.InvestmentType;
 import com.daniel.core.service.DailyTrackingUseCase;
+import com.daniel.presentation.view.PageHeader;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.chart.*;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
-import javafx.scene.control.Tooltip;
+import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.util.StringConverter;
 
@@ -19,7 +18,8 @@ import java.util.ArrayList;
 public final class ChartsPage implements Page {
 
     private final DailyTrackingUseCase daily;
-    private final VBox root = new VBox(12);
+    private final VBox root = new VBox(16);
+    private final ScrollPane scrollPane = new ScrollPane();
 
     private final ComboBox<InvestmentType> picker = new ComboBox<>();
     private final ComboBox<Integer> range = new ComboBox<>();
@@ -33,13 +33,14 @@ public final class ChartsPage implements Page {
     public ChartsPage(DailyTrackingUseCase dailyTrackingUseCase) {
         this.daily = dailyTrackingUseCase;
 
-        root.setPadding(new Insets(16));
+        root.getStyleClass().add("page-root");
 
-        Label h1 = new Label("Gráficos");
-        h1.getStyleClass().add("h1");
+        PageHeader header = new PageHeader("Gráficos", "Acompanhe a evolução do valor de cada ativo");
 
+        // ── Picker Toolbar ────────────────────────────────────────────────────
         picker.setItems(FXCollections.observableArrayList(daily.listTypes()));
         picker.setPromptText("Selecione um investimento...");
+        picker.setMaxWidth(Double.MAX_VALUE);
 
         picker.setConverter(new StringConverter<>() {
             @Override
@@ -72,15 +73,37 @@ public final class ChartsPage implements Page {
         range.setItems(FXCollections.observableArrayList(30, 60, 90, 180, 365));
         range.setValue(90);
 
-        HBox top = new HBox(10, new Label("Investimento:"), picker, new Label("Janela (dias):"), range);
-        top.getStyleClass().add("card");
+        Label investLabel = new Label("Ativo:");
+        investLabel.getStyleClass().add("form-label");
+        Label windowLabel = new Label("Janela (dias):");
+        windowLabel.getStyleClass().add("form-label");
 
+        HBox pickerToolbar = new HBox(12);
+        pickerToolbar.getStyleClass().add("toolbar");
+        pickerToolbar.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(picker, Priority.ALWAYS);
+
+        pickerToolbar.getChildren().addAll(investLabel, picker, windowLabel, range);
+
+        // ── Chart Card ────────────────────────────────────────────────────────
         chart.setAnimated(true);
         chart.setLegendVisible(false);
         chart.setCreateSymbols(true);
+        chart.setMinHeight(420);
 
+        VBox chartCard = new VBox(8);
+        chartCard.getStyleClass().add("chart-card");
+        Label chartTitle = new Label("EVOLUÇÃO DO VALOR");
+        chartTitle.getStyleClass().add("card-title");
         VBox.setVgrow(chart, Priority.ALWAYS);
-        root.getChildren().addAll(h1, top, chart);
+        chartCard.getChildren().addAll(chartTitle, chart);
+        VBox.setVgrow(chartCard, Priority.ALWAYS);
+
+        root.getChildren().addAll(header, pickerToolbar, chartCard);
+
+        scrollPane.setContent(root);
+        scrollPane.setFitToWidth(true);
+        scrollPane.getStyleClass().add("page-scroll");
 
         picker.valueProperty().addListener((o, a, b) -> reload());
         range.valueProperty().addListener((o, a, b) -> reload());
@@ -88,7 +111,7 @@ public final class ChartsPage implements Page {
 
     @Override
     public Parent view() {
-        return root;
+        return scrollPane;
     }
 
     @Override

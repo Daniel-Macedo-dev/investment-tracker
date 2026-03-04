@@ -5,11 +5,11 @@ import com.daniel.presentation.view.pages.*;
 import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
 import javafx.animation.TranslateTransition;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.Separator;
 import javafx.scene.layout.*;
 import javafx.scene.Scene;
 
@@ -35,6 +35,7 @@ public final class AppShell {
         BorderPane root = new BorderPane();
         root.getStyleClass().add("app-root");
         content.getStyleClass().add("content-host");
+        content.setAlignment(Pos.TOP_LEFT);
         root.setLeft(sidebar());
         root.setCenter(content);
 
@@ -59,36 +60,68 @@ public final class AppShell {
         VBox box = new VBox();
         box.getStyleClass().add("sidebar");
 
+        // ── Brand block ──────────────────────────────
+        VBox brand = new VBox(4);
+        brand.getStyleClass().add("sidebar-brand");
+
         Label title = new Label("Investment Tracker");
         title.getStyleClass().add("sidebar-title");
 
-        Label sub = new Label("Controle inteligente de investimentos");
+        Label sub = new Label("Controle de investimentos");
         sub.getStyleClass().add("sidebar-sub");
 
-        box.getChildren().addAll(title, sub, new Separator());
+        brand.getChildren().addAll(title, sub);
 
-        for (String k : pages.keySet()) {
-            if (k.equals("Configurações")) continue; // handled separately in footer
-            Button b = new Button(k);
+        // ── Nav section ──────────────────────────────
+        VBox navBox = new VBox(2);
+        navBox.getStyleClass().add("sidebar-nav");
+
+        String[] navOrder = {
+            "Dashboard",
+            "Cadastrar Investimento",
+            "Diversificação",
+            "Simulação",
+            "Extrato de Investimentos"
+        };
+
+        String[] navLabels = {
+            "  Dashboard",
+            "  Carteira",
+            "  Diversificação",
+            "  Simulação",
+            "  Extrato"
+        };
+
+        for (int i = 0; i < navOrder.length; i++) {
+            String key = navOrder[i];
+            Button b = new Button(navLabels[i]);
             b.getStyleClass().add("nav-btn");
-            b.setOnAction(e -> go(k));
-
-            nav.put(k, b);
-            box.getChildren().add(b);
+            b.setMaxWidth(Double.MAX_VALUE);
+            b.setOnAction(e -> go(key));
+            nav.put(key, b);
+            navBox.getChildren().add(b);
         }
 
+        // ── Spacer ───────────────────────────────────
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
-        Button configBtn = new Button("⚙ Configurações");
+        // ── Footer ───────────────────────────────────
+        VBox footer = new VBox(4);
+        footer.getStyleClass().add("sidebar-footer");
+
+        Button configBtn = new Button("  Configurações");
         configBtn.getStyleClass().add("nav-btn");
+        configBtn.setMaxWidth(Double.MAX_VALUE);
         configBtn.setOnAction(e -> go("Configurações"));
         nav.put("Configurações", configBtn);
 
-        Label footer = new Label("v0.5.0");
-        footer.getStyleClass().add("sidebar-footer");
+        Label version = new Label("v0.5.0");
+        version.getStyleClass().add("sidebar-footer-version");
 
-        box.getChildren().addAll(spacer, configBtn, footer);
+        footer.getChildren().addAll(configBtn, version);
+
+        box.getChildren().addAll(brand, navBox, spacer, footer);
         return box;
     }
 
@@ -113,7 +146,7 @@ public final class AppShell {
 
         Node old = content.getChildren().get(0);
 
-        FadeTransition fadeOut = new FadeTransition(javafx.util.Duration.millis(120), old);
+        FadeTransition fadeOut = new FadeTransition(javafx.util.Duration.millis(100), old);
         fadeOut.setFromValue(1.0);
         fadeOut.setToValue(0.0);
         fadeOut.setInterpolator(Interpolator.EASE_BOTH);
@@ -122,15 +155,15 @@ public final class AppShell {
             content.getChildren().setAll(newNode);
 
             newNode.setOpacity(0.0);
-            newNode.setTranslateY(10);
+            newNode.setTranslateY(8);
 
-            FadeTransition fadeIn = new FadeTransition(javafx.util.Duration.millis(180), newNode);
+            FadeTransition fadeIn = new FadeTransition(javafx.util.Duration.millis(160), newNode);
             fadeIn.setFromValue(0.0);
             fadeIn.setToValue(1.0);
             fadeIn.setInterpolator(Interpolator.EASE_OUT);
 
-            TranslateTransition slide = new TranslateTransition(javafx.util.Duration.millis(180), newNode);
-            slide.setFromY(10);
+            TranslateTransition slide = new TranslateTransition(javafx.util.Duration.millis(160), newNode);
+            slide.setFromY(8);
             slide.setToY(0);
             slide.setInterpolator(Interpolator.EASE_OUT);
 

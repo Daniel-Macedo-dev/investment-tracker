@@ -4,6 +4,7 @@ import com.daniel.core.domain.entity.InvestmentType;
 import com.daniel.core.domain.entity.Enums.CategoryEnum;
 import com.daniel.core.domain.entity.Enums.LiquidityEnum;
 import com.daniel.core.service.DailyTrackingUseCase;
+import com.daniel.presentation.view.PageHeader;
 import com.daniel.presentation.view.components.InvestmentTypeDialog;
 import com.daniel.presentation.view.components.InvestmentTypeDialog.InvestmentTypeData;
 import com.daniel.presentation.view.util.Dialogs;
@@ -25,7 +26,8 @@ import java.util.Optional;
 public final class InvestmentTypesPage implements Page {
 
     private final DailyTrackingUseCase daily;
-    private final VBox root = new VBox(12);
+    private final VBox root = new VBox(20);
+    private final ScrollPane scrollPane = new ScrollPane();
     private final TableView<InvestmentType> table = new TableView<>();
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -33,23 +35,22 @@ public final class InvestmentTypesPage implements Page {
     public InvestmentTypesPage(DailyTrackingUseCase dailyTrackingUseCase) {
         this.daily = dailyTrackingUseCase;
 
-        root.setPadding(new Insets(16));
+        root.getStyleClass().add("page-root");
 
-        Label h1 = new Label("Cadastrar Novo Investimento");
-        h1.getStyleClass().add("h1");
+        PageHeader header = new PageHeader("Meus Investimentos",
+                "Gerencie e acompanhe todos os seus ativos");
 
-        buildTable();
+        // ── Toolbar ─────────────────────────────────────────────────────────
+        Button add = new Button("+ Novo Investimento");
+        add.getStyleClass().add("button");
 
-        Button add = new Button("+ Criar Investimento");
-        add.getStyleClass().add("primary-btn");
-
-        Button edit = new Button("✏️ Editar Investimento");
+        Button edit = new Button("Editar");
         edit.getStyleClass().add("ghost-btn");
 
-        Button sell = new Button("💰 Vender");
+        Button sell = new Button("Registrar Venda");
         sell.getStyleClass().add("sell-btn");
 
-        Button delete = new Button("🗑️ Excluir Investimento");
+        Button delete = new Button("Excluir");
         delete.getStyleClass().add("danger-btn");
 
         add.setOnAction(e -> onCreate());
@@ -57,21 +58,32 @@ public final class InvestmentTypesPage implements Page {
         sell.setOnAction(e -> onSell());
         delete.setOnAction(e -> onDelete());
 
-        HBox actions = new HBox(8, add, edit, sell, delete);
-        actions.getStyleClass().add("actions-bar");
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Label hint = new Label("💡 Crie investimentos com todos os detalhes para acompanhar rentabilidade!");
-        hint.getStyleClass().add("text-helper");
+        HBox toolbar = new HBox(8, add, spacer, edit, sell, delete);
+        toolbar.getStyleClass().add("toolbar");
 
+        // ── Table ────────────────────────────────────────────────────────────
+        buildTable();
         VBox.setVgrow(table, Priority.ALWAYS);
-        root.getChildren().addAll(h1, hint, actions, table);
+
+        VBox tableCard = new VBox(12, toolbar, table);
+        tableCard.getStyleClass().add("card");
+        tableCard.setPadding(new Insets(16));
+
+        root.getChildren().addAll(header, tableCard);
+
+        scrollPane.setContent(root);
+        scrollPane.setFitToWidth(true);
+        scrollPane.getStyleClass().add("page-scroll");
 
         refresh();
     }
 
     @Override
     public Parent view() {
-        return root;
+        return scrollPane;
     }
 
     @Override
@@ -144,17 +156,17 @@ public final class InvestmentTypesPage implements Page {
                 }
             }
         });
-        liqCol.setPrefWidth(180);
+        liqCol.setPrefWidth(160);
 
         // Data
-        TableColumn<InvestmentType, String> dateCol = new TableColumn<>("Data Investimento");
+        TableColumn<InvestmentType, String> dateCol = new TableColumn<>("Data");
         dateCol.setCellValueFactory(c -> {
             LocalDate date = c.getValue().investmentDate();
             return new javafx.beans.property.SimpleStringProperty(
                     date == null ? "—" : DATE_FMT.format(date)
             );
         });
-        dateCol.setPrefWidth(130);
+        dateCol.setPrefWidth(110);
 
         // Rentabilidade
         TableColumn<InvestmentType, String> profCol = new TableColumn<>("Rentab. Anual");
@@ -178,9 +190,18 @@ public final class InvestmentTypesPage implements Page {
         });
         valueCol.setPrefWidth(140);
 
-        Label emptyPh = new Label("Nenhum investimento cadastrado ainda");
-        emptyPh.getStyleClass().add("text-helper");
-        table.setPlaceholder(emptyPh);
+        VBox emptyState = new VBox(8);
+        emptyState.getStyleClass().add("empty-state");
+        emptyState.setAlignment(Pos.CENTER);
+        Label emptyIcon = new Label("📂");
+        emptyIcon.getStyleClass().add("empty-icon");
+        Label emptyTitle = new Label("Nenhum investimento cadastrado");
+        emptyTitle.getStyleClass().add("empty-title");
+        Label emptyHint = new Label("Clique em \"+ Novo Investimento\" para começar");
+        emptyHint.getStyleClass().add("empty-hint");
+        emptyState.getChildren().addAll(emptyIcon, emptyTitle, emptyHint);
+        table.setPlaceholder(emptyState);
+
         table.getColumns().setAll(nameCol, catCol, liqCol, dateCol, profCol, valueCol);
     }
 
@@ -377,7 +398,7 @@ public final class InvestmentTypesPage implements Page {
         boolean ok = Dialogs.confirm(
                 "Excluir",
                 "Excluir \"" + sel.name() + "\"?",
-                "⚠️ Isso apagará TODOS os dados relacionados.\n\nNão pode ser desfeito."
+                "Isso apagará TODOS os dados relacionados.\n\nEsta ação não pode ser desfeita."
         );
 
         if (!ok) return;

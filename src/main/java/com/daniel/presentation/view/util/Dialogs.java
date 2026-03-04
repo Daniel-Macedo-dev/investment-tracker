@@ -9,11 +9,26 @@ import java.util.Optional;
 public final class Dialogs {
     private Dialogs() {}
 
+    private static void applyTheme(Alert a) {
+        try {
+            a.getDialogPane().getStylesheets().add(
+                    Dialogs.class.getResource("/styles/app.css").toExternalForm());
+        } catch (Exception ignored) {}
+    }
+
+    private static void applyTheme(TextInputDialog d) {
+        try {
+            d.getDialogPane().getStylesheets().add(
+                    Dialogs.class.getResource("/styles/app.css").toExternalForm());
+        } catch (Exception ignored) {}
+    }
+
     public static void info(String title, String message) {
         Alert a = new Alert(Alert.AlertType.INFORMATION);
         a.setTitle(title == null ? "Info" : title);
         a.setHeaderText(null);
         a.setContentText(message == null ? "" : message);
+        applyTheme(a);
         a.showAndWait();
     }
 
@@ -26,6 +41,7 @@ public final class Dialogs {
         a.setTitle("Erro");
         a.setHeaderText(null);
         a.setContentText(message == null ? "Ocorreu um erro." : message);
+        applyTheme(a);
         a.showAndWait();
     }
 
@@ -34,6 +50,7 @@ public final class Dialogs {
         a.setTitle(title == null ? "Confirmar" : title);
         a.setHeaderText(header);
         a.setContentText(message == null ? "" : message);
+        applyTheme(a);
         Optional<ButtonType> r = a.showAndWait();
         return r.isPresent() && r.get() == ButtonType.OK;
     }
@@ -47,6 +64,7 @@ public final class Dialogs {
         d.setTitle(title);
         d.setHeaderText(header);
         d.setContentText("Valor (ex: 1234,56):");
+        applyTheme(d);
 
         return d.showAndWait()
                 .map(String::trim)
@@ -60,6 +78,7 @@ public final class Dialogs {
         d.setTitle(title);
         d.setHeaderText(null);
         d.setContentText(label);
+        applyTheme(d);
         return d.showAndWait().map(String::trim).orElse(null);
     }
 
