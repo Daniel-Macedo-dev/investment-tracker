@@ -95,16 +95,14 @@ public final class DiversificationPage implements Page {
         rebalanceByContributionRadio.setSelected(true);
 
         Label contributionHint = new Label("💰 Recomenda apenas APORTES nas categorias abaixo do ideal (sem vender)");
-        contributionHint.getStyleClass().add("muted");
-        contributionHint.setStyle("-fx-font-size: 11px;");
+        contributionHint.getStyleClass().addAll("muted", "text-xs");
 
         Label targetHint = new Label("🎯 Calcula quanto aportar em cada categoria para atingir um patrimônio alvo");
-        targetHint.getStyleClass().add("muted");
-        targetHint.setStyle("-fx-font-size: 11px;");
+        targetHint.getStyleClass().addAll("muted", "text-xs");
 
         // Campo de patrimônio alvo (visível apenas no modo alvo)
         Label targetLabel = new Label("Patrimônio Alvo:");
-        targetLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+        targetLabel.getStyleClass().addAll("text-bold", "text-sm");
         targetPatrimonyField.setPromptText("R$ 100.000,00");
         targetPatrimonyField.setTextFormatter(Money.currencyFormatterEditable());
         Money.applyFormatOnBlur(targetPatrimonyField);
@@ -146,8 +144,7 @@ public final class DiversificationPage implements Page {
         arcaRadio.setSelected(true);
 
         Label arcaHint = new Label("📊 Renda Fixa 40% • Ações 30% • Outros 25% • Cripto 5%");
-        arcaHint.getStyleClass().add("muted");
-        arcaHint.setStyle("-fx-font-size: 11px;");
+        arcaHint.getStyleClass().addAll("muted", "text-xs");
 
         buildCustomInputs();
         customInputsBox.setVisible(false);
@@ -166,11 +163,10 @@ public final class DiversificationPage implements Page {
 
     private void buildCustomInputs() {
         Label customTitle = new Label("Configure as porcentagens desejadas:");
-        customTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+        customTitle.getStyleClass().addAll("text-bold", "text-sm");
 
         GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(8);
+        grid.getStyleClass().add("rate-grid");
 
         int row = 0;
         for (CategoryEnum cat : CategoryEnum.values()) {
@@ -196,8 +192,7 @@ public final class DiversificationPage implements Page {
         }
 
         Label hint = new Label("💡 As porcentagens devem somar 100%");
-        hint.getStyleClass().add("muted");
-        hint.setStyle("-fx-font-size: 11px;");
+        hint.getStyleClass().addAll("muted", "text-xs");
 
         customInputsBox.getChildren().addAll(customTitle, grid, hint);
     }
@@ -209,8 +204,7 @@ public final class DiversificationPage implements Page {
         Label title = new Label("Patrimônio Atual");
         title.getStyleClass().add("card-title");
 
-        totalPatrimonyLabel.getStyleClass().add("big-value");
-        totalPatrimonyLabel.setStyle("-fx-font-size: 24px;");
+        totalPatrimonyLabel.getStyleClass().addAll("big-value", "text-xl");
 
         box.getChildren().addAll(title, totalPatrimonyLabel);
         return box;
@@ -223,7 +217,7 @@ public final class DiversificationPage implements Page {
         Label title = new Label("Distribuição Atual");
         title.getStyleClass().add("card-title");
 
-        currentTable.getStyleClass().add("table");
+        currentTable.getStyleClass().add("table-analytic");
         currentTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
 
         TableColumn<AllocationRow, String> catCol = new TableColumn<>("Categoria");
@@ -269,7 +263,7 @@ public final class DiversificationPage implements Page {
         Label title = new Label("Distribuição Ideal");
         title.getStyleClass().add("card-title");
 
-        idealTable.getStyleClass().add("table");
+        idealTable.getStyleClass().add("table-analytic");
         idealTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
 
         TableColumn<AllocationRow, String> catCol = new TableColumn<>("Categoria");
@@ -315,7 +309,7 @@ public final class DiversificationPage implements Page {
         Label title = new Label("Sugestões de Aporte");
         title.getStyleClass().add("card-title");
 
-        suggestionsTable.getStyleClass().add("table");
+        suggestionsTable.getStyleClass().add("table-analytic");
         suggestionsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
 
         TableColumn<SuggestionRow, String> catCol = new TableColumn<>("Categoria");
@@ -348,13 +342,14 @@ public final class DiversificationPage implements Page {
                 super.updateItem(item, empty);
                 if (empty || item == null) {
                     setText(null);
-                    setStyle("");
+                    getStyleClass().removeAll("suggestion-invest", "suggestion-balanced");
                 } else {
                     setText(item);
+                    getStyleClass().removeAll("suggestion-invest", "suggestion-balanced");
                     if (item.contains("Investir") || item.contains("Aportar")) {
-                        setStyle("-fx-text-fill: #22c55e; -fx-font-weight: bold;");
+                        getStyleClass().add("suggestion-invest");
                     } else if (item.contains("balanceado")) {
-                        setStyle("-fx-text-fill: #6b7280; -fx-font-style: italic;");
+                        getStyleClass().add("suggestion-balanced");
                     }
                 }
             }

@@ -102,7 +102,7 @@ public final class SimulationPage implements Page {
 
     private void fetchRealRates() {
         ratesStatusLabel.setText("Buscando taxas...");
-        ratesStatusLabel.setStyle("-fx-font-size: 11px; -fx-opacity: 0.7;");
+        applyRatesStatusStyle("text-helper");
 
         CompletableFuture.supplyAsync(() -> {
             var cdi = BcbClient.fetchCdi();
@@ -120,13 +120,13 @@ public final class SimulationPage implements Page {
 
             if (anyFailed) {
                 ratesStatusLabel.setText("Algumas taxas usando valor estimado");
-                ratesStatusLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #f59e0b;");
+                applyRatesStatusStyle("text-xs", "state-warning");
             } else {
                 String time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
                 ratesStatusLabel.setText(String.format(
                         "Taxas atualizadas em %s — CDI: %.2f%% | SELIC: %.2f%% | IPCA: %.2f%%",
                         time, rateCdi * 100, rateSelic * 100, rateIpca * 100));
-                ratesStatusLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #22c55e;");
+                applyRatesStatusStyle("text-xs", "state-positive");
             }
         }));
     }
@@ -136,7 +136,7 @@ public final class SimulationPage implements Page {
         box.getStyleClass().add("card");
 
         Label label = new Label("Tipo de Investimento:");
-        label.setStyle("-fx-font-weight: bold;");
+        label.getStyleClass().add("form-label");
 
         ToggleGroup group = new ToggleGroup();
 
@@ -170,18 +170,18 @@ public final class SimulationPage implements Page {
         box.getStyleClass().add("card");
 
         Label initialLabel = new Label("Valor Inicial:");
-        initialLabel.setStyle("-fx-font-weight: bold;");
+        initialLabel.getStyleClass().add("form-label");
         initialValueField.setPromptText("R$ 10.000,00");
         initialValueField.setTextFormatter(Money.currencyFormatterEditable());
         Money.applyFormatOnBlur(initialValueField);
 
         Label monthsLabel = new Label("Período (meses):");
-        monthsLabel.setStyle("-fx-font-weight: bold;");
+        monthsLabel.getStyleClass().add("form-label");
         monthsCombo.getItems().addAll(1, 3, 6, 12, 24, 36, 48, 60, 120);
         monthsCombo.setValue(12);
 
         Label modeLabel = new Label("Modalidade de Rentabilidade:");
-        modeLabel.setStyle("-fx-font-weight: bold;");
+        modeLabel.getStyleClass().add("form-label");
         rentabilityModeCombo.getItems().addAll(RentabilityMode.values());
         rentabilityModeCombo.setValue(RentabilityMode.FIXED_RATE);
         rentabilityModeCombo.setCellFactory(lv -> new ListCell<>() {
@@ -205,28 +205,28 @@ public final class SimulationPage implements Page {
         });
 
         Label fixedLabel = new Label("Taxa Anual (%):");
-        fixedLabel.setStyle("-fx-font-weight: bold;");
+        fixedLabel.getStyleClass().add("form-label");
         fixedRateField.setPromptText("12.50");
 
         Label benchmarkLabel = new Label("Benchmark:");
-        benchmarkLabel.setStyle("-fx-font-weight: bold;");
+        benchmarkLabel.getStyleClass().add("form-label");
         benchmarkCombo.getItems().addAll("CDI", "SELIC", "IPCA");
         benchmarkCombo.setValue("CDI");
 
         Label benchmarkPercentLabel = new Label("Percentual do Benchmark:");
-        benchmarkPercentLabel.setStyle("-fx-font-weight: bold;");
+        benchmarkPercentLabel.getStyleClass().add("form-label");
         benchmarkPercentField.setPromptText("110 (= 110% do CDI)");
 
         Label hybridLabel = new Label("Taxa Fixa (Híbrido):");
-        hybridLabel.setStyle("-fx-font-weight: bold;");
+        hybridLabel.getStyleClass().add("form-label");
         hybridFixedField.setPromptText("5.0");
 
         Label indexLabel = new Label("Taxa do Índice (% a.a.):");
-        indexLabel.setStyle("-fx-font-weight: bold;");
+        indexLabel.getStyleClass().add("form-label");
         indexRateField.setPromptText("4.5 (IPCA estimado)");
 
         Label tickerLabel = new Label("Ticker:");
-        tickerLabel.setStyle("-fx-font-weight: bold;");
+        tickerLabel.getStyleClass().add("form-label");
         tickerField.setPromptText("PETR4, VALE3, HGLG11...");
 
         tickerField.textProperty().addListener((obs, old, newVal) -> {
@@ -236,28 +236,28 @@ public final class SimulationPage implements Page {
         });
 
         Label purchasePriceLabel = new Label("Preço de Compra:");
-        purchasePriceLabel.setStyle("-fx-font-weight: bold;");
+        purchasePriceLabel.getStyleClass().add("form-label");
         purchasePriceField.setPromptText("R$ 35,50");
         purchasePriceField.setTextFormatter(Money.currencyFormatterEditable());
 
         Label quantityLabel = new Label("Quantidade:");
-        quantityLabel.setStyle("-fx-font-weight: bold;");
+        quantityLabel.getStyleClass().add("form-label");
         quantityField.setPromptText("100");
 
         Label currentPriceLabel = new Label("Preço Atual (automático):");
-        currentPriceLabel.setStyle("-fx-font-weight: bold;");
+        currentPriceLabel.getStyleClass().add("form-label");
         currentPriceField.setPromptText("Será preenchido automaticamente");
         currentPriceField.setTextFormatter(Money.currencyFormatterEditable());
         currentPriceField.setDisable(true);
 
         Label dividendsLabel = new Label("Dividendos Estimados (automático):");
-        dividendsLabel.setStyle("-fx-font-weight: bold;");
+        dividendsLabel.getStyleClass().add("form-label");
         dividendsField.setPromptText("Será calculado automaticamente");
         dividendsField.setTextFormatter(Money.currencyFormatterEditable());
         dividendsField.setDisable(true);
 
         Label variationLabel = new Label("Variação de Preço (%):");
-        variationLabel.setStyle("-fx-font-weight: bold;");
+        variationLabel.getStyleClass().add("form-label");
         priceVariationSlider.setShowTickLabels(true);
         priceVariationSlider.setShowTickMarks(true);
         priceVariationSlider.setMajorTickUnit(10);
@@ -304,7 +304,7 @@ public final class SimulationPage implements Page {
         Label title = new Label("Resultado da Simulação");
         title.getStyleClass().add("card-title");
 
-        resultLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+        resultLabel.getStyleClass().add("simulation-result");
 
         box.getChildren().addAll(title, resultLabel);
         return box;
@@ -418,7 +418,7 @@ public final class SimulationPage implements Page {
             }
         } catch (Exception e) {
             resultLabel.setText("Erro: " + e.getMessage());
-            resultLabel.setStyle("-fx-text-fill: #ef4444;");
+            applyResultStyle(false);
         }
     }
 
@@ -442,13 +442,13 @@ public final class SimulationPage implements Page {
                     "Montante: R$ %.2f | Lucro: R$ %.2f (%.1f%%)",
                     result, profit, (profit / capital) * 100
             ));
-            resultLabel.setStyle("-fx-text-fill: #22c55e; -fx-font-size: 20px; -fx-font-weight: bold;");
+            applyResultStyle(true);
 
             updateChartMonths(capital, monthlyRate, months, "Renda Fixa");
 
         } catch (Exception e) {
             resultLabel.setText("Erro: Verifique os campos");
-            resultLabel.setStyle("-fx-text-fill: #ef4444;");
+            applyResultStyle(false);
         }
     }
 
@@ -487,7 +487,7 @@ public final class SimulationPage implements Page {
 
             if (qtyText == null || qtyText.isBlank()) {
                 resultLabel.setText("Preencha a quantidade");
-                resultLabel.setStyle("-fx-text-fill: #ef4444;");
+                applyResultStyle(false);
                 return;
             }
 
@@ -497,7 +497,7 @@ public final class SimulationPage implements Page {
 
             if (purchasePrice == 0 || quantity == 0) {
                 resultLabel.setText("Preencha preço de compra e quantidade");
-                resultLabel.setStyle("-fx-text-fill: #ef4444;");
+                applyResultStyle(false);
                 return;
             }
 
@@ -519,9 +519,7 @@ public final class SimulationPage implements Page {
                     valorInvestido, valorAtual, lucroTotal, rentabilidade
             ));
 
-            resultLabel.setStyle((lucroTotal >= 0 ?
-                    "-fx-text-fill: #22c55e;" :
-                    "-fx-text-fill: #ef4444;") + " -fx-font-size: 18px; -fx-font-weight: bold;");
+            applyResultStyle(lucroTotal >= 0);
 
             projectionChart.getData().clear();
             XYChart.Series<Number, Number> series = new XYChart.Series<>();
@@ -532,10 +530,10 @@ public final class SimulationPage implements Page {
 
         } catch (NumberFormatException e) {
             resultLabel.setText("Erro: Quantidade deve ser um número");
-            resultLabel.setStyle("-fx-text-fill: #ef4444;");
+            applyResultStyle(false);
         } catch (Exception e) {
             resultLabel.setText("Erro: Preencha todos os campos corretamente");
-            resultLabel.setStyle("-fx-text-fill: #ef4444;");
+            applyResultStyle(false);
         }
     }
 
@@ -551,5 +549,15 @@ public final class SimulationPage implements Page {
         }
 
         projectionChart.getData().add(series);
+    }
+
+    private void applyResultStyle(boolean positive) {
+        resultLabel.getStyleClass().removeAll("pos", "neg");
+        resultLabel.getStyleClass().add(positive ? "pos" : "neg");
+    }
+
+    private void applyRatesStatusStyle(String... classes) {
+        ratesStatusLabel.getStyleClass().removeAll("text-helper", "text-xs", "state-warning", "state-positive");
+        ratesStatusLabel.getStyleClass().addAll(java.util.List.of(classes));
     }
 }

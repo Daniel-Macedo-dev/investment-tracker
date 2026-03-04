@@ -5,7 +5,6 @@ import com.daniel.presentation.view.pages.*;
 import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
 import javafx.animation.TranslateTransition;
-import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
@@ -33,6 +32,8 @@ public final class AppShell {
 
     public Parent build() {
         BorderPane root = new BorderPane();
+        root.getStyleClass().add("app-root");
+        content.getStyleClass().add("content-host");
         root.setLeft(sidebar());
         root.setCenter(content);
         go("Dashboard");
@@ -40,10 +41,8 @@ public final class AppShell {
     }
 
     private Parent sidebar() {
-        VBox box = new VBox(10);
+        VBox box = new VBox();
         box.getStyleClass().add("sidebar");
-        box.setPadding(new Insets(14));
-        box.setPrefWidth(280);
 
         Label title = new Label("Investment Tracker");
         title.getStyleClass().add("sidebar-title");
@@ -56,7 +55,6 @@ public final class AppShell {
         for (String k : pages.keySet()) {
             if (k.equals("Configurações")) continue; // handled separately in footer
             Button b = new Button(k);
-            b.setMaxWidth(Double.MAX_VALUE);
             b.getStyleClass().add("nav-btn");
             b.setOnAction(e -> go(k));
 
@@ -68,7 +66,6 @@ public final class AppShell {
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
         Button configBtn = new Button("⚙ Configurações");
-        configBtn.setMaxWidth(Double.MAX_VALUE);
         configBtn.getStyleClass().add("nav-btn");
         configBtn.setOnAction(e -> go("Configurações"));
         nav.put("Configurações", configBtn);

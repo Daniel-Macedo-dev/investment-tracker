@@ -62,7 +62,7 @@ public final class TickerAutocompleteField extends TextField {
 
         for (BrapiClient.TickerSuggestion suggestion : suggestions) {
             Label label = new Label(suggestion.ticker() + " - " + suggestion.name());
-            label.setStyle("-fx-padding: 5 10; -fx-cursor: hand;");
+            label.getStyleClass().add("autocomplete-item");
 
             CustomMenuItem item = new CustomMenuItem(label);
             item.setHideOnClick(true);

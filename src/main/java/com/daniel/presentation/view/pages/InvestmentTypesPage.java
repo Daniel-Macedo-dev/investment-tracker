@@ -44,8 +44,10 @@ public final class InvestmentTypesPage implements Page {
         add.getStyleClass().add("primary-btn");
 
         Button edit = new Button("✏️ Editar Investimento");
+        edit.getStyleClass().add("ghost-btn");
 
         Button sell = new Button("💰 Vender");
+        sell.getStyleClass().add("sell-btn");
 
         Button delete = new Button("🗑️ Excluir Investimento");
         delete.getStyleClass().add("danger-btn");
@@ -56,6 +58,7 @@ public final class InvestmentTypesPage implements Page {
         delete.setOnAction(e -> onDelete());
 
         HBox actions = new HBox(8, add, edit, sell, delete);
+        actions.getStyleClass().add("actions-bar");
 
         Label hint = new Label("💡 Crie investimentos com todos os detalhes para acompanhar rentabilidade!");
         hint.getStyleClass().add("muted");
@@ -76,7 +79,7 @@ public final class InvestmentTypesPage implements Page {
     }
 
     private void buildTable() {
-        table.getStyleClass().add("table");
+        table.getStyleClass().add("table-analytic");
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
 
         // Nome
@@ -180,21 +183,14 @@ public final class InvestmentTypesPage implements Page {
     private HBox createBadge(String text, String hexColor) {
         HBox badge = new HBox(6);
         badge.setAlignment(Pos.CENTER_LEFT);
-        badge.setStyle(
-                "-fx-background-color: " + hexColor + "20; " +
-                        "-fx-background-radius: 6; " +
-                        "-fx-padding: 4 8;"
-        );
+        badge.getStyleClass().add("badge");
+        badge.setStyle("-fx-background-color: " + hexColor + "20;");
 
         Circle circle = new Circle(4);
         circle.setFill(Color.web(hexColor));
 
         Label label = new Label(text);
-        label.setStyle(
-                "-fx-text-fill: " + hexColor + "; " +
-                        "-fx-font-size: 11px; " +
-                        "-fx-font-weight: bold;"
-        );
+        label.setStyle("-fx-text-fill: " + hexColor + ";");
 
         badge.getChildren().addAll(circle, label);
         return badge;
@@ -306,6 +302,9 @@ public final class InvestmentTypesPage implements Page {
         Dialog<ButtonType> dialog = new Dialog<>();
         dialog.setTitle("Registrar Venda");
         dialog.setHeaderText("Venda de: " + sel.name());
+        dialog.getDialogPane().getStylesheets().add(
+                getClass().getResource("/styles/app.css").toExternalForm());
+        dialog.getDialogPane().getStyleClass().add("dark-dialog");
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
 
         TextField qtyField = new TextField();
@@ -327,11 +326,20 @@ public final class InvestmentTypesPage implements Page {
         TextField noteField = new TextField();
         noteField.setPromptText("Observação (opcional)");
 
+        Label qtyLabel = new Label("Quantidade:");
+        qtyLabel.getStyleClass().add("form-label");
+        Label priceLabel = new Label("Preço Unitário:");
+        priceLabel.getStyleClass().add("form-label");
+        Label dateLabel = new Label("Data da Venda:");
+        dateLabel.getStyleClass().add("form-label");
+        Label noteLabel = new Label("Observação:");
+        noteLabel.getStyleClass().add("form-label");
+
         VBox content = new VBox(8,
-                new Label("Quantidade:"), qtyField,
-                new Label("Preço Unitário:"), priceField,
-                new Label("Data da Venda:"), datePicker,
-                new Label("Observação:"), noteField
+                qtyLabel, qtyField,
+                priceLabel, priceField,
+                dateLabel, datePicker,
+                noteLabel, noteField
         );
         content.setPadding(new Insets(16));
         dialog.getDialogPane().setContent(content);

@@ -73,12 +73,13 @@ public final class ConfiguracoesPage implements Page {
     }
 
     private void updateTokenStatus(String token) {
+        tokenStatusLabel.getStyleClass().removeAll("status-success", "status-warning", "status-danger", "status-neutral");
         if (token == null || token.isBlank()) {
             tokenStatusLabel.setText("⚠️ Token não configurado. Cotações usarão preço de compra como fallback.");
-            tokenStatusLabel.setStyle("-fx-text-fill: #f59e0b; -fx-font-size: 12px;");
+            tokenStatusLabel.getStyleClass().add("status-warning");
         } else {
             tokenStatusLabel.setText("✅ Token configurado.");
-            tokenStatusLabel.setStyle("-fx-text-fill: #22c55e; -fx-font-size: 12px;");
+            tokenStatusLabel.getStyleClass().add("status-success");
         }
     }
 
@@ -102,14 +103,13 @@ public final class ConfiguracoesPage implements Page {
         title.getStyleClass().add("card-title");
 
         Label tokenLabel = new Label("Token Brapi *");
-        tokenLabel.setStyle("-fx-font-weight: bold;");
+        tokenLabel.getStyleClass().add("text-bold");
 
         tokenField.setPromptText("Cole seu token aqui...");
-        tokenField.setStyle("-fx-font-family: 'Courier New';");
+        tokenField.getStyleClass().add("code-field");
 
         Label tokenHint = new Label("Obtenha seu token gratuito em brapi.dev");
-        tokenHint.getStyleClass().add("muted");
-        tokenHint.setStyle("-fx-font-size: 11px;");
+        tokenHint.getStyleClass().addAll("muted", "text-xs");
 
         tokenStatusLabel.setWrapText(true);
         updateTokenStatus(tokenField.getText());
@@ -145,27 +145,24 @@ public final class ConfiguracoesPage implements Page {
         title.getStyleClass().add("card-title");
 
         Label hint = new Label("Busca as taxas oficiais CDI, SELIC e IPCA direto da API do BCB.");
-        hint.getStyleClass().add("muted");
-        hint.setStyle("-fx-font-size: 12px;");
+        hint.getStyleClass().addAll("muted", "text-sm");
 
         GridPane grid = new GridPane();
-        grid.setHgap(24);
-        grid.setVgap(8);
+        grid.getStyleClass().add("rate-grid");
 
         grid.add(new Label("CDI:"), 0, 0);
-        cdiValueLabel.setStyle("-fx-font-weight: bold;");
+        cdiValueLabel.getStyleClass().addAll("text-bold", "state-positive");
         grid.add(cdiValueLabel, 1, 0);
 
         grid.add(new Label("SELIC:"), 0, 1);
-        selicValueLabel.setStyle("-fx-font-weight: bold;");
+        selicValueLabel.getStyleClass().addAll("text-bold", "state-positive");
         grid.add(selicValueLabel, 1, 1);
 
         grid.add(new Label("IPCA:"), 0, 2);
-        ipcaValueLabel.setStyle("-fx-font-weight: bold;");
+        ipcaValueLabel.getStyleClass().addAll("text-bold", "state-positive");
         grid.add(ipcaValueLabel, 1, 2);
 
-        bcbLastUpdateLabel.getStyleClass().add("muted");
-        bcbLastUpdateLabel.setStyle("-fx-font-size: 11px;");
+        bcbLastUpdateLabel.getStyleClass().addAll("muted", "text-xs");
 
         Button updateBtn = new Button("Atualizar CDI / SELIC / IPCA");
         updateBtn.getStyleClass().add("primary-btn");
@@ -183,15 +180,13 @@ public final class ConfiguracoesPage implements Page {
         title.getStyleClass().add("card-title");
 
         Label version = new Label("Investment Tracker v0.5.0");
-        version.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+        version.getStyleClass().addAll("text-bold", "text-lg");
 
         Label apis = new Label("APIs utilizadas:\n• Brapi (brapi.dev) — Cotações da B3\n• BCB (api.bcb.gov.br) — Taxas oficiais");
-        apis.getStyleClass().add("muted");
-        apis.setStyle("-fx-font-size: 12px;");
+        apis.getStyleClass().addAll("muted", "text-sm");
 
         Label privacy = new Label("Privacidade: todos os dados são armazenados localmente. Nenhum dado é enviado a servidores externos além das chamadas às APIs acima.");
-        privacy.getStyleClass().add("muted");
-        privacy.setStyle("-fx-font-size: 11px;");
+        privacy.getStyleClass().addAll("muted", "text-xs");
         privacy.setWrapText(true);
 
         card.getChildren().addAll(title, version, apis, privacy);
@@ -202,23 +197,28 @@ public final class ConfiguracoesPage implements Page {
         String token = tokenField.getText().trim();
         if (token.isBlank()) {
             tokenStatusLabel.setText("⚠️ Digite um token antes de testar.");
-            tokenStatusLabel.setStyle("-fx-text-fill: #f59e0b; -fx-font-size: 12px;");
+            setTokenStatusClass("status-warning");
             return;
         }
 
         tokenStatusLabel.setText("🔄 Testando conexão...");
-        tokenStatusLabel.setStyle("-fx-text-fill: #6b7280; -fx-font-size: 12px;");
+        setTokenStatusClass("status-neutral");
 
         CompletableFuture.supplyAsync(() -> BrapiClient.testConnectionWithToken(token))
                 .thenAcceptAsync(ok -> Platform.runLater(() -> {
                     if (ok) {
                         tokenStatusLabel.setText("✅ Token válido! Conexão estabelecida com sucesso.");
-                        tokenStatusLabel.setStyle("-fx-text-fill: #22c55e; -fx-font-size: 12px;");
+                        setTokenStatusClass("status-success");
                     } else {
                         tokenStatusLabel.setText("❌ Token inválido ou sem conexão com a Brapi.");
-                        tokenStatusLabel.setStyle("-fx-text-fill: #ef4444; -fx-font-size: 12px;");
+                        setTokenStatusClass("status-danger");
                     }
                 }));
+    }
+
+    private void setTokenStatusClass(String cls) {
+        tokenStatusLabel.getStyleClass().removeAll("status-success", "status-warning", "status-danger", "status-neutral");
+        tokenStatusLabel.getStyleClass().add(cls);
     }
 
     private void saveSettings() {

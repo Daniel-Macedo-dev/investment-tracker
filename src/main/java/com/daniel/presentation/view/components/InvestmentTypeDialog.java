@@ -185,7 +185,7 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
     private ScrollPane buildBasicTab() {
         // Card 1: Identificação
         Label nameLabel = new Label("Nome do Investimento *");
-        nameLabel.setStyle("-fx-font-weight: bold;");
+        nameLabel.getStyleClass().add("form-label");
         nameField.setPromptText("Ex: Tesouro Selic 2027, Ações PETR4...");
         VBox identCard = buildCard("Identificação", nameLabel, nameField);
 
@@ -212,7 +212,7 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
 
         // Card 3: Data
         Label dateLabel = new Label("Data do Investimento *");
-        dateLabel.setStyle("-fx-font-weight: bold;");
+        dateLabel.getStyleClass().add("form-label");
         datePicker.setPromptText("Selecione a data");
         datePicker.setMaxWidth(Double.MAX_VALUE);
         VBox dateCard = buildCard("Data", dateLabel, datePicker);
@@ -295,7 +295,7 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
                 new Label("Taxa do Índice (% a.a.)"), hybridIndexField);
 
         Label profitHint = new Label("💡 Não aplicável para Ações, FIIs e Criptomoedas.");
-        profitHint.setStyle("-fx-font-size: 11px; -fx-opacity: 0.7;");
+        profitHint.getStyleClass().add("text-helper");
         profitHint.setWrapText(true);
 
         rentabilitySection = new VBox(10,
@@ -322,12 +322,12 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         investedValueField.setTextFormatter(Money.currencyFormatterEditable());
         Money.applyFormatOnBlur(investedValueField);
 
-        autoFillLabel.setStyle("-fx-text-fill: #22c55e; -fx-font-size: 11px;");
+        autoFillLabel.getStyleClass().addAll("text-xs", "state-positive");
         autoFillLabel.setVisible(false);
         autoFillLabel.setManaged(false);
 
         Label valueHint = new Label("💡 Para ações/FIIs, preenchido automaticamente (Preço × Quantidade)");
-        valueHint.setStyle("-fx-font-size: 11px; -fx-opacity: 0.7;");
+        valueHint.getStyleClass().add("text-helper");
         valueHint.setWrapText(true);
 
         VBox valueCard = buildCard("Valor Investido",
@@ -615,7 +615,7 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
                 Circle circle = new Circle(5);
                 circle.setFill(Color.web(item.getColor()));
                 HBox box = new HBox(8, circle, new Label(item.getDisplayName()));
-                box.setStyle("-fx-alignment: center-left;");
+                box.getStyleClass().add("cell-left");
                 setGraphic(box); setText(null);
             }
         }
@@ -631,7 +631,7 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
                 Circle circle = new Circle(5);
                 circle.setFill(Color.web(item.getColor()));
                 HBox box = new HBox(8, circle, new Label(item.getDisplayName()));
-                box.setStyle("-fx-alignment: center-left;");
+                box.getStyleClass().add("cell-left");
                 setGraphic(box); setText(null);
             }
         }

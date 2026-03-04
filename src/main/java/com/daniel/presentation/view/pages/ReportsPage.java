@@ -78,9 +78,10 @@ public final class ReportsPage implements Page {
             reload();
         });
 
-        monthLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+        monthLabel.getStyleClass().add("text-lg");
 
         HBox nav = new HBox(8, btnPrevMonth, btnNextMonth, new Separator(), btnCurrentMonth);
+        nav.getStyleClass().add("actions-bar");
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -110,15 +111,14 @@ public final class ReportsPage implements Page {
         b.getStyleClass().add("card");
         Label t = new Label(title);
         t.getStyleClass().add("muted");
-        value.getStyleClass().add("big-value");
-        value.setStyle("-fx-font-size: 16px;");
+        value.getStyleClass().addAll("big-value", "text-lg");
         b.getChildren().addAll(t, value);
         HBox.setHgrow(b, Priority.ALWAYS);
         return b;
     }
 
     private void buildTable() {
-        table.getStyleClass().add("table");
+        table.getStyleClass().add("table-analytic");
 
         TableColumn<ExtractRow, String> dateCol = new TableColumn<>("Data");
         dateCol.setCellValueFactory(v -> new SimpleStringProperty(DATE_FMT.format(v.getValue().date)));

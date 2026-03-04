@@ -133,13 +133,11 @@ public final class DashboardPage implements Page {
         rankPanelBaixas.setMaxWidth(260);
 
         Label altasTitle = new Label("🟢 Maiores Altas");
-        altasTitle.getStyleClass().add("card-title");
-        altasTitle.setStyle("-fx-text-fill: #22c55e;");
+        altasTitle.getStyleClass().addAll("card-title", "pos");
         rankPanelAltas.getChildren().add(altasTitle);
 
         Label baixasTitle = new Label("🔴 Maiores Baixas");
-        baixasTitle.getStyleClass().add("card-title");
-        baixasTitle.setStyle("-fx-text-fill: #ef4444;");
+        baixasTitle.getStyleClass().addAll("card-title", "neg");
         rankPanelBaixas.getChildren().add(baixasTitle);
 
         Separator vertSep = new Separator(javafx.geometry.Orientation.VERTICAL);
@@ -150,9 +148,7 @@ public final class DashboardPage implements Page {
         VBox comparisonBox = buildComparisonSection();
 
         tokenWarningBanner.setWrapText(true);
-        tokenWarningBanner.setStyle(
-                "-fx-background-color: #78350f; -fx-text-fill: #fde68a; " +
-                "-fx-padding: 10 14; -fx-background-radius: 6; -fx-font-size: 12px;");
+        tokenWarningBanner.getStyleClass().add("warning-banner");
         tokenWarningBanner.setVisible(false);
         tokenWarningBanner.setManaged(false);
 
@@ -343,14 +339,6 @@ public final class DashboardPage implements Page {
         }
 
         waterfallChart.getData().add(series);
-
-        for (XYChart.Data<String, Number> data : series.getData()) {
-            data.nodeProperty().addListener((obs, oldNode, newNode) -> {
-                if (newNode != null) {
-                    newNode.setStyle("-fx-bar-fill: #16a34a;");
-                }
-            });
-        }
     }
 
     private VBox buildComparisonSection() {
@@ -358,8 +346,7 @@ public final class DashboardPage implements Page {
         box.getStyleClass().add("card");
 
         Label title = new Label("Performance da sua carteira");
-        title.getStyleClass().add("card-title");
-        title.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
+        title.getStyleClass().addAll("card-title", "section-header");
 
         // Botões de benchmark
         ToggleGroup benchTg = new ToggleGroup();
@@ -369,40 +356,10 @@ public final class DashboardPage implements Page {
         for (String bench : List.of("CDI", "SELIC", "IPCA", "IBOVESPA")) {
             ToggleButton btn = new ToggleButton(bench);
             btn.setToggleGroup(benchTg);
-            if (bench.equals("CDI")) {
-                btn.setSelected(true);
-                btn.setStyle(
-                    "-fx-background-radius: 20; -fx-padding: 4 16;" +
-                    "-fx-font-size: 12px; -fx-font-weight: bold;" +
-                    "-fx-background-color: rgba(34,197,94,0.25);" +
-                    "-fx-text-fill: #22c55e; -fx-border-color: #22c55e;" +
-                    "-fx-border-radius: 20;");
-            } else {
-                btn.setStyle(
-                    "-fx-background-radius: 20; -fx-padding: 4 16;" +
-                    "-fx-font-size: 12px; -fx-font-weight: bold;" +
-                    "-fx-background-color: rgba(255,255,255,0.08);" +
-                    "-fx-text-fill: #bfead2;");
-            }
+            btn.getStyleClass().add("bench-toggle");
+            if (bench.equals("CDI")) btn.setSelected(true);
             btn.setOnAction(e -> {
                 selectedBenchmark = bench;
-                benchTg.getToggles().forEach(t -> {
-                    ToggleButton tb = (ToggleButton) t;
-                    if (tb.isSelected()) {
-                        tb.setStyle(
-                            "-fx-background-radius: 20; -fx-padding: 4 16;" +
-                            "-fx-font-size: 12px; -fx-font-weight: bold;" +
-                            "-fx-background-color: rgba(34,197,94,0.25);" +
-                            "-fx-text-fill: #22c55e; -fx-border-color: #22c55e;" +
-                            "-fx-border-radius: 20;");
-                    } else {
-                        tb.setStyle(
-                            "-fx-background-radius: 20; -fx-padding: 4 16;" +
-                            "-fx-font-size: 12px; -fx-font-weight: bold;" +
-                            "-fx-background-color: rgba(255,255,255,0.08);" +
-                            "-fx-text-fill: #bfead2;");
-                    }
-                });
                 metricBenchmarkTitleLabel.setText("Rent. " + bench);
                 refreshData();
             });
@@ -410,13 +367,10 @@ public final class DashboardPage implements Page {
         }
 
         // Painel de métricas lateral
-        metricRendimentoLabel.setStyle(
-                "-fx-text-fill: #22c55e; -fx-font-weight: bold; -fx-font-size: 16px;");
-        metricRentabilidadeLabel.setStyle(
-                "-fx-text-fill: #22c55e; -fx-font-weight: bold; -fx-font-size: 16px;");
-        metricBenchmarkLabel.setStyle(
-                "-fx-text-fill: #3b82f6; -fx-font-weight: bold; -fx-font-size: 16px;");
-        metricBenchmarkTitleLabel.setStyle("-fx-font-size: 11px; -fx-opacity: 0.6;");
+        metricRendimentoLabel.getStyleClass().addAll("metric-lg", "pos");
+        metricRentabilidadeLabel.getStyleClass().addAll("metric-lg", "pos");
+        metricBenchmarkLabel.getStyleClass().addAll("metric-lg", "state-info");
+        metricBenchmarkTitleLabel.getStyleClass().add("metric-subtitle");
 
         VBox metricsPanel = new VBox(14);
         metricsPanel.setAlignment(Pos.TOP_RIGHT);
@@ -457,7 +411,7 @@ public final class DashboardPage implements Page {
         VBox b = new VBox(3);
         b.setAlignment(Pos.CENTER_RIGHT);
         Label lbl = new Label(label);
-        lbl.setStyle("-fx-font-size: 11px; -fx-opacity: 0.6;");
+        lbl.getStyleClass().add("metric-subtitle");
         b.getChildren().addAll(valueLabel, lbl);
         return b;
     }
@@ -488,7 +442,7 @@ public final class DashboardPage implements Page {
         for (var entry : filters.entrySet()) {
             ToggleButton btn = new ToggleButton(entry.getKey());
             btn.setToggleGroup(group);
-            btn.setStyle("-fx-background-radius: 12; -fx-padding: 4 12;");
+            btn.getStyleClass().add("filter-toggle");
             int months = entry.getValue();
             btn.setOnAction(e -> {
                 selectedFilterMonths = months;
@@ -503,7 +457,7 @@ public final class DashboardPage implements Page {
 
         ToggleButton customBtn = new ToggleButton("Intervalo");
         customBtn.setToggleGroup(group);
-        customBtn.setStyle("-fx-background-radius: 12; -fx-padding: 4 12;");
+        customBtn.getStyleClass().add("filter-toggle");
         customBtn.setOnAction(e -> {
             useCustomRange = true;
             datePickerBox.setVisible(true);
@@ -520,8 +474,7 @@ public final class DashboardPage implements Page {
         toPicker.setValue(LocalDate.now());
 
         Button applyBtn = new Button("Aplicar");
-        applyBtn.getStyleClass().add("primary-btn");
-        applyBtn.setStyle("-fx-padding: 4 12;");
+        applyBtn.getStyleClass().addAll("primary-btn", "filter-toggle");
         applyBtn.setOnAction(e -> {
             customFrom = fromPicker.getValue();
             customTo = toPicker.getValue();
@@ -614,41 +567,23 @@ public final class DashboardPage implements Page {
 
         comparisonChart.getData().addAll(carteiraSeries, benchSeries);
 
-        // Estilizar linhas e ícones de legenda após renderização
-        // Carteira → laranja/amarelo (#f59e0b), Benchmark → verde (#22c55e)
-        Platform.runLater(() -> {
-            if (carteiraSeries.getNode() != null) {
-                carteiraSeries.getNode().setStyle("-fx-stroke: #f59e0b; -fx-stroke-width: 2.5px;");
-            }
-            if (benchSeries.getNode() != null) {
-                benchSeries.getNode().setStyle("-fx-stroke: #22c55e; -fx-stroke-width: 2px;");
-            }
-            // Corrigir ícones da legenda para combinar com as cores das linhas
-            javafx.scene.Node sym0 = comparisonChart.lookup(".series0.chart-legend-item-symbol");
-            if (sym0 != null) sym0.setStyle("-fx-background-color: #f59e0b, white;");
-            javafx.scene.Node sym1 = comparisonChart.lookup(".series1.chart-legend-item-symbol");
-            if (sym1 != null) sym1.setStyle("-fx-background-color: #22c55e, white;");
-        });
-
         // Atualizar métricas laterais — sincronizadas com o período do filtro selecionado
         double rentCartPeriodo  = (Math.pow(1 + taxaMensalCarteira, (double) totalMeses) - 1) * 100;
         double rentBenchPeriodo = (Math.pow(1 + taxaMensalBench,    (double) totalMeses) - 1) * 100;
         long rendimentoPeriodo  = Math.round(totalInvestido * rentCartPeriodo / 100.0);
 
-        String corGanho = rendimentoPeriodo >= 0
-                ? "-fx-text-fill: #22c55e; -fx-font-weight: bold; -fx-font-size: 16px;"
-                : "-fx-text-fill: #ef4444; -fx-font-weight: bold; -fx-font-size: 16px;";
+        String corClass = rendimentoPeriodo >= 0 ? "pos" : "neg";
 
         metricRendimentoLabel.setText(daily.brl(rendimentoPeriodo));
-        metricRendimentoLabel.setStyle(corGanho);
+        metricRendimentoLabel.getStyleClass().removeAll("pos", "neg");
+        metricRendimentoLabel.getStyleClass().add(corClass);
 
         metricRentabilidadeLabel.setText(String.format("%.2f%%", rentCartPeriodo));
-        metricRentabilidadeLabel.setStyle(corGanho);
+        metricRentabilidadeLabel.getStyleClass().removeAll("pos", "neg");
+        metricRentabilidadeLabel.getStyleClass().add(corClass);
 
         boolean ibovUnavailable = "IBOVESPA".equals(selectedBenchmark) && Double.isNaN(rateIbov);
         metricBenchmarkLabel.setText(ibovUnavailable ? "—" : String.format("%.2f%%", rentBenchPeriodo));
-        metricBenchmarkLabel.setStyle(
-                "-fx-text-fill: #3b82f6; -fx-font-weight: bold; -fx-font-size: 16px;");
     }
 
     private record RankEntry(String name, String ticker, double changePercent, long valueCents) {}
@@ -777,15 +712,14 @@ public final class DashboardPage implements Page {
     private HBox buildRankRow(RankEntry entry) {
         HBox row = new HBox(6);
         row.setAlignment(Pos.CENTER_LEFT);
-        row.setPadding(new Insets(4, 0, 4, 0));
-        row.setStyle("-fx-border-color: transparent transparent #1a2332 transparent; -fx-border-width: 0 0 1 0;");
+        row.getStyleClass().add("rank-row");
 
         VBox nameBox = new VBox(1);
         Label nameLabel = new Label(entry.ticker() != null ? entry.ticker() : entry.name());
-        nameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+        nameLabel.getStyleClass().addAll("text-bold", "text-sm");
         if (entry.ticker() != null) {
             Label subLabel = new Label(entry.name());
-            subLabel.setStyle("-fx-font-size: 10px; -fx-opacity: 0.6;");
+            subLabel.getStyleClass().add("text-dim-xs");
             nameBox.getChildren().addAll(nameLabel, subLabel);
         } else {
             nameBox.getChildren().add(nameLabel);
@@ -797,11 +731,10 @@ public final class DashboardPage implements Page {
 
         boolean positive = entry.changePercent() >= 0;
         Label changeLabel = new Label(String.format("%s%.2f%%", positive ? "+" : "", entry.changePercent()));
-        changeLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
-        changeLabel.getStyleClass().add(positive ? "pos" : "neg");
+        changeLabel.getStyleClass().addAll("rent-value", positive ? "pos" : "neg");
 
         Label valueLabel = new Label(daily.brl(entry.valueCents()));
-        valueLabel.setStyle("-fx-font-size: 10px; -fx-opacity: 0.6;");
+        valueLabel.getStyleClass().add("text-dim-xs");
 
         rightBox.getChildren().addAll(changeLabel, valueLabel);
 
@@ -823,8 +756,7 @@ public final class DashboardPage implements Page {
         investmentsByCategoryContainer.getChildren().clear();
 
         Label title = new Label("Investimentos por Categoria");
-        title.getStyleClass().add("section-title");
-        title.setStyle("-fx-font-size: 16px; -fx-padding: 16 0 8 0;");
+        title.getStyleClass().add("category-section-title");
 
         investmentsByCategoryContainer.getChildren().add(title);
 
@@ -878,11 +810,11 @@ public final class DashboardPage implements Page {
         circle.setFill(Color.web(category.getColor()));
 
         Label categoryName = new Label(category.getDisplayName());
-        categoryName.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
+        categoryName.getStyleClass().add("category-name");
 
         Label categoryPercentLabel = new Label(String.format("%.1f%% • %s",
                 categoryPercent, daily.brl(categoryTotal)));
-        categoryPercentLabel.setStyle("-fx-font-size: 13px; -fx-opacity: 0.7;");
+        categoryPercentLabel.getStyleClass().add("category-percent");
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -981,14 +913,13 @@ public final class DashboardPage implements Page {
         // ─── Construir UI ───
         HBox row = new HBox(16);
         row.setAlignment(Pos.CENTER_LEFT);
-        row.setStyle("-fx-padding: 12; -fx-background-color: rgba(255,255,255,0.04); " +
-                "-fx-background-radius: 8;");
+        row.getStyleClass().add("inv-row-card");
 
         VBox mainInfo = new VBox(4);
         Label nameLabel = new Label(ticker);
-        nameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        nameLabel.getStyleClass().add("inv-row-name");
         Label qtdSubLabel = new Label("Qtd: " + qtdFinal);
-        qtdSubLabel.setStyle("-fx-font-size: 11px; -fx-opacity: 0.6;");
+        qtdSubLabel.getStyleClass().add("text-dim");
         mainInfo.getChildren().addAll(nameLabel, qtdSubLabel);
         row.getChildren().add(mainInfo);
 
@@ -1000,18 +931,18 @@ public final class DashboardPage implements Page {
         VBox tickerBox = new VBox(2);
         tickerBox.setAlignment(Pos.CENTER_RIGHT);
         Label tickerLabel = new Label(ticker);
-        tickerLabel.setStyle("-fx-font-family: 'Courier New'; -fx-font-weight: bold; -fx-font-size: 12px;");
+        tickerLabel.getStyleClass().add("ticker-badge");
         Label tickerHint = new Label("Ticker");
-        tickerHint.setStyle("-fx-font-size: 10px; -fx-opacity: 0.5;");
+        tickerHint.getStyleClass().add("text-dim-xs");
         tickerBox.getChildren().addAll(tickerLabel, tickerHint);
         row.getChildren().add(tickerBox);
 
         // Labels atualizados assincronamente (Posição Atual e Rentabilidade)
         Label rentLabel = new Label("...");
-        rentLabel.setStyle("-fx-opacity: 0.5; -fx-font-size: 12px;");
+        rentLabel.getStyleClass().add("rent-dimmed");
 
         Label posicaoLabel = new Label(daily.brl(totalValueCents));
-        posicaoLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+        posicaoLabel.getStyleClass().add("info-box-value");
 
         row.getChildren().add(createInfoBox("Valor Investido", daily.brl(totalInvestido)));
         row.getChildren().add(createInfoBox("Posição Atual", posicaoLabel));
@@ -1043,24 +974,18 @@ public final class DashboardPage implements Page {
                             : 0;
 
                     posicaoLabel.setText(daily.brl(posicaoAtualCents));
-                    posicaoLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
 
                     rentLabel.setText(String.format("%+.2f%%", rent));
-                    rentLabel.setStyle(
-                            (rent >= 0 ? "-fx-text-fill: #22c55e;" : "-fx-text-fill: #ef4444;") +
-                            " -fx-font-weight: bold; -fx-font-size: 12px;");
+                    applyRentStyle(rentLabel, rent);
                 } else {
-                    // Brapi falhou: fallback para totalValueCents
                     posicaoLabel.setText(daily.brl(totalValueCents));
-                    posicaoLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
                     rentLabel.setText("—");
-                    rentLabel.setStyle("-fx-opacity: 0.45; -fx-font-size: 12px;");
+                    applyRentDimmed(rentLabel);
                 }
             }));
         } else {
-            // Sem token: mostrar "—" na rentabilidade
             rentLabel.setText("—");
-            rentLabel.setStyle("-fx-opacity: 0.45; -fx-font-size: 12px;");
+            applyRentDimmed(rentLabel);
         }
 
         return row;
@@ -1069,16 +994,15 @@ public final class DashboardPage implements Page {
     private HBox buildInvestmentRow(InvestmentType inv, long currentValueCents, long totalPatrimony) {
         HBox row = new HBox(16);
         row.setAlignment(Pos.CENTER_LEFT);
-        row.setStyle("-fx-padding: 12; -fx-background-color: rgba(255,255,255,0.04); " +
-                "-fx-background-radius: 8;");
+        row.getStyleClass().add("inv-row-card");
 
         VBox mainInfo = new VBox(4);
         Label nameLabel = new Label(inv.name());
-        nameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        nameLabel.getStyleClass().add("inv-row-name");
 
         if (inv.typeOfInvestment() != null) {
             Label typeLabel = new Label(getTypeDisplayName(inv.typeOfInvestment()));
-            typeLabel.setStyle("-fx-font-size: 11px; -fx-opacity: 0.6;");
+            typeLabel.getStyleClass().add("text-dim");
             mainInfo.getChildren().addAll(nameLabel, typeLabel);
         } else {
             mainInfo.getChildren().add(nameLabel);
@@ -1106,9 +1030,9 @@ public final class DashboardPage implements Page {
         VBox tickerBox = new VBox(2);
         tickerBox.setAlignment(Pos.CENTER_RIGHT);
         Label tickerLabel = new Label(inv.ticker());
-        tickerLabel.setStyle("-fx-font-family: 'Courier New'; -fx-font-weight: bold; -fx-font-size: 12px;");
+        tickerLabel.getStyleClass().add("ticker-badge");
         Label tickerHint = new Label("Ticker");
-        tickerHint.setStyle("-fx-font-size: 10px; -fx-opacity: 0.5;");
+        tickerHint.getStyleClass().add("text-dim-xs");
         tickerBox.getChildren().addAll(tickerLabel, tickerHint);
         nodes.add(tickerBox);
 
@@ -1122,18 +1046,17 @@ public final class DashboardPage implements Page {
             nodes.add(createInfoBox("Valor Investido", daily.brl(valorInvestidoCents)));
 
             Label posicaoLabel = new Label(daily.brl(currentValueCents));
-            posicaoLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+            posicaoLabel.getStyleClass().add("info-box-value");
             nodes.add(createInfoBox("Posição Atual", posicaoLabel));
 
             double rentabilidade = ((ultimoPreco - precoMedio) / precoMedio) * 100;
             Label rentLabel;
             if (!BrapiClient.hasToken()) {
                 rentLabel = new Label("—");
-                rentLabel.setStyle("-fx-opacity: 0.45; -fx-font-size: 12px;");
+                applyRentDimmed(rentLabel);
             } else {
                 rentLabel = new Label(String.format("%+.2f%%", rentabilidade));
-                rentLabel.setStyle((rentabilidade >= 0 ? "-fx-text-fill: #22c55e;" : "-fx-text-fill: #ef4444;") +
-                        " -fx-font-weight: bold; -fx-font-size: 12px;");
+                applyRentStyle(rentLabel, rentabilidade);
             }
             nodes.add(createInfoBox("Rentabilidade", rentLabel));
 
@@ -1166,8 +1089,7 @@ public final class DashboardPage implements Page {
             long lucro = currentValueCents - aplicado;
             double rentabilidade = (lucro * 100.0) / aplicado;
             Label rentLabel = new Label(String.format("%+.2f%%", rentabilidade));
-            rentLabel.setStyle((rentabilidade >= 0 ? "-fx-text-fill: #22c55e;" : "-fx-text-fill: #ef4444;") +
-                    " -fx-font-weight: bold; -fx-font-size: 12px;");
+            applyRentStyle(rentLabel, rentabilidade);
             nodes.add(createInfoBox("Rentabilidade", rentLabel));
         }
 
@@ -1199,8 +1121,7 @@ public final class DashboardPage implements Page {
             long lucro = currentValueCents - investido;
             double rentabilidade = investido > 0 ? (lucro * 100.0) / investido : 0;
             Label rentLabel = new Label(String.format("%+.2f%%", rentabilidade));
-            rentLabel.setStyle((rentabilidade >= 0 ? "-fx-text-fill: #22c55e;" : "-fx-text-fill: #ef4444;") +
-                    " -fx-font-weight: bold; -fx-font-size: 12px;");
+            applyRentStyle(rentLabel, rentabilidade);
             nodes.add(createInfoBox("Rentabilidade", rentLabel));
         }
 
@@ -1214,16 +1135,26 @@ public final class DashboardPage implements Page {
         return nodes;
     }
 
+    private void applyRentStyle(Label label, double value) {
+        label.getStyleClass().removeAll("rent-value", "rent-dimmed", "pos", "neg");
+        label.getStyleClass().addAll("rent-value", value >= 0 ? "pos" : "neg");
+    }
+
+    private void applyRentDimmed(Label label) {
+        label.getStyleClass().removeAll("rent-value", "rent-dimmed", "pos", "neg");
+        label.getStyleClass().add("rent-dimmed");
+    }
+
     private VBox createInfoBox(String label, String value) {
         VBox box = new VBox(2);
         box.setAlignment(Pos.CENTER_RIGHT);
-        box.setStyle("-fx-min-width: 90;");
+        box.getStyleClass().add("info-box");
 
         Label valueLabel = new Label(value);
-        valueLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+        valueLabel.getStyleClass().add("info-box-value");
 
         Label labelLabel = new Label(label);
-        labelLabel.setStyle("-fx-font-size: 10px; -fx-opacity: 0.5;");
+        labelLabel.getStyleClass().add("info-box-label");
 
         box.getChildren().addAll(valueLabel, labelLabel);
         return box;
@@ -1232,12 +1163,12 @@ public final class DashboardPage implements Page {
     private VBox createInfoBox(String label, Label customLabel) {
         VBox box = new VBox(2);
         box.setAlignment(Pos.CENTER_RIGHT);
-        box.setStyle("-fx-min-width: 90;");
+        box.getStyleClass().add("info-box");
 
-        customLabel.setStyle("-fx-font-size: 12px;");
+        customLabel.getStyleClass().add("text-sm");
 
         Label labelLabel = new Label(label);
-        labelLabel.setStyle("-fx-font-size: 10px; -fx-opacity: 0.5;");
+        labelLabel.getStyleClass().add("info-box-label");
 
         box.getChildren().addAll(customLabel, labelLabel);
         return box;
