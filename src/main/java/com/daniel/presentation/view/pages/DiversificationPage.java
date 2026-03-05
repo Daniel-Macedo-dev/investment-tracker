@@ -26,7 +26,7 @@ import java.util.*;
 public final class DiversificationPage implements Page {
 
     private final DailyTrackingUseCase daily;
-    private final VBox root = new VBox(16);
+    private final VBox root = new VBox(20);
     private final ScrollPane scrollPane = new ScrollPane();
 
     private final ToggleGroup methodGroup = new ToggleGroup();
@@ -39,6 +39,7 @@ public final class DiversificationPage implements Page {
 
     private final TextField targetPatrimonyField = new TextField();
     private final VBox customInputsBox = new VBox(12);
+    // customInputsBox gets .panel class in buildCustomInputs()
     private final Map<CategoryEnum, TextField> customPercentages = new HashMap<>();
 
     private final TableView<AllocationRow> currentTable = new TableView<>();
@@ -65,11 +66,19 @@ public final class DiversificationPage implements Page {
         HBox controlsRow = new HBox(12, calculationBox, methodBox);
 
         HBox tablesRow = new HBox(12);
+        tablesRow.setAlignment(Pos.CENTER);
         VBox currentBox = buildCurrentAllocationTable();
         VBox idealBox = buildIdealAllocationTable();
         HBox.setHgrow(currentBox, Priority.ALWAYS);
         HBox.setHgrow(idealBox, Priority.ALWAYS);
-        tablesRow.getChildren().addAll(currentBox, idealBox);
+
+        Label arrowLabel = new Label("→");
+        arrowLabel.getStyleClass().add("comparison-arrow");
+        VBox arrowBox = new VBox(arrowLabel);
+        arrowBox.setAlignment(Pos.CENTER);
+        arrowBox.setMinWidth(32);
+
+        tablesRow.getChildren().addAll(currentBox, arrowBox, idealBox);
 
         VBox suggestionsBox = buildSuggestionsTable();
 
@@ -127,15 +136,16 @@ public final class DiversificationPage implements Page {
         });
 
         Button recalculateBtn = new Button("Recalcular");
-        recalculateBtn.getStyleClass().add("primary-btn");
+        recalculateBtn.getStyleClass().add("button");
         recalculateBtn.setOnAction(e -> refreshData());
 
-        box.getChildren().addAll(
-                title,
-                rebalanceByContributionRadio, contributionHint,
-                rebalanceByTargetRadio, targetBox,
-                recalculateBtn
-        );
+        VBox contributeOption = new VBox(4, rebalanceByContributionRadio, contributionHint);
+        contributeOption.getStyleClass().add("option-block");
+
+        VBox targetOption = new VBox(6, rebalanceByTargetRadio, targetBox);
+        targetOption.getStyleClass().add("option-block");
+
+        box.getChildren().addAll(title, contributeOption, targetOption, recalculateBtn);
 
         return box;
     }
@@ -165,11 +175,19 @@ public final class DiversificationPage implements Page {
             refreshData();
         });
 
-        box.getChildren().addAll(title, arcaRadio, arcaHint, customRadio, customInputsBox);
+        VBox arcaOption = new VBox(4, arcaRadio, arcaHint);
+        arcaOption.getStyleClass().add("option-block");
+
+        VBox customOption = new VBox(4, customRadio, customInputsBox);
+        customOption.getStyleClass().add("option-block");
+
+        box.getChildren().addAll(title, arcaOption, customOption);
         return box;
     }
 
     private void buildCustomInputs() {
+        customInputsBox.getStyleClass().add("panel");
+
         Label customTitle = new Label("Configure as porcentagens desejadas:");
         customTitle.getStyleClass().addAll("text-bold", "text-sm");
 
@@ -206,7 +224,7 @@ public final class DiversificationPage implements Page {
     }
 
     private VBox buildPatrimonyCard() {
-        VBox box = new VBox(8);
+        VBox box = new VBox(6);
         box.getStyleClass().add("kpi-card");
 
         Label title = new Label("PATRIMÔNIO ATUAL");
@@ -214,7 +232,10 @@ public final class DiversificationPage implements Page {
 
         totalPatrimonyLabel.getStyleClass().add("kpi-value");
 
-        box.getChildren().addAll(title, totalPatrimonyLabel);
+        Label sub = new Label("baseado em valores de hoje");
+        sub.getStyleClass().add("kpi-sub");
+
+        box.getChildren().addAll(title, totalPatrimonyLabel, sub);
         return box;
     }
 
@@ -316,10 +337,10 @@ public final class DiversificationPage implements Page {
 
     private VBox buildSuggestionsTable() {
         VBox box = new VBox(10);
-        box.getStyleClass().add("card");
+        box.getStyleClass().add("kpi-card");
 
         Label title = new Label("SUGESTÕES DE APORTE");
-        title.getStyleClass().add("card-title");
+        title.getStyleClass().add("kpi-label");
 
         suggestionsTable.getStyleClass().add("table-analytic");
         suggestionsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);

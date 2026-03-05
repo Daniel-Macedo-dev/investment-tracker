@@ -68,9 +68,11 @@ public final class InvestmentTypesPage implements Page {
         buildTable();
         VBox.setVgrow(table, Priority.ALWAYS);
 
-        VBox tableCard = new VBox(12, toolbar, table);
+        Separator toolbarSep = new Separator();
+        VBox tableCard = new VBox(0);
         tableCard.getStyleClass().add("card");
-        tableCard.setPadding(new Insets(16));
+        VBox.setMargin(toolbar, new Insets(0, 0, 12, 0));
+        tableCard.getChildren().addAll(toolbar, toolbarSep, table);
 
         root.getChildren().addAll(header, tableCard);
 

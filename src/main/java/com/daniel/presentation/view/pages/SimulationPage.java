@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
 public final class SimulationPage implements Page {
 
     private final ScrollPane scrollPane = new ScrollPane();
-    private final VBox root = new VBox(16);
+    private final VBox root = new VBox(20);
 
     private enum RentabilityMode {
         FIXED_RATE("Taxa Fixa (% a.a.)"),
@@ -85,7 +85,7 @@ public final class SimulationPage implements Page {
         yAxis.setLabel("Valor (R$)");
         projectionChart = new LineChart<>(xAxis, yAxis);
         projectionChart.setTitle(null);
-        projectionChart.setMinHeight(360);
+        projectionChart.setMinHeight(380);
         projectionChart.setCreateSymbols(false);
 
         HBox typeSelector = buildTypeSelector();
@@ -167,6 +167,11 @@ public final class SimulationPage implements Page {
         RadioButton posfixadoRadio = new RadioButton("Pós-fixado");
         RadioButton hibridoRadio = new RadioButton("Híbrido");
         RadioButton acaoRadio = new RadioButton("Ação / FII");
+
+        prefixadoRadio.getStyleClass().add("radio-chip");
+        posfixadoRadio.getStyleClass().add("radio-chip");
+        hibridoRadio.getStyleClass().add("radio-chip");
+        acaoRadio.getStyleClass().add("radio-chip");
 
         prefixadoRadio.setToggleGroup(group);
         posfixadoRadio.setToggleGroup(group);
@@ -275,7 +280,9 @@ public final class SimulationPage implements Page {
         HBox.setHgrow(benchBox, Priority.ALWAYS);
         HBox.setHgrow(benchPctBox, Priority.ALWAYS);
         benchRow.getChildren().addAll(benchBox, benchPctBox);
-        benchmarkSection = new VBox(8, benchRow, ratesStatusLabel);
+        VBox ratesPanel = new VBox(ratesStatusLabel);
+        ratesPanel.getStyleClass().add("panel");
+        benchmarkSection = new VBox(8, benchRow, ratesPanel);
 
         // Hybrid section
         Label hybridLabel = new Label("Taxa Fixa (% a.a.):");
@@ -384,8 +391,10 @@ public final class SimulationPage implements Page {
         calculateBtn.setMaxWidth(Double.MAX_VALUE);
         calculateBtn.setOnAction(e -> calculate());
 
-        box.getChildren().addAll(title, row1, row2,
-                new VBox(6, variationLabel, sliderRow), calculateBtn);
+        VBox sliderPanel = new VBox(6, variationLabel, sliderRow);
+        sliderPanel.getStyleClass().add("panel");
+
+        box.getChildren().addAll(title, row1, row2, sliderPanel, calculateBtn);
 
         stockSection = box;
         return box;
@@ -393,13 +402,13 @@ public final class SimulationPage implements Page {
 
     private VBox buildResultCard() {
         VBox box = new VBox(8);
-        box.getStyleClass().add("kpi-card");
+        box.getStyleClass().add("hero-card");
 
         Label title = new Label("RESULTADO DA SIMULAÇÃO");
         title.getStyleClass().add("kpi-label");
 
         resultLabel.getStyleClass().add("kpi-value");
-        resultSubLabel.getStyleClass().add("text-helper");
+        resultSubLabel.getStyleClass().add("kpi-sub");
 
         box.getChildren().addAll(title, resultLabel, resultSubLabel);
         return box;

@@ -51,17 +51,17 @@
    TYPOGRAPHY
    ═══════════════════════════════════════════════ */
 .label    { -fx-text-fill: -color-text-1; }
-.h1       { -fx-font-size: 22px; -fx-font-weight: 900; -fx-text-fill: -color-text-1; }
+.h1       { -fx-font-size: 24px; -fx-font-weight: 900; -fx-text-fill: -color-text-1; }
 .muted    { -fx-text-fill: -color-text-2; }
 
 /* Page subtitle — sits below .h1 */
 .page-subtitle {
-    -fx-font-size: 12px;
-    -fx-text-fill: -color-text-3;
+    -fx-font-size: 13px;
+    -fx-text-fill: -color-text-2;
     -fx-padding: 2 0 0 0;
 }
 
-.section-title  { -fx-font-size: 11px; -fx-font-weight: 900; -fx-text-fill: -color-text-3; letter-spacing: 0.5; }
+.section-title  { -fx-font-size: 13px; -fx-font-weight: 900; -fx-text-fill: -color-text-1; -fx-padding: 4 0 2 0; }
 .section-header { -fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: -color-text-1; }
 
 /* Scale */
@@ -173,6 +173,9 @@
     -fx-text-fill: -color-accent;
     -fx-font-weight: 800;
 }
+.sidebar .nav-btn.active:hover {
+    -fx-background-color: derive(-color-accent-soft, 25%);
+}
 
 /* Footer */
 .sidebar-footer {
@@ -213,7 +216,7 @@
 /* Page header block (title + subtitle) */
 .page-header {
     -fx-spacing: 4;
-    -fx-padding: 0 0 4 0;
+    -fx-padding: 0 0 8 0;
 }
 
 /* ── Toolbar — filter/action bar above content ── */
@@ -241,22 +244,50 @@
 }
 
 /* ═══════════════════════════════════════════════
-   CARDS
+   CARDS — Three-Level Surface System
    ═══════════════════════════════════════════════ */
+
+/* ── Level 1: Hero Card — flagship metric (dashboard KPIs) ── */
+.hero-card {
+    -fx-background-color: -color-surface;
+    -fx-background-radius: 16;
+    -fx-border-radius: 16;
+    -fx-border-color: -color-border-strong;
+    -fx-border-width: 1;
+    -fx-padding: 20 22;
+    -fx-spacing: 8;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.45), 14, 0, 0, 4);
+}
+.hero-card .kpi-label {
+    -fx-font-size: 11px;
+    -fx-font-weight: 800;
+    -fx-text-fill: -color-text-3;
+}
+.hero-card .kpi-value {
+    -fx-font-size: 28px;
+    -fx-font-weight: 900;
+    -fx-text-fill: -color-text-1;
+}
+.hero-card .kpi-sub {
+    -fx-font-size: 11px;
+    -fx-text-fill: -color-text-3;
+}
+
+/* ── Level 2: Section Card — general content ── */
 .card {
     -fx-background-color: -color-surface;
     -fx-background-radius: 14;
     -fx-border-radius: 14;
     -fx-border-color: -color-border;
     -fx-padding: 16;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.30), 6, 0, 0, 2);
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.28), 6, 0, 0, 2);
 }
 
 /* Small muted label above a card's primary content */
 .card-title {
     -fx-font-size: 11px;
-    -fx-font-weight: 800;
-    -fx-text-fill: -color-text-3;
+    -fx-font-weight: 900;
+    -fx-text-fill: -color-text-2;
     -fx-padding: 0 0 6 0;
 }
 
@@ -269,12 +300,22 @@
 
 /* Chart container card */
 .chart-card {
-    -fx-background-color: -color-surface;
+    -fx-background-color: derive(-color-surface, -2%);
     -fx-background-radius: 14;
     -fx-border-radius: 14;
     -fx-border-color: -color-border;
     -fx-padding: 16 16 8 16;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.30), 6, 0, 0, 2);
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.28), 6, 0, 0, 2);
+}
+
+/* ── Level 3: Panel — embedded sub-section inside a card ── */
+.panel {
+    -fx-background-color: derive(-color-bg-0, 4%);
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: -color-border;
+    -fx-padding: 12 14;
+    -fx-spacing: 8;
 }
 
 /* ═══════════════════════════════════════════════
@@ -333,12 +374,22 @@
 .check-box {
     -fx-text-fill: -color-text-1;
     -fx-font-size: 13px;
+    -fx-font-weight: 600;
+    -fx-cursor: hand;
+    -fx-graphic-text-gap: 10;
 }
 .check-box .box {
     -fx-background-color: -color-surface-2;
     -fx-border-color: -color-border-strong;
-    -fx-border-radius: 4;
-    -fx-background-radius: 4;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-min-width: 20px;  -fx-min-height: 20px;
+    -fx-pref-width: 20px; -fx-pref-height: 20px;
+    -fx-border-width: 1.5;
+}
+.check-box:hover .box {
+    -fx-border-color: -color-accent;
+    -fx-background-color: -color-surface-3;
 }
 .check-box:selected .box {
     -fx-background-color: -color-accent-strong;
@@ -347,26 +398,93 @@
 .check-box:selected .mark {
     -fx-background-color: white;
 }
-.check-box:hover .box {
+.check-box:focused .box {
     -fx-border-color: -color-accent;
+    -fx-effect: dropshadow(gaussian, rgba(34,197,94,0.3), 5, 0, 0, 0);
 }
 
-/* ── Radio ── */
+/* ── Radio Button ── */
 .radio-button {
     -fx-text-fill: -color-text-1;
     -fx-font-size: 13px;
+    -fx-font-weight: 600;
+    -fx-cursor: hand;
+    -fx-graphic-text-gap: 10;
 }
 .radio-button .radio {
     -fx-background-color: -color-surface-2;
     -fx-border-color: -color-border-strong;
+    -fx-border-radius: 12;
+    -fx-background-radius: 12;
+    -fx-min-width: 20px;  -fx-min-height: 20px;
+    -fx-pref-width: 20px; -fx-pref-height: 20px;
+    -fx-border-width: 1.5;
+}
+.radio-button:hover .radio {
+    -fx-border-color: -color-accent;
+    -fx-background-color: -color-surface-3;
 }
 .radio-button:selected .radio {
     -fx-background-color: -color-surface-2;
     -fx-border-color: -color-accent;
+    -fx-border-width: 2;
 }
 .radio-button:selected .dot {
     -fx-background-color: -color-accent;
+    -fx-background-radius: 8;
+    -fx-min-width: 10px;  -fx-min-height: 10px;
+    -fx-pref-width: 10px; -fx-pref-height: 10px;
 }
+.radio-button:focused .radio {
+    -fx-border-color: -color-accent;
+    -fx-effect: dropshadow(gaussian, rgba(34,197,94,0.3), 5, 0, 0, 0);
+}
+
+/* ── Radio Chip — pill toggle, hides native circle ── */
+.radio-chip {
+    -fx-background-color: -color-surface;
+    -fx-text-fill: -color-text-2;
+    -fx-border-color: -color-border-strong;
+    -fx-border-radius: 20;
+    -fx-background-radius: 20;
+    -fx-padding: 7 18;
+    -fx-font-size: 13px;
+    -fx-font-weight: 700;
+    -fx-cursor: hand;
+    -fx-border-width: 1;
+}
+.radio-chip:hover {
+    -fx-background-color: -color-surface-2;
+    -fx-text-fill: -color-text-1;
+}
+.radio-chip:selected {
+    -fx-background-color: -color-accent-soft;
+    -fx-text-fill: -color-accent;
+    -fx-border-color: rgba(34,197,94,0.35);
+}
+.radio-chip:selected:hover { -fx-background-color: derive(-color-accent-soft, 15%); }
+/* Collapse the native radio circle on chips */
+.radio-chip .radio {
+    -fx-min-width: 0; -fx-max-width: 0; -fx-pref-width: 0;
+    -fx-min-height: 0; -fx-max-height: 0; -fx-pref-height: 0;
+    -fx-padding: 0;
+}
+.radio-chip .dot { -fx-min-width: 0; -fx-max-width: 0; -fx-pref-width: 0; }
+
+/* ── Option Block — selectable option with radio + description ── */
+.option-block {
+    -fx-spacing: 6;
+    -fx-padding: 12 14;
+    -fx-background-color: -color-surface-2;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: -color-border;
+}
+.option-block .radio-button {
+    -fx-font-weight: 700;
+    -fx-font-size: 13px;
+}
+.option-block:hover { -fx-border-color: -color-border-strong; }
 
 /* ── Slider ── */
 .slider .track {
@@ -400,8 +518,14 @@
     -fx-font-weight: 800;
     -fx-cursor: hand;
 }
-.button:hover   { -fx-background-color: -color-accent; }
-.button:pressed { -fx-background-color: derive(-color-accent-strong, -25%); }
+.button:hover    { -fx-background-color: -color-accent; }
+.button:pressed  { -fx-background-color: derive(-color-accent-strong, -25%); }
+.button:focused  { -fx-effect: dropshadow(gaussian, rgba(34,197,94,0.45), 8, 0, 0, 0); }
+.button:disabled { -fx-opacity: 0.4; -fx-cursor: default; }
+.ghost-btn:disabled    { -fx-opacity: 0.4; -fx-cursor: default; }
+.danger-btn:disabled   { -fx-opacity: 0.4; -fx-cursor: default; }
+.sell-btn:disabled     { -fx-opacity: 0.4; -fx-cursor: default; }
+.secondary-btn:disabled { -fx-opacity: 0.4; -fx-cursor: default; }
 
 .ghost-btn {
     -fx-background-color: -color-surface;
@@ -413,7 +537,9 @@
     -fx-font-weight: 700;
     -fx-cursor: hand;
 }
-.ghost-btn:hover { -fx-background-color: -color-surface-2; }
+.ghost-btn:hover    { -fx-background-color: -color-surface-2; }
+.ghost-btn:pressed  { -fx-background-color: -color-surface-3; }
+.ghost-btn:focused  { -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.12), 5, 0, 0, 0); }
 
 .danger-btn {
     -fx-background-color: rgba(239,68,68,0.15);
@@ -425,7 +551,8 @@
     -fx-font-weight: 700;
     -fx-cursor: hand;
 }
-.danger-btn:hover { -fx-background-color: rgba(239,68,68,0.25); }
+.danger-btn:hover    { -fx-background-color: rgba(239,68,68,0.25); }
+.danger-btn:pressed  { -fx-background-color: rgba(239,68,68,0.38); }
 
 .icon-btn {
     -fx-background-color: -color-surface;
@@ -435,7 +562,8 @@
     -fx-background-radius: 10;
     -fx-cursor: hand;
 }
-.icon-btn:hover { -fx-background-color: -color-surface-2; }
+.icon-btn:hover    { -fx-background-color: -color-surface-2; }
+.icon-btn:pressed  { -fx-background-color: -color-surface-3; }
 
 .secondary-btn {
     -fx-background-color: -color-accent-soft;
@@ -447,7 +575,8 @@
     -fx-font-weight: 700;
     -fx-cursor: hand;
 }
-.secondary-btn:hover { -fx-background-color: derive(-color-accent-soft, 30%); }
+.secondary-btn:hover    { -fx-background-color: derive(-color-accent-soft, 30%); }
+.secondary-btn:pressed  { -fx-background-color: derive(-color-accent-soft, 50%); }
 
 .sell-btn {
     -fx-background-color: rgba(245,158,11,0.12);
@@ -459,7 +588,8 @@
     -fx-font-weight: 700;
     -fx-cursor: hand;
 }
-.sell-btn:hover { -fx-background-color: rgba(245,158,11,0.22); }
+.sell-btn:hover    { -fx-background-color: rgba(245,158,11,0.22); }
+.sell-btn:pressed  { -fx-background-color: rgba(245,158,11,0.32); }
 
 /* ═══════════════════════════════════════════════
    TABLES
@@ -480,9 +610,10 @@
     -fx-font-size: 11px;
 }
 .table-row-cell                      { -fx-background-color: transparent; }
-.table-row-cell:filled:hover         { -fx-background-color: -color-surface; }
+.table-row-cell:filled:hover         { -fx-background-color: -color-surface-2; }
 .table-row-cell:filled:selected      { -fx-background-color: -color-accent-soft; }
-.table-cell                          { -fx-padding: 10 12; -fx-text-fill: -color-text-1; }
+.table-row-cell:filled:selected:hover { -fx-background-color: derive(-color-accent-soft, 10%); }
+.table-cell                          { -fx-padding: 11 14; -fx-text-fill: -color-text-1; }
 .cell-left                           { -fx-alignment: center-left; }
 
 /* Analytic table variant */
@@ -498,13 +629,29 @@
     -fx-border-color: transparent transparent -color-border-strong transparent;
     -fx-border-width: 0 0 1 0;
 }
+.table-analytic .column-header {
+    -fx-padding: 10 12;
+}
 .table-analytic .column-header .label {
     -fx-font-size: 11px;
     -fx-font-weight: 900;
-    -fx-text-fill: -color-text-3;
+    -fx-text-fill: -color-text-2;
+    -fx-text-transform: uppercase;
 }
 .table-analytic .table-row-cell:filled:odd {
-    -fx-background-color: derive(-color-surface, -3%);
+    -fx-background-color: derive(-color-surface, -2%);
+}
+.table-analytic .table-row-cell:filled:hover {
+    -fx-background-color: -color-surface-3;
+}
+.table-analytic .table-row-cell:filled:selected {
+    -fx-background-color: -color-accent-soft;
+}
+.table-analytic .table-row-cell:filled:selected .table-cell {
+    -fx-text-fill: -color-text-1;
+}
+.table-analytic .table-cell {
+    -fx-padding: 11 14;
 }
 
 /* Suggestion action cells */
@@ -515,6 +662,13 @@
 .suggestion-balanced {
     -fx-text-fill: -color-text-3;
     -fx-font-style: italic;
+}
+
+/* Comparison arrow between current→ideal panels */
+.comparison-arrow {
+    -fx-font-size: 20px;
+    -fx-font-weight: 900;
+    -fx-text-fill: -color-text-3;
 }
 
 /* ═══════════════════════════════════════════════
@@ -566,11 +720,13 @@
     -fx-background-color: -color-surface-3;
     -fx-background-radius: 4;
 }
-.scroll-bar .thumb:hover       { -fx-background-color: derive(-color-surface-3, 20%); }
+.scroll-bar .thumb:hover              { -fx-background-color: derive(-color-surface-3, 20%); }
+.scroll-bar:vertical .thumb           { -fx-min-height: 32; }
+.scroll-bar:horizontal .thumb         { -fx-min-width: 32; }
 .scroll-bar .increment-button,
-.scroll-bar .decrement-button  { -fx-background-color: transparent; -fx-padding: 0; }
+.scroll-bar .decrement-button         { -fx-background-color: transparent; -fx-padding: 0; }
 .scroll-bar .increment-arrow,
-.scroll-bar .decrement-arrow   { -fx-shape: ""; -fx-padding: 0; }
+.scroll-bar .decrement-arrow          { -fx-shape: ""; -fx-padding: 0; }
 
 /* ═══════════════════════════════════════════════
    UTILITY
@@ -755,7 +911,7 @@
 
 /* KPI row */
 .dashboard-kpi-row {
-    -fx-spacing: 12;
+    -fx-spacing: 14;
     -fx-padding: 0;
 }
 
@@ -793,6 +949,7 @@
     -fx-cursor: hand;
 }
 .bench-toggle:hover    { -fx-background-color: -color-surface-2; -fx-text-fill: -color-text-1; }
+.bench-toggle:pressed  { -fx-background-color: -color-surface-3; }
 .bench-toggle:selected { -fx-background-color: -color-accent-soft; -fx-text-fill: -color-accent; -fx-border-color: rgba(34,197,94,0.30); }
 
 /* Period filter toggles (1M, 3M, 6M, …) */
@@ -805,6 +962,7 @@
     -fx-cursor: hand;
 }
 .filter-toggle:hover    { -fx-background-color: -color-surface-2; -fx-text-fill: -color-text-1; }
+.filter-toggle:pressed  { -fx-background-color: -color-surface-3; }
 .filter-toggle:selected { -fx-background-color: -color-accent-soft; -fx-text-fill: -color-accent; }
 
 /* Performance metric values */
@@ -817,18 +975,18 @@
 
 /* Empty state panel */
 .empty-state {
-    -fx-background-color: -color-surface;
-    -fx-background-radius: 14;
-    -fx-border-radius: 14;
-    -fx-border-color: -color-border;
+    -fx-background-color: derive(-color-surface, -2%);
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-border-color: -color-border-strong;
     -fx-border-style: dashed;
-    -fx-padding: 40 24;
+    -fx-padding: 48 32;
     -fx-alignment: CENTER;
-    -fx-spacing: 8;
+    -fx-spacing: 10;
 }
 .empty-state .label        { -fx-text-fill: -color-text-3; -fx-font-size: 13px; }
-.empty-state .empty-icon   { -fx-font-size: 28px; -fx-opacity: 0.4; }
-.empty-state .empty-title  { -fx-font-size: 14px; -fx-font-weight: 700; -fx-text-fill: -color-text-2; }
+.empty-state .empty-icon   { -fx-font-size: 34px; -fx-opacity: 0.5; }
+.empty-state .empty-title  { -fx-font-size: 15px; -fx-font-weight: 800; -fx-text-fill: -color-text-2; }
 .empty-state .empty-hint   { -fx-font-size: 12px; -fx-text-fill: -color-text-3; }
 
 /* Category section title */
@@ -850,8 +1008,10 @@
     -fx-background-radius: 10;
     -fx-border-radius: 10;
     -fx-border-color: -color-border;
+    -fx-cursor: hand;
 }
-.inv-row-card:hover { -fx-background-color: -color-surface-2; }
+.inv-row-card:hover   { -fx-background-color: -color-surface-2; -fx-border-color: -color-border-strong; }
+.inv-row-card:pressed { -fx-background-color: -color-surface-3; }
 
 .inv-row-name { -fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: -color-text-1; }
 
@@ -877,9 +1037,13 @@
 
 /* Rank row (top movers list) */
 .rank-row {
-    -fx-padding: 6 0;
+    -fx-padding: 8 4;
     -fx-border-color: transparent transparent -color-border transparent;
     -fx-border-width: 0 0 1 0;
+    -fx-background-radius: 6;
+}
+.rank-row:hover {
+    -fx-background-color: -color-surface-2;
 }
 
 /* ═══════════════════════════════════════════════
@@ -889,10 +1053,11 @@
     -fx-background-color: -color-surface;
     -fx-background-radius: 14;
     -fx-border-radius: 14;
-    -fx-border-color: -color-border;
+    -fx-border-color: -color-accent -color-border -color-border -color-border;
+    -fx-border-width: 2 1 1 1;
     -fx-padding: 16 18;
     -fx-spacing: 6;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 6, 0, 0, 2);
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.28), 8, 0, 0, 2);
 }
 .kpi-card .kpi-label {
     -fx-font-size: 11px;

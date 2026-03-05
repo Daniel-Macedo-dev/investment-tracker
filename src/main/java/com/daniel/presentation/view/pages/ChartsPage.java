@@ -18,7 +18,7 @@ import java.util.ArrayList;
 public final class ChartsPage implements Page {
 
     private final DailyTrackingUseCase daily;
-    private final VBox root = new VBox(16);
+    private final VBox root = new VBox(20);
     private final ScrollPane scrollPane = new ScrollPane();
 
     private final ComboBox<InvestmentType> picker = new ComboBox<>();

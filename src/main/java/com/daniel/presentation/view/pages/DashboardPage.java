@@ -30,7 +30,7 @@ public final class DashboardPage implements Page {
 
     private final DailyTrackingUseCase daily;
     private final ScrollPane scrollPane = new ScrollPane();
-    private final VBox root = new VBox(16);
+    private final VBox root = new VBox(20);
 
     private final Label dateLabel = new Label("—");
     private final Label totalLabel = new Label("—");
@@ -126,7 +126,7 @@ public final class DashboardPage implements Page {
         VBox.setVgrow(waterfallChart, Priority.ALWAYS);
         waterfallBox.getChildren().addAll(waterfallTitle, waterfallChart);
 
-        rankPanel.getStyleClass().add("card");
+        rankPanel.getStyleClass().add("chart-card");
         HBox.setHgrow(rankPanel, Priority.ALWAYS);
 
         HBox.setHgrow(rankPanelAltas, Priority.ALWAYS);
@@ -346,7 +346,7 @@ public final class DashboardPage implements Page {
         box.getStyleClass().add("chart-card");
 
         Label title = new Label("PERFORMANCE DA CARTEIRA");
-        title.getStyleClass().add("section-title");
+        title.getStyleClass().add("card-title");
 
         // Botões de benchmark
         ToggleGroup benchTg = new ToggleGroup();
@@ -1185,8 +1185,8 @@ public final class DashboardPage implements Page {
     }
 
     private VBox kpiCard(String title, Label value) {
-        VBox box = new VBox(6);
-        box.getStyleClass().add("kpi-card");
+        VBox box = new VBox(8);
+        box.getStyleClass().add("hero-card");
         Label t = new Label(title);
         t.getStyleClass().add("kpi-label");
         value.getStyleClass().add("kpi-value");
