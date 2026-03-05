@@ -27,6 +27,23 @@
     -color-accent:        #22C55E;
     -color-accent-strong: #16A34A;
     -color-accent-soft:   rgba(34,197,94,0.12);
+    -color-accent-a25:    rgba(34,197,94,0.25);
+    -color-accent-glow:   rgba(34,197,94,0.30);
+    -color-accent-a35:    rgba(34,197,94,0.35);
+    -color-accent-a40:    rgba(34,197,94,0.40);
+    -color-accent-a45:    rgba(34,197,94,0.45);
+
+    /* Alpha variants for state colors */
+    -color-white-a12:     rgba(255,255,255,0.12);
+    -color-danger-a15:    rgba(239,68,68,0.15);
+    -color-danger-a25:    rgba(239,68,68,0.25);
+    -color-danger-a30:    rgba(239,68,68,0.30);
+    -color-danger-a38:    rgba(239,68,68,0.38);
+    -color-warning-a12:   rgba(245,158,11,0.12);
+    -color-warning-a22:   rgba(245,158,11,0.22);
+    -color-warning-a30:   rgba(245,158,11,0.30);
+    -color-warning-a32:   rgba(245,158,11,0.32);
+    -color-info-a12:      rgba(59,130,246,0.12);
 
     /* State */
     -color-success: #22C55E;
@@ -84,11 +101,11 @@
 .state-info     { -fx-text-fill: -color-info; }
 .state-neutral  { -fx-text-fill: -color-text-3; }
 
-/* Status feedback */
-.status-success { -fx-text-fill: -color-success; -fx-font-size: 12px; }
-.status-warning { -fx-text-fill: -color-warning; -fx-font-size: 12px; }
-.status-danger  { -fx-text-fill: -color-danger;  -fx-font-size: 12px; }
-.status-neutral { -fx-text-fill: -color-text-3;  -fx-font-size: 12px; }
+/* Status feedback — inline badge with subtle background */
+.status-success { -fx-text-fill: -color-success; -fx-font-size: 12px; -fx-background-color: -color-accent-soft;   -fx-background-radius: 6; -fx-padding: 4 8; }
+.status-warning { -fx-text-fill: -color-warning; -fx-font-size: 12px; -fx-background-color: -color-warning-a12;   -fx-background-radius: 6; -fx-padding: 4 8; }
+.status-danger  { -fx-text-fill: -color-danger;  -fx-font-size: 12px; -fx-background-color: -color-danger-a15;    -fx-background-radius: 6; -fx-padding: 4 8; }
+.status-neutral { -fx-text-fill: -color-text-3;  -fx-font-size: 12px; -fx-background-color: -color-white-a12;     -fx-background-radius: 6; -fx-padding: 4 8; }
 
 /* ═══════════════════════════════════════════════
    SHELL
@@ -158,7 +175,7 @@
     -fx-background-radius: 8;
     -fx-border-radius: 8;
     -fx-border-color: transparent;
-    -fx-border-width: 0;
+    -fx-border-width: 0 0 0 3;
     -fx-cursor: hand;
     -fx-graphic-text-gap: 10;
 }
@@ -166,12 +183,18 @@
 .sidebar .nav-btn:hover {
     -fx-background-color: -color-surface;
     -fx-text-fill: -color-text-1;
+    -fx-effect: dropshadow(gaussian, -color-accent-glow, 6, 0, 0, 0);
 }
 
 .sidebar .nav-btn.active {
     -fx-background-color: -color-accent-soft;
     -fx-text-fill: -color-accent;
     -fx-font-weight: 800;
+    -fx-border-color: transparent transparent transparent -color-accent;
+    -fx-border-width: 0 0 0 3;
+    -fx-padding: 10 14 10 11;
+    -fx-background-radius: 0 8 8 0;
+    -fx-border-radius: 0 8 8 0;
 }
 .sidebar .nav-btn.active:hover {
     -fx-background-color: derive(-color-accent-soft, 25%);
@@ -268,10 +291,29 @@
     -fx-font-weight: 900;
     -fx-text-fill: -color-text-1;
 }
+.hero-card .kpi-value.pos { -fx-text-fill: -color-success; }
+.hero-card .kpi-value.neg { -fx-text-fill: -color-danger; }
 .hero-card .kpi-sub {
     -fx-font-size: 11px;
     -fx-text-fill: -color-text-3;
 }
+
+/* Accent-bordered result card — used for simulation result */
+.result-card {
+    -fx-background-color: -color-surface;
+    -fx-background-radius: 0 16 16 0;
+    -fx-border-radius: 0 16 16 0;
+    -fx-border-color: -color-accent -color-border-strong -color-border-strong -color-accent;
+    -fx-border-width: 1 1 1 4;
+    -fx-padding: 20 22 20 20;
+    -fx-spacing: 8;
+    -fx-effect: dropshadow(gaussian, -color-accent-glow, 12, 0, -2, 0);
+}
+.result-card .kpi-label         { -fx-font-size: 11px; -fx-font-weight: 800; -fx-text-fill: -color-accent; }
+.result-card .kpi-value         { -fx-font-size: 28px; -fx-font-weight: 900; -fx-text-fill: -color-text-1; }
+.result-card .kpi-value.pos     { -fx-text-fill: -color-success; }
+.result-card .kpi-value.neg     { -fx-text-fill: -color-danger; }
+.result-card .kpi-sub           { -fx-font-size: 11px; -fx-text-fill: -color-text-3; }
 
 /* ── Level 2: Section Card — general content ── */
 .card {
@@ -296,6 +338,22 @@
     -fx-font-size: 24px;
     -fx-font-weight: 900;
     -fx-text-fill: -color-text-1;
+}
+
+/* ── Card header row — title on left, actions on right ── */
+.card-header {
+    -fx-alignment: CENTER_LEFT;
+    -fx-spacing: 8;
+    -fx-padding: 0 0 10 0;
+}
+.card-subtitle {
+    -fx-font-size: 11px;
+    -fx-text-fill: -color-text-3;
+    -fx-padding: 0 0 6 0;
+}
+.card-actions {
+    -fx-spacing: 6;
+    -fx-alignment: CENTER_RIGHT;
 }
 
 /* Chart container card */
@@ -400,7 +458,7 @@
 }
 .check-box:focused .box {
     -fx-border-color: -color-accent;
-    -fx-effect: dropshadow(gaussian, rgba(34,197,94,0.3), 5, 0, 0, 0);
+    -fx-effect: dropshadow(gaussian, -color-accent-glow, 5, 0, 0, 0);
 }
 
 /* ── Radio Button ── */
@@ -437,7 +495,7 @@
 }
 .radio-button:focused .radio {
     -fx-border-color: -color-accent;
-    -fx-effect: dropshadow(gaussian, rgba(34,197,94,0.3), 5, 0, 0, 0);
+    -fx-effect: dropshadow(gaussian, -color-accent-glow, 5, 0, 0, 0);
 }
 
 /* ── Radio Chip — pill toggle, hides native circle ── */
@@ -460,7 +518,7 @@
 .radio-chip:selected {
     -fx-background-color: -color-accent-soft;
     -fx-text-fill: -color-accent;
-    -fx-border-color: rgba(34,197,94,0.35);
+    -fx-border-color: -color-accent-a35;
 }
 .radio-chip:selected:hover { -fx-background-color: derive(-color-accent-soft, 15%); }
 /* Collapse the native radio circle on chips */
@@ -495,7 +553,7 @@
 .slider .thumb {
     -fx-background-color: -color-accent;
     -fx-background-radius: 10;
-    -fx-effect: dropshadow(gaussian, rgba(34,197,94,0.4), 6, 0, 0, 0);
+    -fx-effect: dropshadow(gaussian, -color-accent-a40, 6, 0, 0, 0);
 }
 .slider .thumb:hover {
     -fx-background-color: -color-accent-strong;
@@ -520,7 +578,7 @@
 }
 .button:hover    { -fx-background-color: -color-accent; }
 .button:pressed  { -fx-background-color: derive(-color-accent-strong, -25%); }
-.button:focused  { -fx-effect: dropshadow(gaussian, rgba(34,197,94,0.45), 8, 0, 0, 0); }
+.button:focused  { -fx-effect: dropshadow(gaussian, -color-accent-a45, 8, 0, 0, 0); }
 .button:disabled { -fx-opacity: 0.4; -fx-cursor: default; }
 .ghost-btn:disabled    { -fx-opacity: 0.4; -fx-cursor: default; }
 .danger-btn:disabled   { -fx-opacity: 0.4; -fx-cursor: default; }
@@ -539,20 +597,20 @@
 }
 .ghost-btn:hover    { -fx-background-color: -color-surface-2; }
 .ghost-btn:pressed  { -fx-background-color: -color-surface-3; }
-.ghost-btn:focused  { -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.12), 5, 0, 0, 0); }
+.ghost-btn:focused  { -fx-effect: dropshadow(gaussian, -color-white-a12, 5, 0, 0, 0); }
 
 .danger-btn {
-    -fx-background-color: rgba(239,68,68,0.15);
+    -fx-background-color: -color-danger-a15;
     -fx-text-fill: -color-danger;
-    -fx-border-color: rgba(239,68,68,0.30);
+    -fx-border-color: -color-danger-a30;
     -fx-border-radius: 10;
     -fx-background-radius: 10;
     -fx-padding: 9 16;
     -fx-font-weight: 700;
     -fx-cursor: hand;
 }
-.danger-btn:hover    { -fx-background-color: rgba(239,68,68,0.25); }
-.danger-btn:pressed  { -fx-background-color: rgba(239,68,68,0.38); }
+.danger-btn:hover    { -fx-background-color: -color-danger-a25; }
+.danger-btn:pressed  { -fx-background-color: -color-danger-a38; }
 
 .icon-btn {
     -fx-background-color: -color-surface;
@@ -568,7 +626,7 @@
 .secondary-btn {
     -fx-background-color: -color-accent-soft;
     -fx-text-fill: -color-accent;
-    -fx-border-color: rgba(34,197,94,0.25);
+    -fx-border-color: -color-accent-a25;
     -fx-border-radius: 10;
     -fx-background-radius: 10;
     -fx-padding: 9 16;
@@ -579,17 +637,40 @@
 .secondary-btn:pressed  { -fx-background-color: derive(-color-accent-soft, 50%); }
 
 .sell-btn {
-    -fx-background-color: rgba(245,158,11,0.12);
+    -fx-background-color: -color-warning-a12;
     -fx-text-fill: -color-warning;
-    -fx-border-color: rgba(245,158,11,0.30);
+    -fx-border-color: -color-warning-a30;
     -fx-border-radius: 10;
     -fx-background-radius: 10;
     -fx-padding: 9 16;
     -fx-font-weight: 700;
     -fx-cursor: hand;
 }
-.sell-btn:hover    { -fx-background-color: rgba(245,158,11,0.22); }
-.sell-btn:pressed  { -fx-background-color: rgba(245,158,11,0.32); }
+.sell-btn:hover    { -fx-background-color: -color-warning-a22; }
+.sell-btn:pressed  { -fx-background-color: -color-warning-a32; }
+
+/* ── Segmented toggle group — replaces ToggleButton bar ── */
+.segmented {
+    -fx-spacing: 2;
+    -fx-background-color: -color-surface-2;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-border-color: -color-border;
+    -fx-padding: 3;
+}
+.segmented .seg-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: -color-text-2;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: transparent;
+    -fx-padding: 6 14;
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+    -fx-cursor: hand;
+}
+.segmented .seg-btn:hover    { -fx-background-color: -color-surface; -fx-text-fill: -color-text-1; }
+.segmented .seg-btn:selected { -fx-background-color: -color-accent-soft; -fx-text-fill: -color-accent; -fx-border-color: -color-accent-a25; -fx-border-width: 1; }
 
 /* ═══════════════════════════════════════════════
    TABLES
@@ -757,6 +838,34 @@
 }
 .rate-grid .label { -fx-text-fill: -color-text-2; }
 
+/* ═══════════════════════════════════════════════
+   PROGRESS
+   ═══════════════════════════════════════════════ */
+.progress-bar {
+    -fx-pref-height: 6;
+    -fx-background-radius: 4;
+    -fx-background-color: transparent;
+    -fx-padding: 1;
+}
+.progress-bar > .track {
+    -fx-background-color: -color-surface-3;
+    -fx-background-radius: 4;
+}
+.progress-bar > .bar {
+    -fx-background-color: linear-gradient(to right, -color-accent-strong, -color-accent);
+    -fx-background-radius: 4;
+}
+.progress-bar.bar-danger > .bar { -fx-background-color: -color-danger; }
+.progress-bar.bar-warn   > .bar { -fx-background-color: -color-warning; }
+.progress-bar.bar-info   > .bar { -fx-background-color: -color-info; }
+
+.progress-indicator .percentage     { -fx-fill: -color-text-1; -fx-font-size: 12px; -fx-font-weight: 700; }
+.progress-indicator .progress       { -fx-background-color: -color-accent; }
+.progress-indicator .indicator      { -fx-background-color: -color-surface-3; }
+.progress-indicator .tick           { -fx-fill: -color-accent; }
+.progress-indicator .segment        { -fx-fill: -color-surface-3; }
+.progress-indicator .segment-fill   { -fx-fill: -color-accent; }
+
 /* Autocomplete dropdown item */
 .autocomplete-item {
     -fx-padding: 5 10;
@@ -772,6 +881,54 @@
     -fx-font-size: 11px;
     -fx-font-weight: 800;
 }
+.badge-success { -fx-background-color: -color-accent-soft; }
+.badge-success > .label { -fx-text-fill: -color-success; -fx-font-size: 11px; -fx-font-weight: 800; }
+.badge-warn    { -fx-background-color: -color-warning-a12; }
+.badge-warn > .label    { -fx-text-fill: -color-warning; -fx-font-size: 11px; -fx-font-weight: 800; }
+.badge-danger  { -fx-background-color: -color-danger-a15; }
+.badge-danger > .label  { -fx-text-fill: -color-danger;  -fx-font-size: 11px; -fx-font-weight: 800; }
+.badge-info    { -fx-background-color: -color-info-a12; }
+.badge-info > .label    { -fx-text-fill: -color-info;    -fx-font-size: 11px; -fx-font-weight: 800; }
+
+/* ── Delta badge — signed change pill (pos/neg) ── */
+.delta-badge {
+    -fx-background-radius: 20;
+    -fx-padding: 3 8;
+    -fx-font-size: 11px;
+    -fx-font-weight: 800;
+}
+.delta-badge.pos { -fx-background-color: -color-accent-soft; -fx-text-fill: -color-success; }
+.delta-badge.neg { -fx-background-color: -color-danger-a15;  -fx-text-fill: -color-danger; }
+
+/* ── Toast / Snackbar ── */
+.toast-container {
+    -fx-padding: 16;
+    -fx-spacing: 8;
+    -fx-alignment: BOTTOM_RIGHT;
+    -fx-fill-width: false;
+}
+.toast {
+    -fx-background-color: -color-surface-2;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-border-color: -color-border-strong;
+    -fx-border-width: 1;
+    -fx-padding: 12 16;
+    -fx-spacing: 10;
+    -fx-alignment: CENTER_LEFT;
+    -fx-max-width: 380;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 14, 0, 0, 4);
+}
+.toast .toast-icon  { -fx-font-size: 15px; }
+.toast .toast-msg   { -fx-text-fill: -color-text-1; -fx-font-size: 13px; -fx-font-weight: 600; -fx-wrap-text: true; }
+.toast-success { -fx-border-color: -color-success -color-border-strong -color-border-strong -color-border-strong; -fx-border-width: 2 1 1 1; }
+.toast-success .toast-icon { -fx-text-fill: -color-success; }
+.toast-error   { -fx-border-color: -color-danger  -color-border-strong -color-border-strong -color-border-strong; -fx-border-width: 2 1 1 1; }
+.toast-error   .toast-icon { -fx-text-fill: -color-danger; }
+.toast-warn    { -fx-border-color: -color-warning -color-border-strong -color-border-strong -color-border-strong; -fx-border-width: 2 1 1 1; }
+.toast-warn    .toast-icon { -fx-text-fill: -color-warning; }
+.toast-info    { -fx-border-color: -color-info    -color-border-strong -color-border-strong -color-border-strong; -fx-border-width: 2 1 1 1; }
+.toast-info    .toast-icon { -fx-text-fill: -color-info; }
 
 /* ── Info chip — small key/value pair ── */
 .info-chip {
@@ -889,8 +1046,30 @@
 .date-picker-popup .next-month       { -fx-text-fill: -color-text-3; }
 
 /* ═══════════════════════════════════════════════
+   OVERLAY DIM
+   ═══════════════════════════════════════════════ */
+.overlay-dim {
+    -fx-background-color: rgba(0,0,0,0.55);
+}
+
+/* ═══════════════════════════════════════════════
    DARK DIALOG (Tab-based — InvestmentTypeDialog)
    ═══════════════════════════════════════════════ */
+/* Dialog header row (title + close btn) */
+.dialog-header-row {
+    -fx-background-color: -color-surface;
+    -fx-padding: 14 16 14 20;
+    -fx-spacing: 8;
+    -fx-alignment: CENTER_LEFT;
+    -fx-border-color: transparent transparent -color-border transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.dialog-title-label {
+    -fx-font-size: 15px;
+    -fx-font-weight: 800;
+    -fx-text-fill: -color-text-1;
+}
+
 .dark-dialog                                         { -fx-background-color: -color-bg-0; }
 .dark-dialog > .content                              { -fx-background-color: -color-bg-0; -fx-padding: 0; }
 .dark-dialog .button-bar                             { -fx-background-color: -color-bg-1; -fx-padding: 10 14; -fx-border-color: -color-border; -fx-border-width: 1 0 0 0; }
@@ -950,7 +1129,7 @@
 }
 .bench-toggle:hover    { -fx-background-color: -color-surface-2; -fx-text-fill: -color-text-1; }
 .bench-toggle:pressed  { -fx-background-color: -color-surface-3; }
-.bench-toggle:selected { -fx-background-color: -color-accent-soft; -fx-text-fill: -color-accent; -fx-border-color: rgba(34,197,94,0.30); }
+.bench-toggle:selected { -fx-background-color: -color-accent-soft; -fx-text-fill: -color-accent; -fx-border-color: -color-accent-glow; }
 
 /* Period filter toggles (1M, 3M, 6M, …) */
 .filter-toggle {
@@ -1069,6 +1248,8 @@
     -fx-font-weight: 900;
     -fx-text-fill: -color-text-1;
 }
+.kpi-card .kpi-value.pos { -fx-text-fill: -color-success; }
+.kpi-card .kpi-value.neg { -fx-text-fill: -color-danger; }
 .kpi-card .kpi-sub {
     -fx-font-size: 11px;
     -fx-text-fill: -color-text-3;
@@ -1118,4 +1299,22 @@
 .compact .page-root {
     -fx-padding: 16 18 20 18;
     -fx-spacing: 16;
+}
+
+/* ═══════════════════════════════════════════════
+   ICON-COMPACT — Sidebar collapses to icons only
+   ═══════════════════════════════════════════════ */
+.icon-compact .sidebar {
+    -fx-pref-width: 64;
+    -fx-min-width: 64;
+    -fx-max-width: 64;
+}
+.icon-compact .sidebar-brand { -fx-padding: 16 8; }
+.icon-compact .sidebar-title { -fx-visible: false; -fx-managed: false; }
+.icon-compact .sidebar-sub   { -fx-visible: false; -fx-managed: false; }
+.icon-compact .sidebar-footer-version { -fx-visible: false; -fx-managed: false; }
+.icon-compact .sidebar .nav-btn {
+    -fx-padding: 10 0;
+    -fx-alignment: CENTER;
+    -fx-graphic-text-gap: 0;
 }

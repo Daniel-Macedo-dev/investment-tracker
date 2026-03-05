@@ -30,12 +30,12 @@ public final class DiversificationPage implements Page {
     private final ScrollPane scrollPane = new ScrollPane();
 
     private final ToggleGroup methodGroup = new ToggleGroup();
-    private final RadioButton arcaRadio = new RadioButton("Método ARCA (Primo Rico)");
-    private final RadioButton customRadio = new RadioButton("Personalizado");
+    private final ToggleButton arcaRadio = new ToggleButton("ARCA (Primo Rico)");
+    private final ToggleButton customRadio = new ToggleButton("Personalizado");
 
     private final ToggleGroup calculationTypeGroup = new ToggleGroup();
-    private final RadioButton rebalanceByContributionRadio = new RadioButton("Rebalancear por Aporte");
-    private final RadioButton rebalanceByTargetRadio = new RadioButton("Patrimônio Alvo");
+    private final ToggleButton rebalanceByContributionRadio = new ToggleButton("Rebalancear por Aporte");
+    private final ToggleButton rebalanceByTargetRadio = new ToggleButton("Patrimônio Alvo");
 
     private final TextField targetPatrimonyField = new TextField();
     private final VBox customInputsBox = new VBox(12);
@@ -109,29 +109,35 @@ public final class DiversificationPage implements Page {
 
         rebalanceByContributionRadio.setToggleGroup(calculationTypeGroup);
         rebalanceByTargetRadio.setToggleGroup(calculationTypeGroup);
+        rebalanceByContributionRadio.getStyleClass().add("seg-btn");
+        rebalanceByTargetRadio.getStyleClass().add("seg-btn");
         rebalanceByContributionRadio.setSelected(true);
 
-        Label contributionHint = new Label("💰 Recomenda apenas APORTES nas categorias abaixo do ideal (sem vender)");
-        contributionHint.getStyleClass().add("text-helper");
+        HBox segCalc = new HBox(2, rebalanceByContributionRadio, rebalanceByTargetRadio);
+        segCalc.getStyleClass().add("segmented");
 
-        Label targetHint = new Label("🎯 Calcula quanto aportar em cada categoria para atingir um patrimônio alvo");
-        targetHint.getStyleClass().add("text-helper");
+        Label hint = new Label("Recomenda aportes nas categorias abaixo do ideal (sem vender)");
+        hint.getStyleClass().add("text-helper");
+        hint.setWrapText(true);
 
-        // Campo de patrimônio alvo (visível apenas no modo alvo)
         Label targetLabel = new Label("Patrimônio Alvo:");
         targetLabel.getStyleClass().addAll("text-bold", "text-sm");
         targetPatrimonyField.setPromptText("R$ 100.000,00");
         targetPatrimonyField.setTextFormatter(Money.currencyFormatterEditable());
         Money.applyFormatOnBlur(targetPatrimonyField);
 
-        VBox targetBox = new VBox(8, targetLabel, targetPatrimonyField, targetHint);
+        VBox targetBox = new VBox(8, targetLabel, targetPatrimonyField);
         targetBox.setVisible(false);
         targetBox.setManaged(false);
 
         calculationTypeGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) { if (oldVal != null) oldVal.setSelected(true); return; }
             boolean isTarget = newVal == rebalanceByTargetRadio;
             targetBox.setVisible(isTarget);
             targetBox.setManaged(isTarget);
+            hint.setText(isTarget
+                    ? "Calcula quanto aportar em cada categoria para atingir um patrimônio alvo"
+                    : "Recomenda aportes nas categorias abaixo do ideal (sem vender)");
             refreshData();
         });
 
@@ -139,14 +145,7 @@ public final class DiversificationPage implements Page {
         recalculateBtn.getStyleClass().add("button");
         recalculateBtn.setOnAction(e -> refreshData());
 
-        VBox contributeOption = new VBox(4, rebalanceByContributionRadio, contributionHint);
-        contributeOption.getStyleClass().add("option-block");
-
-        VBox targetOption = new VBox(6, rebalanceByTargetRadio, targetBox);
-        targetOption.getStyleClass().add("option-block");
-
-        box.getChildren().addAll(title, contributeOption, targetOption, recalculateBtn);
-
+        box.getChildren().addAll(title, segCalc, hint, targetBox, recalculateBtn);
         return box;
     }
 
@@ -159,9 +158,14 @@ public final class DiversificationPage implements Page {
 
         arcaRadio.setToggleGroup(methodGroup);
         customRadio.setToggleGroup(methodGroup);
+        arcaRadio.getStyleClass().add("seg-btn");
+        customRadio.getStyleClass().add("seg-btn");
         arcaRadio.setSelected(true);
 
-        Label arcaHint = new Label("📊 Renda Fixa 40% • Ações 30% • Outros 25% • Cripto 5%");
+        HBox segMethod = new HBox(2, arcaRadio, customRadio);
+        segMethod.getStyleClass().add("segmented");
+
+        Label arcaHint = new Label("Renda Fixa 40% • Ações 30% • Outros 25% • Cripto 5%");
         arcaHint.getStyleClass().add("text-helper");
 
         buildCustomInputs();
@@ -169,19 +173,16 @@ public final class DiversificationPage implements Page {
         customInputsBox.setManaged(false);
 
         methodGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) { if (oldVal != null) oldVal.setSelected(true); return; }
             boolean isCustom = newVal == customRadio;
             customInputsBox.setVisible(isCustom);
             customInputsBox.setManaged(isCustom);
+            arcaHint.setVisible(!isCustom);
+            arcaHint.setManaged(!isCustom);
             refreshData();
         });
 
-        VBox arcaOption = new VBox(4, arcaRadio, arcaHint);
-        arcaOption.getStyleClass().add("option-block");
-
-        VBox customOption = new VBox(4, customRadio, customInputsBox);
-        customOption.getStyleClass().add("option-block");
-
-        box.getChildren().addAll(title, arcaOption, customOption);
+        box.getChildren().addAll(title, segMethod, arcaHint, customInputsBox);
         return box;
     }
 
@@ -225,7 +226,7 @@ public final class DiversificationPage implements Page {
 
     private VBox buildPatrimonyCard() {
         VBox box = new VBox(6);
-        box.getStyleClass().add("kpi-card");
+        box.getStyleClass().add("hero-card");
 
         Label title = new Label("PATRIMÔNIO ATUAL");
         title.getStyleClass().add("kpi-label");
@@ -276,6 +277,21 @@ public final class DiversificationPage implements Page {
 
         TableColumn<AllocationRow, String> percentCol = new TableColumn<>("%");
         percentCol.setCellValueFactory(c -> c.getValue().percentageProperty());
+        percentCol.setCellFactory(col -> new TableCell<>() {
+            private final ProgressBar bar = new ProgressBar(0);
+            { bar.setPrefHeight(4); bar.setMaxWidth(Double.MAX_VALUE); }
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) { setGraphic(null); } else {
+                    try { bar.setProgress(Double.parseDouble(item.replace("%","").trim()) / 100.0); }
+                    catch (Exception ignored) { bar.setProgress(0); }
+                    Label lbl = new Label(item);
+                    VBox cell = new VBox(2, lbl, bar);
+                    setGraphic(cell); setText(null);
+                }
+            }
+        });
 
         currentTable.getColumns().setAll(catCol, valueCol, percentCol);
         Label currentPh = new Label("Nenhum dado disponível");
@@ -324,6 +340,21 @@ public final class DiversificationPage implements Page {
 
         TableColumn<AllocationRow, String> percentCol = new TableColumn<>("%");
         percentCol.setCellValueFactory(c -> c.getValue().percentageProperty());
+        percentCol.setCellFactory(col -> new TableCell<>() {
+            private final ProgressBar bar = new ProgressBar(0);
+            { bar.setPrefHeight(4); bar.setMaxWidth(Double.MAX_VALUE); }
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) { setGraphic(null); } else {
+                    try { bar.setProgress(Double.parseDouble(item.replace("%","").trim()) / 100.0); }
+                    catch (Exception ignored) { bar.setProgress(0); }
+                    Label lbl = new Label(item);
+                    VBox cell = new VBox(2, lbl, bar);
+                    setGraphic(cell); setText(null);
+                }
+            }
+        });
 
         idealTable.getColumns().setAll(catCol, valueCol, percentCol);
         Label idealPh = new Label("Selecione um método");
@@ -337,10 +368,10 @@ public final class DiversificationPage implements Page {
 
     private VBox buildSuggestionsTable() {
         VBox box = new VBox(10);
-        box.getStyleClass().add("kpi-card");
+        box.getStyleClass().add("card");
 
         Label title = new Label("SUGESTÕES DE APORTE");
-        title.getStyleClass().add("kpi-label");
+        title.getStyleClass().add("card-title");
 
         suggestionsTable.getStyleClass().add("table-analytic");
         suggestionsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);

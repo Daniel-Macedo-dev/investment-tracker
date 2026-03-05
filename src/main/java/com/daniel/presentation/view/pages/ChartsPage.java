@@ -23,6 +23,7 @@ public final class ChartsPage implements Page {
 
     private final ComboBox<InvestmentType> picker = new ComboBox<>();
     private final ComboBox<Integer> range = new ComboBox<>();
+    private VBox noDataOverlay;
 
     private final CategoryAxis x = new CategoryAxis();
     private final NumberAxis y = new NumberAxis();
@@ -91,12 +92,34 @@ public final class ChartsPage implements Page {
         chart.setCreateSymbols(true);
         chart.setMinHeight(420);
 
+        // No-data overlay
+        noDataOverlay = new VBox(8);
+        noDataOverlay.getStyleClass().add("empty-state");
+        noDataOverlay.setAlignment(javafx.geometry.Pos.CENTER);
+        noDataOverlay.setPickOnBounds(false);
+        Label noDataIcon = new Label("📉");
+        noDataIcon.getStyleClass().add("empty-icon");
+        Label noDataTitle = new Label("Nenhum dado disponível");
+        noDataTitle.getStyleClass().add("empty-title");
+        Label noDataHint = new Label("Selecione um ativo com entradas registradas");
+        noDataHint.getStyleClass().add("empty-hint");
+        noDataOverlay.getChildren().addAll(noDataIcon, noDataTitle, noDataHint);
+        noDataOverlay.setVisible(false);
+        noDataOverlay.setManaged(false);
+
+        StackPane chartStack = new StackPane(chart, noDataOverlay);
+        VBox.setVgrow(chartStack, Priority.ALWAYS);
+
         VBox chartCard = new VBox(8);
         chartCard.getStyleClass().add("chart-card");
+
+        HBox chartHeader = new HBox();
+        chartHeader.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         Label chartTitle = new Label("EVOLUÇÃO DO VALOR");
         chartTitle.getStyleClass().add("card-title");
-        VBox.setVgrow(chart, Priority.ALWAYS);
-        chartCard.getChildren().addAll(chartTitle, chart);
+        chartHeader.getChildren().add(chartTitle);
+
+        chartCard.getChildren().addAll(chartHeader, chartStack);
         VBox.setVgrow(chartCard, Priority.ALWAYS);
 
         root.getChildren().addAll(header, pickerToolbar, chartCard);
@@ -123,10 +146,18 @@ public final class ChartsPage implements Page {
         reload();
     }
 
+    private void setNoDataVisible(boolean visible) {
+        if (noDataOverlay != null) {
+            noDataOverlay.setVisible(visible);
+            noDataOverlay.setManaged(visible);
+        }
+    }
+
     private void reload() {
         InvestmentType t = picker.getValue();
         if (t == null) {
             chart.getData().clear();
+            setNoDataVisible(true);
             return;
         }
 
@@ -137,6 +168,13 @@ public final class ChartsPage implements Page {
             points = new ArrayList<>(points.subList(points.size() - days, points.size()));
         }
 
+        if (points.isEmpty()) {
+            chart.getData().clear();
+            setNoDataVisible(true);
+            return;
+        }
+
+        setNoDataVisible(false);
         XYChart.Series<String, Number> s = new XYChart.Series<>();
         s.setName(t.name());
 

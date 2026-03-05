@@ -402,7 +402,7 @@ public final class SimulationPage implements Page {
 
     private VBox buildResultCard() {
         VBox box = new VBox(8);
-        box.getStyleClass().add("hero-card");
+        box.getStyleClass().add("result-card");
 
         Label title = new Label("RESULTADO DA SIMULAÇÃO");
         title.getStyleClass().add("kpi-label");
