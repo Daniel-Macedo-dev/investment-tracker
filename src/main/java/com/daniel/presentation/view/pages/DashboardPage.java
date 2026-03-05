@@ -1,6 +1,7 @@
 package com.daniel.presentation.view.pages;
 
 import com.daniel.core.domain.entity.InvestmentType;
+import com.daniel.core.domain.entity.Transaction;
 import com.daniel.core.domain.entity.Enums.CategoryEnum;
 import com.daniel.core.service.DailyTrackingUseCase;
 import com.daniel.core.service.DiversificationCalculator;
@@ -22,6 +23,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -36,6 +38,11 @@ public final class DashboardPage implements Page {
     private final Label totalLabel = new Label("—");
     private final Label profitLabel = new Label("—");
     private final Label cdiComparisonLabel = new Label("—");
+
+    private final ProgressBar healthBar = new ProgressBar(0);
+    private final Label healthScoreLabel = new Label("—");
+    private final Label healthDescLabel = new Label("Carregando...");
+    private final VBox recentActivityList = new VBox(6);
 
     private final PieChart pieChart = new PieChart();
     private final BarChart<String, Number> waterfallChart;
@@ -95,10 +102,10 @@ public final class DashboardPage implements Page {
         PageHeader header = new PageHeader("Dashboard", "Resumo do seu portfólio de investimentos");
 
         HBox cards = new HBox(12,
-                kpiCard("Data", dateLabel),
-                kpiCard("Patrimônio Total", totalLabel),
-                kpiCard("Lucro / Prejuízo", profitLabel),
-                kpiCard("vs CDI", cdiComparisonLabel)
+                kpiCard("📅", "Data", dateLabel, null),
+                kpiCard("💰", "Patrimônio Total", totalLabel, null),
+                kpiCard("📈", "Lucro / Prejuízo", profitLabel, null),
+                kpiCard("📊", "vs CDI", cdiComparisonLabel, null)
         );
         cards.getStyleClass().add("dashboard-kpi-row");
 
@@ -152,7 +159,11 @@ public final class DashboardPage implements Page {
         tokenWarningBanner.setVisible(false);
         tokenWarningBanner.setManaged(false);
 
-        root.getChildren().addAll(header, tokenWarningBanner, cards, h2, chartsRow, comparisonBox, investmentsByCategoryContainer);
+        HBox extraRow = new HBox(12, buildHealthCard(), buildRecentActivityCard());
+        HBox.setHgrow(extraRow.getChildren().get(0), Priority.ALWAYS);
+        HBox.setHgrow(extraRow.getChildren().get(1), Priority.ALWAYS);
+
+        root.getChildren().addAll(header, tokenWarningBanner, cards, extraRow, h2, chartsRow, comparisonBox, investmentsByCategoryContainer);
 
         scrollPane.setContent(root);
         scrollPane.setFitToWidth(true);
@@ -208,6 +219,10 @@ public final class DashboardPage implements Page {
             waterfallChart.getData().clear();
             comparisonChart.getData().clear();
             investmentsByCategoryContainer.getChildren().clear();
+            healthBar.setProgress(0);
+            healthScoreLabel.setText("—");
+            healthDescLabel.setText("Sem investimentos cadastrados.");
+            updateRecentActivity();
             return;
         }
 
@@ -232,6 +247,8 @@ public final class DashboardPage implements Page {
         updateComparisonChart(investments, currentValues, today);
         updateInvestmentsByCategory(investments, currentValues, totalPatrimony);
         updateRankPanel(investments, currentValues);
+        updateHealthScore(investments, currentValues, totalPatrimony, totalProfit);
+        updateRecentActivity();
     }
 
     private void updateCDIComparison(LocalDate today, List<InvestmentType> investments, long totalPatrimony) {
@@ -1184,15 +1201,133 @@ public final class DashboardPage implements Page {
         };
     }
 
-    private VBox kpiCard(String title, Label value) {
-        VBox box = new VBox(8);
+    private VBox kpiCard(String icon, String title, Label value, String subText) {
+        VBox box = new VBox(6);
         box.getStyleClass().add("hero-card");
-        Label t = new Label(title);
-        t.getStyleClass().add("kpi-label");
+
+        HBox header = new HBox(6);
+        header.setAlignment(Pos.CENTER_LEFT);
+        Label iconLbl = new Label(icon);
+        iconLbl.getStyleClass().addAll("kpi-label");
+        Label titleLbl = new Label(title);
+        titleLbl.getStyleClass().add("kpi-label");
+        header.getChildren().addAll(iconLbl, titleLbl);
+
         value.getStyleClass().add("kpi-value");
-        box.getChildren().addAll(t, value);
+        box.getChildren().addAll(header, value);
+
+        if (subText != null) {
+            Label sub = new Label(subText);
+            sub.getStyleClass().add("kpi-sub");
+            box.getChildren().add(sub);
+        }
         HBox.setHgrow(box, Priority.ALWAYS);
         return box;
+    }
+
+    private VBox buildHealthCard() {
+        VBox card = new VBox(10);
+        card.getStyleClass().add("card");
+
+        Label title = new Label("SAÚDE DA CARTEIRA");
+        title.getStyleClass().add("card-title");
+
+        healthBar.setMaxWidth(Double.MAX_VALUE);
+        healthScoreLabel.getStyleClass().addAll("text-lg", "text-bold");
+        healthDescLabel.getStyleClass().add("text-helper");
+        healthDescLabel.setWrapText(true);
+
+        card.getChildren().addAll(title, healthBar, healthScoreLabel, healthDescLabel);
+        return card;
+    }
+
+    private VBox buildRecentActivityCard() {
+        VBox card = new VBox(10);
+        card.getStyleClass().add("card");
+
+        Label title = new Label("ATIVIDADE RECENTE");
+        title.getStyleClass().add("card-title");
+
+        recentActivityList.setFillWidth(true);
+        Label empty = new Label("Nenhum lançamento este mês");
+        empty.getStyleClass().add("text-helper");
+        recentActivityList.getChildren().add(empty);
+
+        card.getChildren().addAll(title, recentActivityList);
+        return card;
+    }
+
+    private void updateHealthScore(List<InvestmentType> investments, Map<Long, Long> currentValues,
+                                   long totalPatrimony, long totalProfit) {
+        int score = 0;
+        long categories = investments.stream()
+                .filter(inv -> inv.category() != null)
+                .map(InvestmentType::category)
+                .distinct().count();
+
+        if (categories >= 4) score += 30;
+        else if (categories >= 3) score += 20;
+        else if (categories >= 2) score += 10;
+
+        if (totalProfit > 0) score += 30;
+        else if (totalProfit == 0) score += 10;
+
+        if (investments.size() >= 5) score += 20;
+        else if (investments.size() >= 3) score += 10;
+
+        long withTicker = investments.stream().filter(i -> i.ticker() != null && !i.ticker().isBlank()).count();
+        long withFI = investments.stream().filter(i -> i.ticker() == null || i.ticker().isBlank()).count();
+        if (withTicker > 0 && withFI > 0) score += 20;
+        else if (withTicker > 0 || withFI > 0) score += 10;
+
+        score = Math.min(score, 100);
+        double progress = score / 100.0;
+        healthBar.setProgress(progress);
+
+        String barClass = score >= 70 ? "bar-success" : (score >= 40 ? "bar-warn" : "bar-danger");
+        healthBar.getStyleClass().removeAll("bar-success", "bar-warn", "bar-danger");
+        healthBar.getStyleClass().add(barClass);
+
+        healthScoreLabel.setText(score + " / 100");
+        healthScoreLabel.getStyleClass().removeAll("pos", "neg", "state-warning");
+        healthScoreLabel.getStyleClass().add(score >= 70 ? "pos" : (score >= 40 ? "state-warning" : "neg"));
+
+        String desc;
+        if (score >= 80) desc = "Carteira bem diversificada e saudável.";
+        else if (score >= 60) desc = "Boa diversificação — considere adicionar mais categorias.";
+        else if (score >= 40) desc = "Carteira em desenvolvimento — diversifique mais.";
+        else desc = "Carteira pouco diversificada — adicione mais ativos.";
+        healthDescLabel.setText(desc);
+    }
+
+    private void updateRecentActivity() {
+        recentActivityList.getChildren().clear();
+        List<Transaction> txs = daily.listTransactions(YearMonth.now());
+        if (txs.isEmpty()) {
+            Label empty = new Label("Nenhum lançamento este mês");
+            empty.getStyleClass().add("text-helper");
+            recentActivityList.getChildren().add(empty);
+            return;
+        }
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM");
+        txs.stream().limit(4).forEach(tx -> {
+            boolean isBuy = Transaction.BUY.equals(tx.type());
+            HBox row = new HBox(8);
+            row.setAlignment(Pos.CENTER_LEFT);
+            row.getStyleClass().add("rank-row");
+            Label typeIcon = new Label(isBuy ? "▼" : "▲");
+            typeIcon.getStyleClass().add(isBuy ? "neg" : "pos");
+            Label nameLabel = new Label(tx.name());
+            nameLabel.getStyleClass().add("text-sm");
+            Region sp = new Region();
+            HBox.setHgrow(sp, Priority.ALWAYS);
+            Label valLabel = new Label((isBuy ? "- " : "+ ") + daily.brl(tx.totalCents()));
+            valLabel.getStyleClass().addAll("text-sm", isBuy ? "neg" : "pos");
+            Label dateLabel = new Label(tx.date().format(fmt));
+            dateLabel.getStyleClass().add("text-dim-xs");
+            row.getChildren().addAll(typeIcon, nameLabel, sp, valLabel, dateLabel);
+            recentActivityList.getChildren().add(row);
+        });
     }
 
     private String formatDate(LocalDate date) {

@@ -18,7 +18,7 @@ public final class PageHeader extends VBox {
         setSpacing(4);
 
         Label h1 = new Label(title);
-        h1.getStyleClass().add("h1");
+        h1.getStyleClass().addAll("h1", "page-title");
         getChildren().add(h1);
 
         if (subtitle != null && !subtitle.isBlank()) {

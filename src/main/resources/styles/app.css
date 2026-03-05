@@ -1,8 +1,19 @@
 /* ═══════════════════════════════════════════════
+   FONTS — Inter Variable Font (rsms/inter v4.1)
+   License: SIL Open Font License 1.1 (see OFL.txt)
+   ═══════════════════════════════════════════════ */
+@font-face {
+    font-family: 'Inter';
+    src: url('../fonts/InterVariable.ttf');
+    font-weight: 100 900;
+    font-style: normal;
+}
+
+/* ═══════════════════════════════════════════════
    ROOT — Design Tokens + JavaFX Overrides
    ═══════════════════════════════════════════════ */
 .root {
-    -fx-font-family: "Segoe UI";
+    -fx-font-family: "Inter";
 
     /* Backgrounds */
     -color-bg-0: #0B1220;
@@ -65,31 +76,47 @@
 }
 
 /* ═══════════════════════════════════════════════
-   TYPOGRAPHY
+   TYPOGRAPHY — Inter Variable Font scale
+   Weight axis: 400 body · 500 medium · 600 semibold
+                700 bold · 800 extrabold · 900 black
    ═══════════════════════════════════════════════ */
 .label    { -fx-text-fill: -color-text-1; }
-.h1       { -fx-font-size: 24px; -fx-font-weight: 900; -fx-text-fill: -color-text-1; }
+
+/* Page title (used by PageHeader) */
+.page-title {
+    -fx-font-size: 22px;
+    -fx-font-weight: 800;
+    -fx-text-fill: -color-text-1;
+}
+
+/* Legacy .h1 alias */
+.h1 { -fx-font-size: 22px; -fx-font-weight: 800; -fx-text-fill: -color-text-1; }
+
 .muted    { -fx-text-fill: -color-text-2; }
 
-/* Page subtitle — sits below .h1 */
+/* Page subtitle — sits below page title */
 .page-subtitle {
     -fx-font-size: 13px;
+    -fx-font-weight: 400;
     -fx-text-fill: -color-text-2;
     -fx-padding: 2 0 0 0;
 }
 
-.section-title  { -fx-font-size: 13px; -fx-font-weight: 900; -fx-text-fill: -color-text-1; -fx-padding: 4 0 2 0; }
-.section-header { -fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: -color-text-1; }
+.section-title  { -fx-font-size: 13px; -fx-font-weight: 700; -fx-text-fill: -color-text-1; -fx-padding: 4 0 2 0; }
+.section-header { -fx-font-size: 15px; -fx-font-weight: 600; -fx-text-fill: -color-text-1; }
 
-/* Scale */
-.text-xs     { -fx-font-size: 11px; }
-.text-sm     { -fx-font-size: 12px; }
-.text-lg     { -fx-font-size: 16px; -fx-font-weight: 800; }
-.text-bold   { -fx-font-weight: 800; }
-.text-strong { -fx-font-weight: 900; -fx-text-fill: -color-text-1; }
-.text-helper { -fx-font-size: 11px; -fx-text-fill: -color-text-3; -fx-opacity: 0.85; }
-.text-dim    { -fx-font-size: 11px; -fx-opacity: 0.6; }
-.text-dim-xs { -fx-font-size: 10px; -fx-opacity: 0.5; }
+/* Body copy */
+.body { -fx-font-size: 13px; -fx-font-weight: 400; -fx-text-fill: -color-text-1; }
+
+/* Scale utilities */
+.text-xs     { -fx-font-size: 11px; -fx-font-weight: 400; }
+.text-sm     { -fx-font-size: 12px; -fx-font-weight: 400; }
+.text-lg     { -fx-font-size: 16px; -fx-font-weight: 700; }
+.text-bold   { -fx-font-weight: 700; }
+.text-strong { -fx-font-weight: 800; -fx-text-fill: -color-text-1; }
+.text-helper { -fx-font-size: 11px; -fx-font-weight: 400; -fx-text-fill: -color-text-3; -fx-opacity: 0.85; }
+.text-dim    { -fx-font-size: 11px; -fx-font-weight: 400; -fx-opacity: 0.6; }
+.text-dim-xs { -fx-font-size: 10px; -fx-font-weight: 400; -fx-opacity: 0.5; }
 
 /* State colors */
 .pos { -fx-text-fill: -color-success; }
@@ -198,6 +225,12 @@
 }
 .sidebar .nav-btn.active:hover {
     -fx-background-color: derive(-color-accent-soft, 25%);
+}
+.sidebar .nav-btn:focused {
+    -fx-border-color: transparent transparent transparent -color-accent-a45;
+    -fx-border-width: 0 0 0 3;
+    -fx-background-color: -color-surface;
+    -fx-effect: dropshadow(gaussian, -color-accent-glow, 6, 0, 0, 0);
 }
 
 /* Footer */
@@ -414,19 +447,64 @@
     -fx-background-radius: 10;
     -fx-border-radius: 10;
     -fx-border-color: -color-border-strong;
+    -fx-border-width: 1;
     -fx-padding: 9 12;
 }
 
-.text-field:focused, .combo-box-base:focused, .date-picker:focused, .choice-box:focused {
-    -fx-border-color: derive(-color-accent, -10%);
+/* Focused: single-layer background prevents Modena accent bleed */
+.text-field:focused, .text-area:focused {
+    -fx-background-color: -color-surface-2;
+    -fx-border-color: -color-accent;
+    -fx-border-width: 1.5;
+    -fx-effect: dropshadow(gaussian, -color-accent-glow, 8, 0, 0, 0);
+}
+
+.combo-box-base:focused, .date-picker:focused, .choice-box:focused {
+    -fx-background-color: -color-surface-2;
+    -fx-border-color: -color-accent;
+    -fx-border-width: 1.5;
+    -fx-effect: dropshadow(gaussian, -color-accent-glow, 8, 0, 0, 0);
+}
+
+/* Suppress the inner button-cell from inheriting any focus fill */
+.combo-box-base > .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -color-text-1;
+    -fx-padding: 0 4;
+}
+.combo-box-base:focused > .list-cell,
+.combo-box-base:hover   > .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -color-text-1;
+}
+
+/* DatePicker text field inside */
+.date-picker > .text-field {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-padding: 0 4;
+}
+.date-picker > .text-field:focused {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-effect: none;
+}
+.date-picker .arrow-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0 8 0 4;
+}
+.date-picker .arrow-button:hover {
+    -fx-background-color: -color-accent-soft;
+    -fx-background-radius: 6;
 }
 
 .text-field {
     -fx-prompt-text-fill: -color-text-3;
 }
 
-/* Monospace field (API tokens) */
-.code-field { -fx-font-family: "Courier New", monospace; }
+/* Monospace field (API tokens) — explicit override to keep monospace */
+.code-field { -fx-font-family: "Consolas", "Courier New", monospace; -fx-font-size: 12px; }
 
 /* ── Checkbox ── */
 .check-box {
@@ -528,6 +606,17 @@
     -fx-padding: 0;
 }
 .radio-chip .dot { -fx-min-width: 0; -fx-max-width: 0; -fx-pref-width: 0; }
+.radio-chip:focused {
+    -fx-border-color: -color-accent-a35;
+    -fx-effect: dropshadow(gaussian, -color-accent-glow, 6, 0, 0, 0);
+}
+
+/* ── Segmented ToggleButton focus ── */
+.segmented .seg-btn:focused {
+    -fx-border-color: -color-accent-a35;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, -color-accent-glow, 6, 0, 0, 0);
+}
 
 /* ── Option Block — selectable option with radio + description ── */
 .option-block {
@@ -612,16 +701,45 @@
 .danger-btn:hover    { -fx-background-color: -color-danger-a25; }
 .danger-btn:pressed  { -fx-background-color: -color-danger-a38; }
 
+/* ── Ikonli FontIcon color tokens ── */
+.icon         { -fx-icon-color: -color-text-1;    -fx-icon-size: 14px; }
+.icon-muted   { -fx-icon-color: -color-text-3;    -fx-icon-size: 14px; }
+.icon-accent  { -fx-icon-color: -color-accent;     -fx-icon-size: 14px; }
+.icon-danger  { -fx-icon-color: -color-danger;     -fx-icon-size: 14px; }
+.icon-warn    { -fx-icon-color: -color-warning;    -fx-icon-size: 14px; }
+.icon-success { -fx-icon-color: -color-success;    -fx-icon-size: 14px; }
+
+/* Square icon-only button */
 .icon-btn {
-    -fx-background-color: -color-surface;
+    -fx-background-color: transparent;
     -fx-text-fill: -color-text-1;
-    -fx-padding: 9 12;
-    -fx-font-weight: 700;
-    -fx-background-radius: 10;
+    -fx-padding: 7 8;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
     -fx-cursor: hand;
+    -fx-graphic-text-gap: 0;
 }
 .icon-btn:hover    { -fx-background-color: -color-surface-2; }
 .icon-btn:pressed  { -fx-background-color: -color-surface-3; }
+.icon-btn:focused  { -fx-border-color: -color-accent-a25; -fx-border-width: 1; }
+
+/* Pill button with icon + text */
+.icon-text-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: -color-text-2;
+    -fx-border-color: -color-border-strong;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 6 12;
+    -fx-font-size: 12px;
+    -fx-font-weight: 600;
+    -fx-cursor: hand;
+    -fx-graphic-text-gap: 6;
+}
+.icon-text-btn:hover   { -fx-background-color: -color-surface-2; -fx-text-fill: -color-text-1; -fx-border-color: -color-border-strong; }
+.icon-text-btn:pressed { -fx-background-color: -color-surface-3; }
+.icon-text-btn:focused { -fx-border-color: -color-accent-a25; -fx-border-width: 1; }
 
 .secondary-btn {
     -fx-background-color: -color-accent-soft;
@@ -648,6 +766,20 @@
 }
 .sell-btn:hover    { -fx-background-color: -color-warning-a22; }
 .sell-btn:pressed  { -fx-background-color: -color-warning-a32; }
+
+/* ── Row action buttons (portfolio table) ── */
+.sell-action-btn {
+    -fx-text-fill: -color-warning;
+    -fx-border-color: -color-warning-a30;
+    -fx-background-color: transparent;
+}
+.sell-action-btn:hover  { -fx-background-color: -color-warning-a12; -fx-text-fill: -color-warning; }
+.sell-action-btn:pressed { -fx-background-color: -color-warning-a22; }
+
+.danger-icon-btn { -fx-border-color: -color-danger-a25; }
+.danger-icon-btn:hover   { -fx-background-color: -color-danger-a15; }
+.danger-icon-btn:pressed { -fx-background-color: -color-danger-a25; }
+.danger-icon-btn .icon-danger { -fx-icon-color: -color-danger; }
 
 /* ── Segmented toggle group — replaces ToggleButton bar ── */
 .segmented {
@@ -1010,8 +1142,11 @@
 .combo-box-popup .list-cell:hover          { -fx-background-color: -color-surface-2; }
 .combo-box-popup .list-cell:filled:selected { -fx-background-color: -color-accent-soft; -fx-text-fill: -color-accent; }
 
-.combo-box-base .arrow-button { -fx-background-color: transparent; -fx-padding: 0 8 0 4; }
-.combo-box-base .arrow        { -fx-background-color: -color-text-3; }
+.combo-box-base .arrow-button              { -fx-background-color: transparent; -fx-padding: 0 8 0 4; -fx-background-radius: 0 8 8 0; }
+.combo-box-base .arrow-button:hover        { -fx-background-color: -color-accent-soft; }
+.combo-box-base:focused .arrow-button      { -fx-background-color: transparent; }
+.combo-box-base .arrow                     { -fx-background-color: -color-text-3; -fx-scale-x: 0.9; -fx-scale-y: 0.9; }
+.combo-box-base:focused .arrow             { -fx-background-color: -color-accent; }
 
 /* ═══════════════════════════════════════════════
    POPUPS — DatePicker
@@ -1254,6 +1389,50 @@
     -fx-font-size: 11px;
     -fx-text-fill: -color-text-3;
 }
+
+/* ── Details panel — appears below table on row selection ── */
+.details-card {
+    -fx-background-color: -color-surface;
+    -fx-background-radius: 14;
+    -fx-border-radius: 14;
+    -fx-border-color: -color-accent-a25;
+    -fx-border-width: 1;
+    -fx-padding: 18 22;
+    -fx-spacing: 10;
+    -fx-effect: dropshadow(gaussian, -color-accent-glow, 10, 0, 0, 0);
+}
+.details-name {
+    -fx-font-size: 17px;
+    -fx-font-weight: 800;
+    -fx-text-fill: -color-text-1;
+}
+.details-ticker {
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -color-accent;
+    -fx-background-color: -color-accent-soft;
+    -fx-background-radius: 6;
+    -fx-padding: 2 8;
+}
+.details-field-value {
+    -fx-font-size: 13px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -color-text-1;
+}
+.details-grid  { -fx-spacing: 6; }
+.details-actions { -fx-spacing: 10; -fx-padding: 6 0 0 0; }
+
+/* ── Mini KPI card — inline toolbar metric ── */
+.kpi-mini-card {
+    -fx-background-color: -color-surface;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-border-color: -color-border;
+    -fx-padding: 6 14;
+    -fx-min-width: 90;
+}
+.kpi-mini-label { -fx-font-size: 10px; -fx-font-weight: 700; -fx-text-fill: -color-text-3; }
+.kpi-mini-value { -fx-font-size: 14px; -fx-font-weight: 800; -fx-text-fill: -color-text-1; }
 
 /* ═══════════════════════════════════════════════
    COMPACT — Narrow breakpoint (window < 1100px)

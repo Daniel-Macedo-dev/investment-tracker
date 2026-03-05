@@ -6,6 +6,7 @@ import com.daniel.core.domain.entity.Enums.InvestmentTypeEnum;
 import com.daniel.core.domain.entity.Enums.IndexTypeEnum;
 import com.daniel.core.util.Money;
 import com.daniel.infrastructure.api.BrapiClient;
+import com.daniel.presentation.view.components.ToastHost;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -96,7 +97,25 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         Tab tab2 = new Tab("Tipo & Rentabilidade", buildTypeTab());
         tabPane.getTabs().addAll(tab1, tab2);
 
-        getDialogPane().setContent(tabPane);
+        // ── Dialog header with title + close button ──
+        Label titleLabel = new Label(title);
+        titleLabel.getStyleClass().add("dialog-title-label");
+        Button closeBtn = new Button("✕");
+        closeBtn.getStyleClass().add("icon-btn");
+        closeBtn.setOnAction(e -> close());
+        Region headerSpacer = new Region();
+        HBox.setHgrow(headerSpacer, Priority.ALWAYS);
+        HBox headerRow = new HBox(titleLabel, headerSpacer, closeBtn);
+        headerRow.getStyleClass().add("dialog-header-row");
+
+        VBox dialogContent = new VBox(0, headerRow, tabPane);
+        getDialogPane().setContent(dialogContent);
+
+        // ── Dim overlay lifecycle ──
+        showingProperty().addListener((obs, wasShowing, isShowing) -> {
+            if (isShowing) ToastHost.showDim();
+            else ToastHost.hideDim();
+        });
 
         if (existing != null) {
             fillExistingData(existing);

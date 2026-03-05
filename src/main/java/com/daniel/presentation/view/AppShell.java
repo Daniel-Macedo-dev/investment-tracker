@@ -1,6 +1,7 @@
 package com.daniel.presentation.view;
 
 import com.daniel.core.service.DailyTrackingUseCase;
+import com.daniel.presentation.view.components.ToastHost;
 import com.daniel.presentation.view.pages.*;
 import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
@@ -39,6 +40,10 @@ public final class AppShell {
         root.setLeft(sidebar());
         root.setCenter(content);
 
+        StackPane shell = new StackPane(root);
+        shell.getStyleClass().add("app-shell");
+        ToastHost.install(shell);
+
         root.sceneProperty().addListener((obs, oldScene, newScene) -> {
             if (newScene != null) {
                 applyCompact(root, newScene.getWidth());
@@ -48,7 +53,7 @@ public final class AppShell {
         });
 
         go("Dashboard");
-        return root;
+        return shell;
     }
 
     private static void applyCompact(BorderPane root, double width) {

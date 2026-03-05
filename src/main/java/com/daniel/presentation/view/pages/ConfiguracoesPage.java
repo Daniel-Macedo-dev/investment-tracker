@@ -4,6 +4,7 @@ import com.daniel.infrastructure.api.BcbClient;
 import com.daniel.infrastructure.api.BrapiClient;
 import com.daniel.infrastructure.persistence.repository.AppSettingsRepository;
 import com.daniel.presentation.view.PageHeader;
+import com.daniel.presentation.view.components.ToastHost;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -214,9 +215,11 @@ public final class ConfiguracoesPage implements Page {
                     if (ok) {
                         tokenStatusLabel.setText("Token válido! Conexão estabelecida com sucesso.");
                         setTokenStatusClass("status-success");
+                        ToastHost.showSuccess("Token Brapi válido!");
                     } else {
                         tokenStatusLabel.setText("Token inválido ou sem conexão com a Brapi.");
                         setTokenStatusClass("status-danger");
+                        ToastHost.showError("Token inválido ou sem conexão.");
                     }
                 }));
     }
@@ -237,16 +240,7 @@ public final class ConfiguracoesPage implements Page {
         settings.set("brapi_auto_update", String.valueOf(autoUpdateCheckbox.isSelected()));
 
         updateTokenStatus(token);
-
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Configurações Salvas");
-        alert.setHeaderText(null);
-        alert.setContentText("Configurações salvas com sucesso!");
-        try {
-            alert.getDialogPane().getStylesheets().add(
-                    getClass().getResource("/styles/app.css").toExternalForm());
-        } catch (Exception ignored) {}
-        alert.showAndWait();
+        ToastHost.showSuccess("Configurações salvas com sucesso!");
     }
 
     private void fetchBcbRates(Button btn) {
@@ -284,8 +278,10 @@ public final class ConfiguracoesPage implements Page {
                 String now = LocalDateTime.now().format(DT_FMT);
                 settings.set("rate_last_update", now);
                 bcbLastUpdateLabel.setText("Atualizado em: " + now);
+                ToastHost.showSuccess("Taxas BCB atualizadas!");
             } else {
                 bcbLastUpdateLabel.setText("Falha ao buscar taxas. Verifique sua conexão.");
+                ToastHost.showError("Falha ao buscar taxas do BCB.");
             }
         }));
     }
