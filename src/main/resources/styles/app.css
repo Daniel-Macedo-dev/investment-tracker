@@ -353,6 +353,7 @@
     -fx-padding: 10 14;
     -fx-spacing: 10;
     -fx-alignment: CENTER_LEFT;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.22), 5, 0, 0, 1);
 }
 
 /* ── Header row — title + spacer + actions ── */
@@ -945,7 +946,7 @@
     -fx-text-transform: uppercase;
 }
 .table-analytic .table-row-cell:filled:odd {
-    -fx-background-color: derive(-color-surface, -2%);
+    -fx-background-color: derive(-color-surface, -4%);
 }
 .table-analytic .table-row-cell:filled:hover {
     -fx-background-color: -color-surface-3;
@@ -1356,6 +1357,12 @@
 .dark-dialog .scroll-pane > .viewport                { -fx-background-color: transparent; }
 .dark-dialog .tab-pane .tab:hover                    { -fx-background-color: -color-surface-2; -fx-background-radius: 8 8 0 0; }
 .dark-dialog .tab-pane .focus-indicator              { -fx-stroke: transparent; }
+/* Button overrides: higher specificity so primary-btn/ghost-btn beat .dialog-pane > .button-bar .button */
+.dark-dialog .button-bar .button.primary-btn         { -fx-background-color: -color-accent-strong; -fx-text-fill: white; -fx-border-color: transparent; }
+.dark-dialog .button-bar .button.primary-btn:hover   { -fx-background-color: -color-accent; }
+.dark-dialog .button-bar .button.primary-btn:pressed { -fx-background-color: derive(-color-accent-strong, -25%); }
+.dark-dialog .button-bar .button.ghost-btn           { -fx-background-color: -color-surface; -fx-text-fill: -color-text-1; -fx-border-color: -color-border-strong; }
+.dark-dialog .button-bar .button.ghost-btn:hover     { -fx-background-color: -color-surface-2; }
 
 /* ═══════════════════════════════════════════════
    DASHBOARD — KPI + Performance
@@ -1387,6 +1394,9 @@
     -fx-text-fill: -color-warning-text;
     -fx-padding: 10 14;
     -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: -color-warning-a22;
+    -fx-border-width: 1;
     -fx-font-size: 12px;
 }
 
@@ -1408,6 +1418,7 @@
 .bench-toggle:selected       { -fx-background-color: -color-accent-soft; -fx-text-fill: -color-accent; -fx-border-color: -color-accent-a35; -fx-border-width: 1; }
 .bench-toggle:selected:hover { -fx-background-color: derive(-color-accent-soft, 20%); }
 .bench-toggle:focused        { -fx-effect: dropshadow(gaussian, -color-accent-glow, 6, 0, 0, 0); }
+.bench-toggle:disabled       { -fx-opacity: 0.4; -fx-cursor: default; }
 
 /* Period filter toggles (1M, 3M, 6M, …) */
 .filter-toggle {
@@ -1427,6 +1438,7 @@
 .filter-toggle:selected       { -fx-background-color: -color-accent-soft; -fx-text-fill: -color-accent; -fx-border-color: -color-accent-a35; }
 .filter-toggle:selected:hover { -fx-background-color: derive(-color-accent-soft, 20%); }
 .filter-toggle:focused        { -fx-effect: dropshadow(gaussian, -color-accent-glow, 6, 0, 0, 0); }
+.filter-toggle:disabled       { -fx-opacity: 0.4; -fx-cursor: default; }
 
 /* Primary action button — green CTA (filter "Aplicar" + dialog confirm) */
 .primary-btn {
@@ -1908,3 +1920,30 @@
     -fx-vgap: 4;
     -fx-alignment: CENTER_LEFT;
 }
+
+/* ═══════════════════════════════════════════════
+   TASK 8 — Final consistency sweep
+   ═══════════════════════════════════════════════ */
+
+/* Missing focused states for action buttons */
+.danger-btn:focused    { -fx-effect: dropshadow(gaussian, -color-danger-a30, 7, 0, 0, 0); }
+.sell-btn:focused      { -fx-effect: dropshadow(gaussian, -color-warning-a30, 7, 0, 0, 0); }
+.secondary-btn:focused { -fx-effect: dropshadow(gaussian, -color-accent-a45, 7, 0, 0, 0); }
+
+/* table-analytic placeholder inherits transparent correctly via .table-view .placeholder,
+   but add explicit override to be safe */
+.table-analytic .placeholder { -fx-background-color: transparent; }
+
+/* Ensure bench-toggle / filter-toggle ToggleButton selected state
+   does not show a Modena inner border / focus glow on top of our CSS */
+.bench-toggle:selected:focused { -fx-effect: dropshadow(gaussian, -color-accent-glow, 8, 0, 0, 0); }
+.filter-toggle:selected:focused { -fx-effect: dropshadow(gaussian, -color-accent-glow, 8, 0, 0, 0); }
+
+/* ContextMenu separator inside autocomplete */
+.context-menu .separator .line {
+    -fx-border-color: -color-border;
+    -fx-border-width: 0 0 1 0;
+}
+
+/* Ensure dialog text-field prompt color is consistent */
+.dark-dialog .text-field { -fx-prompt-text-fill: -color-text-3; }
