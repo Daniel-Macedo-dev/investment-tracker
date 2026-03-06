@@ -13,6 +13,7 @@ import com.daniel.presentation.view.components.ToastHost;
 import com.daniel.presentation.view.util.Dialogs;
 import com.daniel.presentation.view.util.Icons;
 import com.daniel.presentation.view.util.Motion;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
@@ -21,6 +22,8 @@ import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
+import javafx.stage.StageStyle;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import java.math.BigDecimal;
@@ -639,8 +642,21 @@ public final class InvestmentTypesPage implements Page {
         dialog.setHeaderText("Venda de: " + sel.name());
         dialog.getDialogPane().getStylesheets().add(
                 getClass().getResource("/styles/app.css").toExternalForm());
-        dialog.getDialogPane().getStyleClass().add("dark-dialog");
+        dialog.getDialogPane().getStyleClass().addAll("dark-dialog", "dark-dialog-simple");
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        dialog.initStyle(StageStyle.TRANSPARENT);
+        dialog.setOnShowing(e -> {
+            javafx.scene.Scene sc = dialog.getDialogPane().getScene();
+            if (sc != null) sc.setFill(Color.TRANSPARENT);
+            ToastHost.showDim();
+        });
+        dialog.setOnHidden(e -> ToastHost.hideDim());
+        Platform.runLater(() -> {
+            Button okBtn = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
+            Button cancelBtn = (Button) dialog.getDialogPane().lookupButton(ButtonType.CANCEL);
+            if (okBtn != null) okBtn.getStyleClass().add("primary-btn");
+            if (cancelBtn != null) cancelBtn.getStyleClass().add("ghost-btn");
+        });
 
         TextField qtyField = new TextField();
         qtyField.setPromptText("Quantidade");

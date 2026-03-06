@@ -1357,6 +1357,8 @@
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.65), 36, 0.20, 0, 8);
 }
 .dark-dialog > .content { -fx-background-color: -color-bg-0; -fx-padding: 0; }
+/* Simple dark dialogs (Alert, TextInputDialog) — restore content area padding */
+.dark-dialog-simple > .content { -fx-padding: 16 20; }
 .dark-dialog .button-bar {
     -fx-background-color: -color-bg-1;
     -fx-background-radius: 0 0 12 12;

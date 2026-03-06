@@ -16,7 +16,7 @@ public final class Dialogs {
         try {
             a.getDialogPane().getStylesheets().add(
                     Dialogs.class.getResource("/styles/app.css").toExternalForm());
-            a.getDialogPane().getStyleClass().add("dark-dialog");
+            a.getDialogPane().getStyleClass().addAll("dark-dialog", "dark-dialog-simple");
             a.initStyle(StageStyle.TRANSPARENT);
             a.setOnShowing(e -> {
                 javafx.scene.Scene sc = a.getDialogPane().getScene();
@@ -31,7 +31,7 @@ public final class Dialogs {
         try {
             d.getDialogPane().getStylesheets().add(
                     Dialogs.class.getResource("/styles/app.css").toExternalForm());
-            d.getDialogPane().getStyleClass().add("dark-dialog");
+            d.getDialogPane().getStyleClass().addAll("dark-dialog", "dark-dialog-simple");
             d.initStyle(StageStyle.TRANSPARENT);
             d.setOnShowing(e -> {
                 javafx.scene.Scene sc = d.getDialogPane().getScene();
