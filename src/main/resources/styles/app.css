@@ -1043,6 +1043,10 @@
     -fx-border-color: -color-border;
     -fx-border-width: 0 0 1 0;
 }
+.separator:vertical .line {
+    -fx-border-color: -color-border;
+    -fx-border-width: 0 0 0 1;
+}
 
 /* Tooltip */
 .tooltip {
@@ -1091,10 +1095,32 @@
 .progress-indicator .segment        { -fx-fill: -color-surface-3; }
 .progress-indicator .segment-fill   { -fx-fill: -color-accent; }
 
-/* Autocomplete dropdown item */
+/* ── ContextMenu — dark popup (autocomplete + system right-click) ── */
+.context-menu {
+    -fx-background-color: -color-surface;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-border-color: -color-border-strong;
+    -fx-border-width: 1;
+    -fx-padding: 4;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 14, 0, 0, 4);
+}
+.menu-item {
+    -fx-background-color: transparent;
+    -fx-background-radius: 6;
+    -fx-padding: 0;
+}
+.menu-item:hover,
+.menu-item:focused { -fx-background-color: -color-surface-2; -fx-background-radius: 6; }
+.menu-item .label  { -fx-text-fill: -color-text-1; -fx-font-size: 13px; }
+
+/* Autocomplete item label (inside CustomMenuItem in TickerAutocompleteField) */
 .autocomplete-item {
-    -fx-padding: 5 10;
+    -fx-padding: 8 12;
+    -fx-text-fill: -color-text-1;
+    -fx-font-size: 13px;
     -fx-cursor: hand;
+    -fx-background-radius: 6;
 }
 
 /* ── Badge (colored pill) ── */
@@ -1328,6 +1354,8 @@
 .dark-dialog .tab-pane .tab-content-area             { -fx-background-color: -color-bg-0; }
 .dark-dialog .scroll-pane,
 .dark-dialog .scroll-pane > .viewport                { -fx-background-color: transparent; }
+.dark-dialog .tab-pane .tab:hover                    { -fx-background-color: -color-surface-2; -fx-background-radius: 8 8 0 0; }
+.dark-dialog .tab-pane .focus-indicator              { -fx-stroke: transparent; }
 
 /* ═══════════════════════════════════════════════
    DASHBOARD — KPI + Performance
@@ -1337,6 +1365,8 @@
 .dashboard-kpi-row {
     -fx-spacing: 14;
     -fx-padding: 0;
+    -fx-alignment: CENTER_LEFT;
+    -fx-fill-height: true;
 }
 
 /* Date chip */
@@ -1363,35 +1393,64 @@
 /* Benchmark toggles (CDI, SELIC, IPCA, IBOVESPA) */
 .bench-toggle {
     -fx-background-radius: 20;
+    -fx-border-radius: 20;
     -fx-padding: 4 14;
     -fx-font-size: 12px;
-    -fx-font-weight: bold;
+    -fx-font-weight: 700;
     -fx-background-color: -color-surface;
     -fx-text-fill: -color-text-2;
     -fx-border-color: transparent;
-    -fx-border-radius: 20;
+    -fx-border-width: 1;
     -fx-cursor: hand;
 }
-.bench-toggle:hover    { -fx-background-color: -color-surface-2; -fx-text-fill: -color-text-1; }
-.bench-toggle:pressed  { -fx-background-color: -color-surface-3; }
-.bench-toggle:selected { -fx-background-color: -color-accent-soft; -fx-text-fill: -color-accent; -fx-border-color: -color-accent-glow; }
+.bench-toggle:hover          { -fx-background-color: -color-surface-2; -fx-text-fill: -color-text-1; }
+.bench-toggle:pressed        { -fx-background-color: -color-surface-3; }
+.bench-toggle:selected       { -fx-background-color: -color-accent-soft; -fx-text-fill: -color-accent; -fx-border-color: -color-accent-a35; -fx-border-width: 1; }
+.bench-toggle:selected:hover { -fx-background-color: derive(-color-accent-soft, 20%); }
+.bench-toggle:focused        { -fx-effect: dropshadow(gaussian, -color-accent-glow, 6, 0, 0, 0); }
 
 /* Period filter toggles (1M, 3M, 6M, …) */
 .filter-toggle {
     -fx-background-radius: 10;
-    -fx-padding: 4 12;
+    -fx-border-radius: 10;
+    -fx-padding: 5 12;
     -fx-font-size: 12px;
+    -fx-font-weight: 700;
     -fx-background-color: -color-surface;
     -fx-text-fill: -color-text-2;
+    -fx-border-color: -color-border;
+    -fx-border-width: 1;
     -fx-cursor: hand;
 }
-.filter-toggle:hover    { -fx-background-color: -color-surface-2; -fx-text-fill: -color-text-1; }
-.filter-toggle:pressed  { -fx-background-color: -color-surface-3; }
-.filter-toggle:selected { -fx-background-color: -color-accent-soft; -fx-text-fill: -color-accent; }
+.filter-toggle:hover          { -fx-background-color: -color-surface-2; -fx-text-fill: -color-text-1; -fx-border-color: -color-border-strong; }
+.filter-toggle:pressed        { -fx-background-color: -color-surface-3; }
+.filter-toggle:selected       { -fx-background-color: -color-accent-soft; -fx-text-fill: -color-accent; -fx-border-color: -color-accent-a35; }
+.filter-toggle:selected:hover { -fx-background-color: derive(-color-accent-soft, 20%); }
+.filter-toggle:focused        { -fx-effect: dropshadow(gaussian, -color-accent-glow, 6, 0, 0, 0); }
 
-/* Performance metric values */
-.metric-lg       { -fx-font-weight: bold; -fx-font-size: 16px; }
-.metric-subtitle { -fx-font-size: 11px; -fx-opacity: 0.6; }
+/* Primary action button — green CTA (filter "Aplicar" + dialog confirm) */
+.primary-btn {
+    -fx-background-color: -color-accent-strong;
+    -fx-text-fill: white;
+    -fx-font-weight: 800;
+    -fx-border-color: transparent;
+}
+.primary-btn:hover   { -fx-background-color: -color-accent; }
+.primary-btn:pressed { -fx-background-color: derive(-color-accent-strong, -25%); }
+.primary-btn:focused { -fx-effect: dropshadow(gaussian, -color-accent-a45, 8, 0, 0, 0); }
+
+/* Performance metric values (dashboard chart panel) */
+.metric-lg {
+    -fx-font-family: "Bahnschrift","Segoe UI Variable Display","Segoe UI","Roboto","Arial",sans-serif;
+    -fx-font-size: 18px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -color-text-1;
+}
+.metric-subtitle {
+    -fx-font-size: 11px;
+    -fx-font-weight: 600;
+    -fx-text-fill: -color-text-3;
+}
 
 /* ═══════════════════════════════════════════════
    DASHBOARD — Investment Lists + Category Rows
