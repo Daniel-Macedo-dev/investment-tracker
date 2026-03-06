@@ -45,6 +45,11 @@ public final class InvestmentTypesPage implements Page {
     private TableColumn<InvestmentType, String> catColRef;
     private TableColumn<InvestmentType, String> liqColRef;
     private TableColumn<InvestmentType, String> dateColRef;
+    private TableColumn<InvestmentType, Void>   actionsColRef;
+
+    // Drives icon-only vs icon+text in the actions column
+    private final javafx.beans.property.SimpleObjectProperty<ContentDisplay> actionDisplay =
+            new javafx.beans.property.SimpleObjectProperty<>(ContentDisplay.LEFT);
 
     // Summary KPI labels
     private final Label kpiTotalValue   = new Label("—");
@@ -322,6 +327,10 @@ public final class InvestmentTypesPage implements Page {
                 Tooltip.install(sellBtn, new Tooltip("Registrar venda"));
                 Tooltip.install(delBtn,  new Tooltip("Excluir investimento"));
                 box.setAlignment(Pos.CENTER_LEFT);
+                // Bind content display so buttons collapse to icons at narrow widths
+                editBtn.contentDisplayProperty().bind(actionDisplay);
+                sellBtn.contentDisplayProperty().bind(actionDisplay);
+                delBtn.contentDisplayProperty().bind(actionDisplay);
                 editBtn.setOnAction(e -> {
                     table.getSelectionModel().select(getTableRow().getItem());
                     onEdit();
@@ -341,6 +350,7 @@ public final class InvestmentTypesPage implements Page {
                 setGraphic(empty ? null : box);
             }
         });
+        actionsColRef = actionsCol;
 
         VBox emptyState = new VBox(8);
         emptyState.getStyleClass().add("empty-state");
@@ -394,11 +404,18 @@ public final class InvestmentTypesPage implements Page {
         return ColorBadge.create(text, hexColor);
     }
 
-    /** Hides/shows table columns based on available width (TASK 29). */
+    /** Hides/shows table columns and collapses action buttons at narrow widths. */
     private void applyColumnWidths(double width) {
         if (liqColRef  != null) liqColRef.setVisible(width > 900);
         if (dateColRef != null) dateColRef.setVisible(width > 900);
         if (catColRef  != null) catColRef.setVisible(width > 820);
+
+        boolean compact = width < 850;
+        actionDisplay.set(compact ? ContentDisplay.GRAPHIC_ONLY : ContentDisplay.LEFT);
+        if (actionsColRef != null) {
+            actionsColRef.setMinWidth(compact ? 96 : 240);
+            actionsColRef.setPrefWidth(compact ? 106 : 250);
+        }
     }
 
     private void buildDetailsPanel() {

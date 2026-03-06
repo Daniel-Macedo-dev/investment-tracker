@@ -53,10 +53,11 @@ public final class AppShell {
         // Register callback so Settings can force-show the overlay at any time
         WelcomeOverlay.registerShowCallback(() -> showOverlay(shell));
 
-        // Show welcome on first run, but only if portfolio is empty (TASK 33)
-        boolean portfolioEmpty = daily.listTypes().isEmpty();
-        if (portfolioEmpty && WelcomeOverlay.shouldShow()) {
+        // Show welcome on first run, but only if portfolio is empty
+        if (isPortfolioEmpty() && WelcomeOverlay.shouldShow()) {
             showOverlay(shell);
+        } else if (!isPortfolioEmpty() && WelcomeOverlay.shouldShow()) {
+            ToastHost.showInfo("Abra Configurações para ver a tela de boas-vindas novamente.");
         }
 
         root.sceneProperty().addListener((obs, oldScene, newScene) -> {
@@ -71,7 +72,16 @@ public final class AppShell {
         return shell;
     }
 
+    private boolean isPortfolioEmpty() {
+        return daily.listTypes().isEmpty();
+    }
+
     private void showOverlay(StackPane shell) {
+        // Guard: prevent stacking duplicate overlays
+        boolean alreadyShowing = shell.getChildren().stream()
+                .anyMatch(n -> n.getStyleClass().contains("welcome-overlay"));
+        if (alreadyShowing) return;
+
         WelcomeOverlay welcome = new WelcomeOverlay(
                 () -> go("Cadastrar Investimento"),
                 () -> go("Configurações")

@@ -200,7 +200,10 @@ public final class ConfiguracoesPage implements Page {
 
         Button showWelcomeBtn = new Button("Mostrar tela de boas-vindas novamente");
         showWelcomeBtn.getStyleClass().add("ghost-btn");
-        showWelcomeBtn.setOnAction(e -> WelcomeOverlay.requestShow());
+        showWelcomeBtn.setOnAction(e -> {
+            WelcomeOverlay.resetShown();
+            WelcomeOverlay.requestShow();
+        });
 
         card.getChildren().addAll(title, version, new Separator(), apis, privacy, showWelcomeBtn);
         return card;
@@ -240,10 +243,13 @@ public final class ConfiguracoesPage implements Page {
         String token = tokenField.getText().trim();
         if (token.isBlank()) {
             settings.delete(BrapiClient.SETTINGS_KEY_TOKEN);
-        } else {
-            settings.set(BrapiClient.SETTINGS_KEY_TOKEN, token);
+            settings.set("brapi_auto_update", String.valueOf(autoUpdateCheckbox.isSelected()));
+            updateTokenStatus(token);
+            ToastHost.showWarn("Token removido — cotações usarão preço de compra como referência.");
+            return;
         }
 
+        settings.set(BrapiClient.SETTINGS_KEY_TOKEN, token);
         settings.set("brapi_auto_update", String.valueOf(autoUpdateCheckbox.isSelected()));
 
         updateTokenStatus(token);
