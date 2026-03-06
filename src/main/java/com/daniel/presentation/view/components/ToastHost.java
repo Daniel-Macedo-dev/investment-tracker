@@ -3,11 +3,14 @@ package com.daniel.presentation.view.components;
 import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import org.kordamp.ikonli.feather.Feather;
+import org.kordamp.ikonli.javafx.FontIcon;
 import javafx.util.Duration;
 
 /**
@@ -61,23 +64,27 @@ public final class ToastHost {
         ft.play();
     }
 
-    public static void showSuccess(String message) { show("✓", message, "toast-success"); }
-    public static void showError(String message)   { show("✕", message, "toast-error");   }
-    public static void showWarn(String message)    { show("⚠", message, "toast-warn");    }
-    public static void showInfo(String message)    { show("ℹ", message, "toast-info");    }
+    public static void showSuccess(String message) { show(iconFor(Feather.CHECK,          "icon-accent"),  message, "toast-success"); }
+    public static void showError(String message)   { show(iconFor(Feather.X,              "icon-danger"),  message, "toast-error");   }
+    public static void showWarn(String message)    { show(iconFor(Feather.ALERT_TRIANGLE, "icon-warn"),    message, "toast-warn");    }
+    public static void showInfo(String message)    { show(iconFor(Feather.INFO,           "icon-muted"),   message, "toast-info");    }
 
-    private static void show(String icon, String message, String variant) {
+    private static FontIcon iconFor(Feather f, String extraClass) {
+        FontIcon fi = new FontIcon(f);
+        fi.getStyleClass().addAll("toast-icon", extraClass);
+        fi.setIconSize(15);
+        return fi;
+    }
+
+    private static void show(Node iconNode, String message, String variant) {
         if (container == null) return;
-
-        Label iconLabel = new Label(icon);
-        iconLabel.getStyleClass().add("toast-icon");
 
         Label msgLabel = new Label(message);
         msgLabel.getStyleClass().add("toast-msg");
         msgLabel.setWrapText(true);
         msgLabel.setMaxWidth(320);
 
-        HBox toast = new HBox(10, iconLabel, msgLabel);
+        HBox toast = new HBox(10, iconNode, msgLabel);
         toast.getStyleClass().addAll("toast", variant);
         toast.setAlignment(Pos.CENTER_LEFT);
         toast.setOpacity(0);

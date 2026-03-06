@@ -1067,16 +1067,16 @@
     -fx-max-width: 380;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 14, 0, 0, 4);
 }
-.toast .toast-icon  { -fx-font-size: 15px; }
+.toast .toast-icon  { -fx-icon-size: 15px; }
 .toast .toast-msg   { -fx-text-fill: -color-text-1; -fx-font-size: 13px; -fx-font-weight: 600; -fx-wrap-text: true; }
 .toast-success { -fx-border-color: -color-success -color-border-strong -color-border-strong -color-border-strong; -fx-border-width: 2 1 1 1; }
-.toast-success .toast-icon { -fx-text-fill: -color-success; }
+.toast-success .toast-icon { -fx-icon-color: -color-success; }
 .toast-error   { -fx-border-color: -color-danger  -color-border-strong -color-border-strong -color-border-strong; -fx-border-width: 2 1 1 1; }
-.toast-error   .toast-icon { -fx-text-fill: -color-danger; }
+.toast-error   .toast-icon { -fx-icon-color: -color-danger; }
 .toast-warn    { -fx-border-color: -color-warning -color-border-strong -color-border-strong -color-border-strong; -fx-border-width: 2 1 1 1; }
-.toast-warn    .toast-icon { -fx-text-fill: -color-warning; }
+.toast-warn    .toast-icon { -fx-icon-color: -color-warning; }
 .toast-info    { -fx-border-color: -color-info    -color-border-strong -color-border-strong -color-border-strong; -fx-border-width: 2 1 1 1; }
-.toast-info    .toast-icon { -fx-text-fill: -color-info; }
+.toast-info    .toast-icon { -fx-icon-color: -color-info; }
 
 /* ── Info chip — small key/value pair ── */
 .info-chip {

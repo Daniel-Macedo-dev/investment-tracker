@@ -6,6 +6,7 @@ import com.daniel.infrastructure.persistence.repository.AppSettingsRepository;
 import com.daniel.presentation.view.PageHeader;
 import com.daniel.presentation.view.components.ToastHost;
 import com.daniel.presentation.view.components.WelcomeOverlay;
+import com.daniel.presentation.view.util.Motion;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -175,6 +176,7 @@ public final class ConfiguracoesPage implements Page {
         lbl.getStyleClass().add("kpi-label");
         valueLabel.getStyleClass().addAll("kpi-value", "state-positive");
         box.getChildren().addAll(lbl, valueLabel);
+        Motion.hoverLift(box);
         return box;
     }
 
@@ -265,17 +267,17 @@ public final class ConfiguracoesPage implements Page {
 
             if (rates[0] > 0) {
                 settings.set("rate_cdi", String.valueOf(rates[0]));
-                cdiValueLabel.setText(String.format("%.2f%%", rates[0] * 100));
+                Motion.animateLabelChange(cdiValueLabel, String.format("%.2f%%", rates[0] * 100));
                 anySuccess = true;
             }
             if (rates[1] > 0) {
                 settings.set("rate_selic", String.valueOf(rates[1]));
-                selicValueLabel.setText(String.format("%.2f%%", rates[1] * 100));
+                Motion.animateLabelChange(selicValueLabel, String.format("%.2f%%", rates[1] * 100));
                 anySuccess = true;
             }
             if (rates[2] > 0) {
                 settings.set("rate_ipca", String.valueOf(rates[2]));
-                ipcaValueLabel.setText(String.format("%.2f%%", rates[2] * 100));
+                Motion.animateLabelChange(ipcaValueLabel, String.format("%.2f%%", rates[2] * 100));
                 anySuccess = true;
             }
 
