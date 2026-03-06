@@ -1511,9 +1511,16 @@
 .icon-compact .sidebar-sub   { -fx-visible: false; -fx-managed: false; }
 .icon-compact .sidebar-footer-version { -fx-visible: false; -fx-managed: false; }
 .icon-compact .sidebar .nav-btn {
+    -fx-content-display: GRAPHIC_ONLY;
     -fx-padding: 10 0;
     -fx-alignment: CENTER;
     -fx-graphic-text-gap: 0;
+}
+.icon-compact .sidebar .nav-btn.active {
+    -fx-content-display: GRAPHIC_ONLY;
+    -fx-padding: 10 0;
+    -fx-alignment: CENTER;
+    -fx-border-width: 0 0 0 3;
 }
 
 /* ═══════════════════════════════════════════════
@@ -1608,3 +1615,52 @@
     -fx-cursor: hand;
 }
 .welcome-skip:hover { -fx-text-fill: -color-text-2; }
+
+/* Feature bullet list inside Welcome card */
+.welcome-features {
+    -fx-spacing: 8;
+    -fx-padding: 4 0;
+}
+.welcome-feature-text {
+    -fx-font-size: 13px;
+    -fx-text-fill: -color-text-2;
+}
+
+/* ═══════════════════════════════════════════════
+   MOTION — hover lift for interactive cards
+   ═══════════════════════════════════════════════ */
+
+/* KPI mini-card lift */
+.kpi-mini-card:hover {
+    -fx-background-color: -color-surface-2;
+    -fx-border-color: -color-accent-a25;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.38), 12, 0, 0, 4);
+    -fx-cursor: default;
+}
+
+/* Details panel reveal — smooth slide-in handled in Java via Motion */
+.details-card-animate {
+    -fx-opacity: 0;
+}
+
+/* ═══════════════════════════════════════════════
+   SIDEBAR — icon + text alignment
+   ═══════════════════════════════════════════════ */
+.sidebar .nav-btn {
+    -fx-graphic-text-gap: 10;
+    -fx-content-display: LEFT;
+}
+
+/* ═══════════════════════════════════════════════
+   FILTER TOOLBAR — FlowPane variant
+   ═══════════════════════════════════════════════ */
+.filter-flow {
+    -fx-background-color: -color-surface;
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+    -fx-border-color: -color-border;
+    -fx-padding: 10 14;
+    -fx-hgap: 10;
+    -fx-vgap: 8;
+    -fx-alignment: CENTER_LEFT;
+}

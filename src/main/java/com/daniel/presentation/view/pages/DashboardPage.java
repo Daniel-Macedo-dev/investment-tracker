@@ -4,6 +4,7 @@ import com.daniel.core.domain.entity.InvestmentType;
 import com.daniel.core.domain.entity.Transaction;
 import com.daniel.core.domain.entity.Enums.CategoryEnum;
 import com.daniel.core.service.DailyTrackingUseCase;
+import com.daniel.presentation.view.util.Motion;
 import com.daniel.core.service.DiversificationCalculator;
 import com.daniel.core.service.DiversificationCalculator.*;
 import com.daniel.infrastructure.api.BcbClient;
@@ -230,7 +231,7 @@ public final class DashboardPage implements Page {
         long totalPatrimony = daily.getTotalPatrimony(today);
         long totalProfit = daily.getTotalProfit(today);
 
-        totalLabel.setText(daily.brl(totalPatrimony));
+        Motion.animateLabelChange(totalLabel, daily.brl(totalPatrimony));
 
         profitLabel.setText(totalProfit == 0 ? "—" :
                 ((totalProfit >= 0 ? "+ " : "- ") + daily.brlAbs(Math.abs(totalProfit))));

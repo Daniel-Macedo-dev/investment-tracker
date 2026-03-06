@@ -5,10 +5,14 @@ import com.daniel.core.domain.entity.Enums.CategoryEnum;
 import com.daniel.core.domain.entity.Enums.LiquidityEnum;
 import com.daniel.core.service.DailyTrackingUseCase;
 import com.daniel.presentation.view.PageHeader;
+import com.daniel.core.util.Money;
+import com.daniel.presentation.view.components.ColorBadge;
 import com.daniel.presentation.view.components.InvestmentTypeDialog;
 import com.daniel.presentation.view.components.InvestmentTypeDialog.InvestmentTypeData;
 import com.daniel.presentation.view.components.ToastHost;
 import com.daniel.presentation.view.util.Dialogs;
+import com.daniel.presentation.view.util.Icons;
+import com.daniel.presentation.view.util.Motion;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
@@ -17,12 +21,6 @@ import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import javafx.scene.paint.Color;
-import javafx.scene.shape.Circle;
-
-import com.daniel.core.util.Money;
-import com.daniel.presentation.view.util.Icons;
-import org.kordamp.ikonli.feather.Feather;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import java.math.BigDecimal;
@@ -42,6 +40,11 @@ public final class InvestmentTypesPage implements Page {
 
     private final TextField searchField = new TextField();
     private final ComboBox<String> categoryFilter = new ComboBox<>();
+
+    // Column refs for adaptive visibility (TASK 29)
+    private TableColumn<InvestmentType, String> catColRef;
+    private TableColumn<InvestmentType, String> liqColRef;
+    private TableColumn<InvestmentType, String> dateColRef;
 
     // Summary KPI labels
     private final Label kpiTotalValue   = new Label("—");
@@ -133,9 +136,10 @@ public final class InvestmentTypesPage implements Page {
         searchField.textProperty().addListener((o, a, v) -> updateClearFiltersVisibility(clearFiltersBtn));
         categoryFilter.valueProperty().addListener((o, a, v) -> updateClearFiltersVisibility(clearFiltersBtn));
 
-        HBox filterRow = new HBox(10, searchBox, categoryFilter, clearFiltersBtn);
-        filterRow.getStyleClass().add("toolbar");
+        FlowPane filterRow = new FlowPane(10, 8);
+        filterRow.getStyleClass().add("filter-flow");
         filterRow.setAlignment(Pos.CENTER_LEFT);
+        filterRow.getChildren().addAll(searchBox, categoryFilter, clearFiltersBtn);
 
         // ── Filter wiring ─────────────────────────────────────────────────────
         filteredItems = new FilteredList<>(allItems, p -> true);
@@ -157,21 +161,33 @@ public final class InvestmentTypesPage implements Page {
 
         root.getChildren().addAll(header, topBar, filterRow, tableCard, detailsPanel);
 
-        // Selection listener
+        // Selection listener — animate details panel in
         table.getSelectionModel().selectedItemProperty().addListener((obs, old, sel) -> {
             if (sel == null) {
                 detailsPanel.setVisible(false);
                 detailsPanel.setManaged(false);
             } else {
                 populateDetails(sel);
-                detailsPanel.setVisible(true);
-                detailsPanel.setManaged(true);
+                if (!detailsPanel.isVisible()) {
+                    detailsPanel.setVisible(true);
+                    detailsPanel.setManaged(true);
+                    Motion.fadeSlideIn(detailsPanel, 180, 10);
+                }
             }
         });
 
         scrollPane.setContent(root);
         scrollPane.setFitToWidth(true);
         scrollPane.getStyleClass().add("page-scroll");
+
+        // Adaptive column widths on scene resize (TASK 29)
+        scrollPane.sceneProperty().addListener((obs, old, scene) -> {
+            if (scene != null) {
+                applyColumnWidths(scene.getWidth());
+                scene.widthProperty().addListener((o2, w1, w2) ->
+                        applyColumnWidths(w2.doubleValue()));
+            }
+        });
 
         refresh();
     }
@@ -196,7 +212,8 @@ public final class InvestmentTypesPage implements Page {
         nameCol.setPrefWidth(200);
 
         // Categoria com badge
-        TableColumn<InvestmentType, String> catCol = new TableColumn<>("Categoria");
+        catColRef = new TableColumn<>("Categoria");
+        TableColumn<InvestmentType, String> catCol = catColRef;
         catCol.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -225,7 +242,8 @@ public final class InvestmentTypesPage implements Page {
         catCol.setPrefWidth(180);
 
         // Liquidez com badge
-        TableColumn<InvestmentType, String> liqCol = new TableColumn<>("Liquidez");
+        liqColRef = new TableColumn<>("Liquidez");
+        TableColumn<InvestmentType, String> liqCol = liqColRef;
         liqCol.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -254,7 +272,8 @@ public final class InvestmentTypesPage implements Page {
         liqCol.setPrefWidth(160);
 
         // Data
-        TableColumn<InvestmentType, String> dateCol = new TableColumn<>("Data");
+        dateColRef = new TableColumn<>("Data");
+        TableColumn<InvestmentType, String> dateCol = dateColRef;
         dateCol.setCellValueFactory(c -> {
             LocalDate date = c.getValue().investmentDate();
             return new javafx.beans.property.SimpleStringProperty(
@@ -372,19 +391,14 @@ public final class InvestmentTypesPage implements Page {
     }
 
     private HBox createBadge(String text, String hexColor) {
-        HBox badge = new HBox(6);
-        badge.setAlignment(Pos.CENTER_LEFT);
-        badge.getStyleClass().add("badge");
-        badge.setStyle("-fx-background-color: " + hexColor + "20;");
+        return ColorBadge.create(text, hexColor);
+    }
 
-        Circle circle = new Circle(4);
-        circle.setFill(Color.web(hexColor));
-
-        Label label = new Label(text);
-        label.setStyle("-fx-text-fill: " + hexColor + ";");
-
-        badge.getChildren().addAll(circle, label);
-        return badge;
+    /** Hides/shows table columns based on available width (TASK 29). */
+    private void applyColumnWidths(double width) {
+        if (liqColRef  != null) liqColRef.setVisible(width > 900);
+        if (dateColRef != null) dateColRef.setVisible(width > 900);
+        if (catColRef  != null) catColRef.setVisible(width > 820);
     }
 
     private void buildDetailsPanel() {
@@ -478,7 +492,6 @@ public final class InvestmentTypesPage implements Page {
 
     private void updateKpis() {
         java.util.List<InvestmentType> items = allItems;
-        kpiCountValue.setText(String.valueOf(items.size()));
 
         long totalCents = 0;
         double totalProf = 0;
@@ -493,8 +506,9 @@ public final class InvestmentTypesPage implements Page {
                 profCount++;
             }
         }
-        kpiTotalValue.setText(daily.brl(totalCents));
-        kpiAvgProfValue.setText(profCount > 0
+        Motion.animateLabelChange(kpiCountValue,   String.valueOf(items.size()));
+        Motion.animateLabelChange(kpiTotalValue,   daily.brl(totalCents));
+        Motion.animateLabelChange(kpiAvgProfValue, profCount > 0
                 ? String.format("%.1f%%", totalProf / profCount) : "—");
     }
 
@@ -510,6 +524,7 @@ public final class InvestmentTypesPage implements Page {
         texts.getChildren().addAll(lbl, value);
 
         card.getChildren().add(texts);
+        Motion.hoverLift(card);  // TASK 28
         return card;
     }
 

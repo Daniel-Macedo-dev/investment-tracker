@@ -1,5 +1,6 @@
 package com.daniel.presentation.view.components;
 
+import com.daniel.presentation.view.util.Icons;
 import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
 import javafx.animation.ScaleTransition;
@@ -7,20 +8,31 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.Separator;
+import javafx.scene.control.Tooltip;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
+import org.kordamp.ikonli.feather.Feather;
+import org.kordamp.ikonli.javafx.FontIcon;
 
 import java.util.prefs.Preferences;
 
 /**
- * Premium welcome overlay shown on first run.
- * Persists dismissal via java.util.prefs.Preferences.
+ * Premium welcome overlay shown on first run or on demand.
+ * Persistence via java.util.prefs.Preferences.
+ * Supports force-show via registerShowCallback / requestShow.
  */
 public final class WelcomeOverlay {
 
-    private static final String PREF_NODE  = "com/daniel/investmentTracker";
-    private static final String PREF_KEY   = "welcomeShown";
+    private static final String PREF_NODE = "com/daniel/investmentTracker";
+    private static final String PREF_KEY  = "welcomeShown";
+
+    /** Registered by AppShell so Settings can trigger a force-show. */
+    private static Runnable showCallback = null;
 
     private final StackPane overlay = new StackPane();
     private final Runnable onCreateInvestment;
@@ -32,13 +44,14 @@ public final class WelcomeOverlay {
         buildOverlay();
     }
 
-    /** Returns true if the overlay should be shown this session. */
+    // ── Static API ────────────────────────────────────────────────────────
+
+    /** True when the welcome was never dismissed by the user. */
     public static boolean shouldShow() {
-        Preferences prefs = Preferences.userRoot().node(PREF_NODE);
-        return !prefs.getBoolean(PREF_KEY, false);
+        return !Preferences.userRoot().node(PREF_NODE).getBoolean(PREF_KEY, false);
     }
 
-    /** Marks the welcome as shown so it won't appear on next launch. */
+    /** Marks welcome as "shown" — suppresses automatic show on next launch. */
     public static void markShown() {
         try {
             Preferences prefs = Preferences.userRoot().node(PREF_NODE);
@@ -47,6 +60,27 @@ public final class WelcomeOverlay {
         } catch (Exception ignored) {}
     }
 
+    /** Clears the shown flag — overlay will show again on next eligible launch. */
+    public static void resetShown() {
+        try {
+            Preferences prefs = Preferences.userRoot().node(PREF_NODE);
+            prefs.remove(PREF_KEY);
+            prefs.flush();
+        } catch (Exception ignored) {}
+    }
+
+    /** Called by AppShell so Settings page can trigger a force-show. */
+    public static void registerShowCallback(Runnable callback) {
+        showCallback = callback;
+    }
+
+    /** Shows the overlay on demand (called from Settings). Bypasses portfolio check. */
+    public static void requestShow() {
+        if (showCallback != null) showCallback.run();
+    }
+
+    // ── Instance API ──────────────────────────────────────────────────────
+
     public StackPane getNode() {
         return overlay;
     }
@@ -54,17 +88,15 @@ public final class WelcomeOverlay {
     public void animateIn() {
         overlay.setOpacity(0);
 
-        FadeTransition fadeDim = new FadeTransition(Duration.millis(220), overlay);
+        FadeTransition fadeDim = new FadeTransition(Duration.millis(200), overlay);
         fadeDim.setFromValue(0);
         fadeDim.setToValue(1);
         fadeDim.setInterpolator(Interpolator.EASE_OUT);
 
         VBox card = (VBox) overlay.getChildren().get(0);
-        card.setScaleX(0.92);
-        card.setScaleY(0.92);
-        ScaleTransition scaleCard = new ScaleTransition(Duration.millis(260), card);
-        scaleCard.setFromX(0.92);
-        scaleCard.setFromY(0.92);
+        card.setScaleX(0.90);
+        card.setScaleY(0.90);
+        ScaleTransition scaleCard = new ScaleTransition(Duration.millis(240), card);
         scaleCard.setToX(1.0);
         scaleCard.setToY(1.0);
         scaleCard.setInterpolator(Interpolator.EASE_OUT);
@@ -73,60 +105,96 @@ public final class WelcomeOverlay {
         scaleCard.play();
     }
 
+    // ── Layout ────────────────────────────────────────────────────────────
+
     private void buildOverlay() {
         overlay.getStyleClass().add("welcome-overlay");
 
-        // ── Hero card ─────────────────────────────────────────────────────
-        VBox card = new VBox(16);
+        VBox card = new VBox(14);
         card.getStyleClass().add("welcome-card");
-        card.setAlignment(Pos.CENTER);
-        card.setMaxWidth(520);
+        card.setAlignment(Pos.TOP_CENTER);
+        card.setMaxWidth(500);
 
-        Label logo = new Label("💰");
-        logo.getStyleClass().add("welcome-logo");
-        logo.setAlignment(Pos.CENTER);
+        // ── Header row: logo + spacer + X close ──────────────────────────
+        FontIcon logoIcon = Icons.of(Feather.TRENDING_UP, 36);
+        logoIcon.getStyleClass().add("icon-accent");
 
+        Region headerSpacer = new Region();
+        HBox.setHgrow(headerSpacer, Priority.ALWAYS);
+
+        Button closeBtn = new Button(null, Icons.close());
+        closeBtn.getStyleClass().add("icon-btn");
+        Tooltip.install(closeBtn, new Tooltip("Fechar"));
+
+        HBox headerRow = new HBox(8, logoIcon, headerSpacer, closeBtn);
+        headerRow.setAlignment(Pos.CENTER_LEFT);
+
+        // ── Title + subtitle ─────────────────────────────────────────────
         Label title = new Label("Bem-vindo ao Investment Tracker");
         title.getStyleClass().add("welcome-title");
-        title.setAlignment(Pos.CENTER);
         title.setWrapText(true);
 
         Label subtitle = new Label(
                 "Acompanhe seus investimentos, visualize rentabilidade e simule cenários — tudo em um só lugar.");
         subtitle.getStyleClass().add("welcome-subtitle");
-        subtitle.setAlignment(Pos.CENTER);
         subtitle.setWrapText(true);
-        subtitle.setMaxWidth(400);
+        subtitle.setMaxWidth(430);
+
+        // ── Feature bullets ───────────────────────────────────────────────
+        VBox features = new VBox(8);
+        features.getStyleClass().add("welcome-features");
+        features.getChildren().addAll(
+                featureRow(Feather.BAR_CHART_2, "Dashboard com KPIs, gráficos e benchmarks"),
+                featureRow(Feather.BRIEFCASE,   "Carteira com diversificação e filtros"),
+                featureRow(Feather.TRENDING_UP, "Simulador com CDI, SELIC, IPCA e ações")
+        );
 
         // ── CTAs ──────────────────────────────────────────────────────────
-        Button createBtn = new Button("+ Criar primeiro investimento");
+        Button createBtn = new Button("Criar primeiro investimento", Icons.plus());
         createBtn.getStyleClass().add("welcome-cta-primary");
         createBtn.setMaxWidth(Double.MAX_VALUE);
-        createBtn.setOnAction(e -> dismiss(true, onCreateInvestment));
 
-        Button configBtn = new Button("⚙ Configurar token da Brapi");
+        Button configBtn = new Button("Configurar token da Brapi", Icons.settings());
         configBtn.getStyleClass().add("welcome-cta-secondary");
         configBtn.setMaxWidth(Double.MAX_VALUE);
-        configBtn.setOnAction(e -> dismiss(true, onConfigure));
 
-        Button dashBtn = new Button("Ir para o Dashboard");
+        Button dashBtn = new Button("Ir para o Dashboard", Icons.home());
         dashBtn.getStyleClass().add("welcome-cta-secondary");
         dashBtn.setMaxWidth(Double.MAX_VALUE);
-        dashBtn.setOnAction(e -> dismiss(false, null));
 
         // ── Don't show again ──────────────────────────────────────────────
         CheckBox noShow = new CheckBox("Não mostrar novamente");
         noShow.getStyleClass().add("welcome-skip");
 
-        card.getChildren().addAll(logo, title, subtitle, createBtn, configBtn, dashBtn, noShow);
+        // ── Wire actions — persist only if checkbox is checked ────────────
+        closeBtn.setOnAction(e -> dismiss(noShow.isSelected(), null));
+        createBtn.setOnAction(e -> dismiss(noShow.isSelected(), onCreateInvestment));
+        configBtn.setOnAction(e -> dismiss(noShow.isSelected(), onConfigure));
+        dashBtn.setOnAction(e -> dismiss(noShow.isSelected(), null));
+
+        card.getChildren().addAll(
+                headerRow, title, subtitle,
+                new Separator(), features, new Separator(),
+                createBtn, configBtn, dashBtn, noShow
+        );
 
         overlay.getChildren().add(card);
         StackPane.setAlignment(card, Pos.CENTER);
 
-        // Click on the dim background closes the overlay
+        // Click on the dim background closes (respects checkbox)
         overlay.setOnMouseClicked(e -> {
             if (e.getTarget() == overlay) dismiss(noShow.isSelected(), null);
         });
+    }
+
+    private HBox featureRow(Feather icon, String text) {
+        FontIcon fi = Icons.of(icon, 14);
+        fi.getStyleClass().add("icon-accent");
+        Label lbl = new Label(text);
+        lbl.getStyleClass().add("welcome-feature-text");
+        HBox row = new HBox(10, fi, lbl);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
     }
 
     private void dismiss(boolean persist, Runnable callback) {

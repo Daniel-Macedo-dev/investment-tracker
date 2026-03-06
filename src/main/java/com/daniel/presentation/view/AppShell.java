@@ -4,6 +4,7 @@ import com.daniel.core.service.DailyTrackingUseCase;
 import com.daniel.presentation.view.components.ToastHost;
 import com.daniel.presentation.view.components.WelcomeOverlay;
 import com.daniel.presentation.view.pages.*;
+import com.daniel.presentation.view.util.Icons;
 import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
 import javafx.animation.TranslateTransition;
@@ -12,25 +13,29 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.*;
 import javafx.scene.Scene;
+import org.kordamp.ikonli.javafx.FontIcon;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class AppShell {
 
+    private final DailyTrackingUseCase daily;
     private final StackPane content = new StackPane();
     private final Map<String, Page> pages = new LinkedHashMap<>();
     private final Map<String, Button> nav = new LinkedHashMap<>();
 
     public AppShell(DailyTrackingUseCase dailyTrackingUseCase) {
-        pages.put("Dashboard", new DashboardPage(dailyTrackingUseCase));
-        pages.put("Cadastrar Investimento", new InvestmentTypesPage(dailyTrackingUseCase));
-        pages.put("Diversificação", new DiversificationPage(dailyTrackingUseCase));
-        pages.put("Simulação", new SimulationPage());
-        pages.put("Extrato de Investimentos", new ReportsPage(dailyTrackingUseCase));
-        pages.put("Configurações", new ConfiguracoesPage());
+        this.daily = dailyTrackingUseCase;
+        pages.put("Dashboard",                 new DashboardPage(dailyTrackingUseCase));
+        pages.put("Cadastrar Investimento",    new InvestmentTypesPage(dailyTrackingUseCase));
+        pages.put("Diversificação",            new DiversificationPage(dailyTrackingUseCase));
+        pages.put("Simulação",                 new SimulationPage());
+        pages.put("Extrato de Investimentos",  new ReportsPage(dailyTrackingUseCase));
+        pages.put("Configurações",             new ConfiguracoesPage());
     }
 
     public Parent build() {
@@ -45,13 +50,13 @@ public final class AppShell {
         shell.getStyleClass().add("app-shell");
         ToastHost.install(shell);
 
-        if (WelcomeOverlay.shouldShow()) {
-            WelcomeOverlay welcome = new WelcomeOverlay(
-                    () -> go("Cadastrar Investimento"),
-                    () -> go("Configurações")
-            );
-            shell.getChildren().add(welcome.getNode());
-            welcome.animateIn();
+        // Register callback so Settings can force-show the overlay at any time
+        WelcomeOverlay.registerShowCallback(() -> showOverlay(shell));
+
+        // Show welcome on first run, but only if portfolio is empty (TASK 33)
+        boolean portfolioEmpty = daily.listTypes().isEmpty();
+        if (portfolioEmpty && WelcomeOverlay.shouldShow()) {
+            showOverlay(shell);
         }
 
         root.sceneProperty().addListener((obs, oldScene, newScene) -> {
@@ -66,18 +71,24 @@ public final class AppShell {
         return shell;
     }
 
+    private void showOverlay(StackPane shell) {
+        WelcomeOverlay welcome = new WelcomeOverlay(
+                () -> go("Cadastrar Investimento"),
+                () -> go("Configurações")
+        );
+        shell.getChildren().add(welcome.getNode());
+        welcome.animateIn();
+    }
+
     private static void applyBreakpoints(BorderPane root, double width) {
         root.getStyleClass().removeAll("compact", "bp-md", "bp-sm", "bp-xs", "icon-compact");
         if (width < 850) {
             root.getStyleClass().addAll("compact", "bp-xs", "icon-compact");
-        } else if (width < 1000) {
-            root.getStyleClass().addAll("compact", "bp-sm");
         } else if (width < 1100) {
             root.getStyleClass().addAll("compact", "bp-sm");
         } else if (width < 1200) {
             root.getStyleClass().add("bp-md");
         }
-        // width >= 1200 → default (no class)
     }
 
     private Parent sidebar() {
@@ -100,28 +111,18 @@ public final class AppShell {
         VBox navBox = new VBox(2);
         navBox.getStyleClass().add("sidebar-nav");
 
-        String[] navOrder = {
-            "Dashboard",
-            "Cadastrar Investimento",
-            "Diversificação",
-            "Simulação",
-            "Extrato de Investimentos"
-        };
-
-        String[] navLabels = {
-            "  Dashboard",
-            "  Carteira",
-            "  Diversificação",
-            "  Simulação",
-            "  Extrato"
-        };
+        String[] navOrder  = {"Dashboard", "Cadastrar Investimento", "Diversificação", "Simulação", "Extrato de Investimentos"};
+        String[] navLabels = {"Dashboard", "Carteira", "Diversificação", "Simulação", "Extrato"};
+        FontIcon[] navIcons = {Icons.home(), Icons.briefcase(), Icons.pieChart(), Icons.trendingUp(), Icons.fileText()};
 
         for (int i = 0; i < navOrder.length; i++) {
-            String key = navOrder[i];
-            Button b = new Button(navLabels[i]);
+            String key   = navOrder[i];
+            String label = navLabels[i];
+            Button b = new Button(label, navIcons[i]);
             b.getStyleClass().add("nav-btn");
             b.setMaxWidth(Double.MAX_VALUE);
             b.setOnAction(e -> go(key));
+            Tooltip.install(b, new Tooltip(label));
             nav.put(key, b);
             navBox.getChildren().add(b);
         }
@@ -134,10 +135,11 @@ public final class AppShell {
         VBox footer = new VBox(4);
         footer.getStyleClass().add("sidebar-footer");
 
-        Button configBtn = new Button("  Configurações");
+        Button configBtn = new Button("Configurações", Icons.settings());
         configBtn.getStyleClass().add("nav-btn");
         configBtn.setMaxWidth(Double.MAX_VALUE);
         configBtn.setOnAction(e -> go("Configurações"));
+        Tooltip.install(configBtn, new Tooltip("Configurações"));
         nav.put("Configurações", configBtn);
 
         Label version = new Label("v0.5.0");

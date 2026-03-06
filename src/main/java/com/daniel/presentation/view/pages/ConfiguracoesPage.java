@@ -5,6 +5,7 @@ import com.daniel.infrastructure.api.BrapiClient;
 import com.daniel.infrastructure.persistence.repository.AppSettingsRepository;
 import com.daniel.presentation.view.PageHeader;
 import com.daniel.presentation.view.components.ToastHost;
+import com.daniel.presentation.view.components.WelcomeOverlay;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -195,7 +196,11 @@ public final class ConfiguracoesPage implements Page {
         privacy.getStyleClass().add("text-helper");
         privacy.setWrapText(true);
 
-        card.getChildren().addAll(title, version, new Separator(), apis, privacy);
+        Button showWelcomeBtn = new Button("Mostrar tela de boas-vindas novamente");
+        showWelcomeBtn.getStyleClass().add("ghost-btn");
+        showWelcomeBtn.setOnAction(e -> WelcomeOverlay.requestShow());
+
+        card.getChildren().addAll(title, version, new Separator(), apis, privacy, showWelcomeBtn);
         return card;
     }
 

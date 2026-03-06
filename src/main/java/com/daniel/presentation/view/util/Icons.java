@@ -53,4 +53,12 @@ public final class Icons {
     public static FontIcon layers()     { return of(Feather.LAYERS, "icon-muted"); }
     public static FontIcon arrowLeft()  { return of(Feather.ARROW_LEFT, "icon-muted"); }
     public static FontIcon arrowRight() { return of(Feather.ARROW_RIGHT, "icon-muted"); }
+
+    // ── Navigation / sidebar ───────────────────────────────────────────────
+    public static FontIcon home()       { return of(Feather.HOME,       "icon-muted"); }
+    public static FontIcon settings()   { return of(Feather.SETTINGS,   "icon-muted"); }
+    public static FontIcon briefcase()  { return of(Feather.BRIEFCASE,  "icon-muted"); }
+    public static FontIcon pieChart()   { return of(Feather.PIE_CHART,  "icon-muted"); }
+    public static FontIcon trendingUp() { return of(Feather.TRENDING_UP,"icon-muted"); }
+    public static FontIcon fileText()   { return of(Feather.FILE_TEXT,  "icon-muted"); }
 }
