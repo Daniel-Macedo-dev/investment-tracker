@@ -231,7 +231,7 @@ public final class DiversificationPage implements Page {
         Label title = new Label("PATRIMÔNIO ATUAL");
         title.getStyleClass().add("kpi-label");
 
-        totalPatrimonyLabel.getStyleClass().add("kpi-value");
+        totalPatrimonyLabel.getStyleClass().addAll("kpi-value", "num");
 
         Label sub = new Label("baseado em valores de hoje");
         sub.getStyleClass().add("kpi-sub");

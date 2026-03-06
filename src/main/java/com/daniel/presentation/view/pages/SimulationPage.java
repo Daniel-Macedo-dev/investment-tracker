@@ -410,7 +410,7 @@ public final class SimulationPage implements Page {
         Label title = new Label("RESULTADO DA SIMULAÇÃO");
         title.getStyleClass().add("kpi-label");
 
-        resultLabel.getStyleClass().add("kpi-value");
+        resultLabel.getStyleClass().addAll("kpi-value", "num");
         resultSubLabel.getStyleClass().add("kpi-sub");
 
         box.getChildren().addAll(title, resultLabel, resultSubLabel);

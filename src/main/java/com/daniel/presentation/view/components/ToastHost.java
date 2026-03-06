@@ -5,6 +5,7 @@ import javafx.animation.PauseTransition;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
+import javafx.scene.effect.GaussianBlur;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
@@ -22,11 +23,16 @@ public final class ToastHost {
 
     private static VBox container;
     private static Region dimOverlay;
+    private static Node blurTarget;
+    private static int dimCount = 0;
 
     private ToastHost() {}
 
     /** Wire the overlay into the root StackPane of the app shell. */
     public static void install(StackPane root) {
+        // Capture first child as the blur/dim target (the main content node)
+        blurTarget = root.getChildren().isEmpty() ? null : root.getChildren().get(0);
+
         container = new VBox(8);
         container.getStyleClass().add("toast-container");
         container.setAlignment(Pos.BOTTOM_RIGHT);
@@ -36,11 +42,16 @@ public final class ToastHost {
         root.getChildren().add(container);
     }
 
-    /** Applies a dark overlay behind dialogs (call before showAndWait). */
+    /** Applies a dark+blur overlay behind dialogs (reference-counted). */
     public static void showDim() {
-        if (container == null || dimOverlay != null) return;
+        dimCount++;
+        if (dimCount > 1) return; // overlay already visible
+        if (container == null) return;
         StackPane root = (StackPane) container.getParent();
         if (root == null) return;
+
+        if (blurTarget != null) blurTarget.setEffect(new GaussianBlur(8));
+
         dimOverlay = new Region();
         dimOverlay.getStyleClass().add("overlay-dim");
         dimOverlay.setOpacity(0);
@@ -50,9 +61,14 @@ public final class ToastHost {
         ft.setFromValue(0); ft.setToValue(1); ft.play();
     }
 
-    /** Removes the dark overlay (call after dialog closes). */
+    /** Removes the dark+blur overlay (reference-counted). */
     public static void hideDim() {
+        dimCount = Math.max(0, dimCount - 1);
+        if (dimCount > 0) return; // still needed by another caller
         if (dimOverlay == null) return;
+
+        if (blurTarget != null) blurTarget.setEffect(null);
+
         Region overlay = dimOverlay;
         dimOverlay = null;
         FadeTransition ft = new FadeTransition(Duration.millis(180), overlay);

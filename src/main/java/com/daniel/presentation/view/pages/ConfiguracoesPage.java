@@ -183,7 +183,7 @@ public final class ConfiguracoesPage implements Page {
         HBox.setHgrow(box, Priority.ALWAYS);
         Label lbl = new Label(label);
         lbl.getStyleClass().add("kpi-label");
-        valueLabel.getStyleClass().addAll("kpi-value", "state-positive");
+        valueLabel.getStyleClass().addAll("kpi-value", "state-positive", "num");
         box.getChildren().addAll(lbl, valueLabel);
         Motion.hoverLift(box);
         return box;

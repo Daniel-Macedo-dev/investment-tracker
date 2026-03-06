@@ -537,7 +537,7 @@ public final class InvestmentTypesPage implements Page {
         VBox texts = new VBox(2);
         Label lbl = new Label(label);
         lbl.getStyleClass().add("kpi-mini-label");
-        value.getStyleClass().add("kpi-mini-value");
+        value.getStyleClass().addAll("kpi-mini-value", "num");
         texts.getChildren().addAll(lbl, value);
 
         card.getChildren().add(texts);

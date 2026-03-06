@@ -20,6 +20,7 @@ import org.kordamp.ikonli.javafx.FontIcon;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public final class AppShell {
 
@@ -27,6 +28,7 @@ public final class AppShell {
     private final StackPane content = new StackPane();
     private final Map<String, Page> pages = new LinkedHashMap<>();
     private final Map<String, Button> nav = new LinkedHashMap<>();
+    private Consumer<String> pageChangeListener;
 
     public AppShell(DailyTrackingUseCase dailyTrackingUseCase) {
         this.daily = dailyTrackingUseCase;
@@ -162,12 +164,17 @@ public final class AppShell {
         return box;
     }
 
+    public void setPageChangeListener(Consumer<String> listener) {
+        this.pageChangeListener = listener;
+    }
+
     public void go(String key) {
         Page p = pages.get(key);
         if (p == null) return;
 
         nav.values().forEach(b -> b.getStyleClass().remove("active"));
         if (nav.get(key) != null) nav.get(key).getStyleClass().add("active");
+        if (pageChangeListener != null) pageChangeListener.accept(key);
 
         Parent view = p.view();
         swapWithAnimation(view);

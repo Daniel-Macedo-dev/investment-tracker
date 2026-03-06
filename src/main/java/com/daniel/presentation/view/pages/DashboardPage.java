@@ -1214,7 +1214,7 @@ public final class DashboardPage implements Page {
         titleLbl.getStyleClass().add("kpi-label");
         header.getChildren().addAll(iconLbl, titleLbl);
 
-        value.getStyleClass().add("kpi-value");
+        value.getStyleClass().addAll("kpi-value", "num");
         box.getChildren().addAll(header, value);
 
         if (subText != null) {
@@ -1223,6 +1223,7 @@ public final class DashboardPage implements Page {
             box.getChildren().add(sub);
         }
         HBox.setHgrow(box, Priority.ALWAYS);
+        Motion.hoverLift(box);
         return box;
     }
 

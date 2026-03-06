@@ -111,7 +111,7 @@ public final class ReportsPage implements Page {
         b.getStyleClass().add("kpi-card");
         Label t = new Label(title);
         t.getStyleClass().add("kpi-label");
-        value.getStyleClass().add("kpi-value");
+        value.getStyleClass().addAll("kpi-value", "num");
         b.getChildren().addAll(t, value);
         HBox.setHgrow(b, Priority.ALWAYS);
         return b;
