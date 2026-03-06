@@ -1,8 +1,11 @@
 package com.daniel.presentation.view.util;
 
+import com.daniel.presentation.view.components.ToastHost;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.paint.Color;
+import javafx.stage.StageStyle;
 
 import java.util.Optional;
 
@@ -13,6 +16,14 @@ public final class Dialogs {
         try {
             a.getDialogPane().getStylesheets().add(
                     Dialogs.class.getResource("/styles/app.css").toExternalForm());
+            a.getDialogPane().getStyleClass().add("dark-dialog");
+            a.initStyle(StageStyle.TRANSPARENT);
+            a.setOnShowing(e -> {
+                javafx.scene.Scene sc = a.getDialogPane().getScene();
+                if (sc != null) sc.setFill(Color.TRANSPARENT);
+                ToastHost.showDim();
+            });
+            a.setOnHidden(e -> ToastHost.hideDim());
         } catch (Exception ignored) {}
     }
 
@@ -20,6 +31,14 @@ public final class Dialogs {
         try {
             d.getDialogPane().getStylesheets().add(
                     Dialogs.class.getResource("/styles/app.css").toExternalForm());
+            d.getDialogPane().getStyleClass().add("dark-dialog");
+            d.initStyle(StageStyle.TRANSPARENT);
+            d.setOnShowing(e -> {
+                javafx.scene.Scene sc = d.getDialogPane().getScene();
+                if (sc != null) sc.setFill(Color.TRANSPARENT);
+                ToastHost.showDim();
+            });
+            d.setOnHidden(e -> ToastHost.hideDim());
         } catch (Exception ignored) {}
     }
 

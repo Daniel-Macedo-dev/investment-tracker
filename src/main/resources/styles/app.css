@@ -5,7 +5,7 @@
    Roboto (Linux) → Helvetica Neue → Arial
    ═══════════════════════════════════════════════ */
 .root {
-    -fx-font-family: "Segoe UI Variable Text","Segoe UI","SF Pro Text","Roboto","Helvetica Neue","Arial",sans-serif;
+    -fx-font-family: "Poppins","Inter","Segoe UI Variable Text","Segoe UI","SF Pro Text","Roboto","Helvetica Neue","Arial",sans-serif;
 
     /* Backgrounds */
     -color-bg-0: #0B1220;
@@ -23,8 +23,8 @@
 
     /* Text */
     -color-text-1: #E8ECF1;
-    -color-text-2: #A0AABB;
-    -color-text-3: #6B7A8D;
+    -color-text-2: #B0BAC9;
+    -color-text-3: #7A8BA0;
 
     /* Accent */
     -color-accent:        #22C55E;
@@ -108,14 +108,14 @@
 .body { -fx-font-size: 13px; -fx-font-weight: 400; -fx-text-fill: -color-text-1; }
 
 /* Scale utilities */
-.text-xs     { -fx-font-size: 11px; -fx-font-weight: 400; }
-.text-sm     { -fx-font-size: 12px; -fx-font-weight: 400; }
+.text-xs     { -fx-font-size: 12px; -fx-font-weight: 400; }
+.text-sm     { -fx-font-size: 13px; -fx-font-weight: 400; }
 .text-lg     { -fx-font-size: 16px; -fx-font-weight: 700; }
 .text-bold   { -fx-font-weight: 700; }
 .text-strong { -fx-font-weight: 800; -fx-text-fill: -color-text-1; }
-.text-helper { -fx-font-size: 11px; -fx-font-weight: 400; -fx-text-fill: -color-text-3; -fx-opacity: 0.85; }
-.text-dim    { -fx-font-size: 11px; -fx-font-weight: 400; -fx-opacity: 0.6; }
-.text-dim-xs { -fx-font-size: 10px; -fx-font-weight: 400; -fx-opacity: 0.5; }
+.text-helper { -fx-font-size: 12px; -fx-font-weight: 400; -fx-text-fill: -color-text-3; -fx-opacity: 0.9; }
+.text-dim    { -fx-font-size: 12px; -fx-font-weight: 400; -fx-opacity: 0.65; }
+.text-dim-xs { -fx-font-size: 11px; -fx-font-weight: 400; -fx-opacity: 0.55; }
 
 /* State colors */
 .pos { -fx-text-fill: -color-success; }
@@ -1818,4 +1818,34 @@
 .button, .ghost-btn, .danger-btn, .sell-btn, .secondary-btn {
     -fx-background-radius: 10;
     -fx-border-radius: 10;
+}
+
+/* ═══════════════════════════════════════════════
+   TASKS 76-78 — Hover lifts + ComboBox cleanup
+   ═══════════════════════════════════════════════ */
+
+/* KPI card subtle hover lift (T78) */
+.kpi-card:hover {
+    -fx-border-color: -color-accent-a35 -color-border -color-border -color-border;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.38), 14, 0, 0, 4);
+}
+
+/* Hero card subtle hover lift (T78) */
+.hero-card:hover {
+    -fx-border-color: -color-border-strong;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.55), 18, 0, 0, 5);
+}
+
+/* ComboBox — prevent selected-value cell from painting accent background (T76) */
+.combo-box-base > .list-cell:selected,
+.combo-box-base > .list-cell:focused {
+    -fx-background-color: transparent;
+    -fx-text-fill: -color-text-1;
+}
+
+/* Actions FlowPane in table — prevent wrapping children from overflowing (T76) */
+.table-cell .flow-pane {
+    -fx-hgap: 4;
+    -fx-vgap: 4;
+    -fx-alignment: CENTER_LEFT;
 }
