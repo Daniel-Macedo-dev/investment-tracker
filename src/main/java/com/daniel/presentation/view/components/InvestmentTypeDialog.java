@@ -8,6 +8,7 @@ import com.daniel.core.util.Money;
 import com.daniel.infrastructure.api.BrapiClient;
 import com.daniel.presentation.view.components.ToastHost;
 
+import com.daniel.presentation.view.util.DialogChrome;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
@@ -107,6 +108,9 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         HBox.setHgrow(headerSpacer, Priority.ALWAYS);
         HBox headerRow = new HBox(titleLabel, headerSpacer, closeBtn);
         headerRow.getStyleClass().add("dialog-header-row");
+
+        // ── Remove OS chrome, enable drag-to-move via header ──
+        DialogChrome.apply(this, headerRow);
 
         VBox dialogContent = new VBox(0, headerRow, tabPane);
         getDialogPane().setContent(dialogContent);
