@@ -1664,3 +1664,65 @@
     -fx-vgap: 8;
     -fx-alignment: CENTER_LEFT;
 }
+
+/* ═══════════════════════════════════════════════
+   TASK 41 — Final consistency fixes
+   ═══════════════════════════════════════════════ */
+
+/* Segmented pressed state — prevents green bleed from .button:pressed */
+.segmented .seg-btn:pressed {
+    -fx-background-color: -color-surface-3;
+}
+.segmented .seg-btn:selected:pressed {
+    -fx-background-color: derive(-color-accent-soft, 25%);
+}
+
+/* Disabled inputs — explicit dim so they don't inherit Modena colours */
+.text-field:disabled,
+.text-area:disabled,
+.combo-box-base:disabled,
+.date-picker:disabled {
+    -fx-opacity: 0.45;
+    -fx-cursor: default;
+}
+
+/* DatePicker and ComboBox consistent hover state */
+.combo-box-base:hover {
+    -fx-border-color: -color-border-strong;
+}
+.date-picker:hover {
+    -fx-border-color: -color-border-strong;
+}
+
+/* Ensure ToggleButton inside .segmented does not show the default Modena bar */
+.segmented .toggle-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+.segmented .toggle-button:selected {
+    -fx-background-color: -color-accent-soft;
+    -fx-text-fill: -color-accent;
+    -fx-border-color: -color-accent-a25;
+    -fx-border-width: 1;
+}
+.segmented .toggle-button:focused {
+    -fx-border-color: -color-accent-a35;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, -color-accent-glow, 6, 0, 0, 0);
+}
+
+/* Sidebar active glow — slightly more visible accent shadow */
+.sidebar .nav-btn.active {
+    -fx-effect: dropshadow(gaussian, -color-accent-glow, 8, 0, 2, 0);
+}
+
+/* Table — ensure empty placeholder takes full height nicely */
+.table-view .placeholder {
+    -fx-background-color: transparent;
+}
+
+/* Consistent corner radius on all page-level buttons */
+.button, .ghost-btn, .danger-btn, .sell-btn, .secondary-btn {
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+}

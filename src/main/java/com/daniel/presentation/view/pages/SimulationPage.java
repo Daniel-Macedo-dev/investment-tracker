@@ -163,36 +163,36 @@ public final class SimulationPage implements Page {
 
         ToggleGroup group = new ToggleGroup();
 
-        RadioButton prefixadoRadio = new RadioButton("Prefixado");
-        RadioButton posfixadoRadio = new RadioButton("Pós-fixado");
-        RadioButton hibridoRadio = new RadioButton("Híbrido");
-        RadioButton acaoRadio = new RadioButton("Ação / FII");
+        ToggleButton prefixadoBtn = new ToggleButton("Prefixado");
+        ToggleButton posfixadoBtn = new ToggleButton("Pós-fixado");
+        ToggleButton hibridoBtn   = new ToggleButton("Híbrido");
+        ToggleButton acaoBtn      = new ToggleButton("Ação / FII");
 
-        prefixadoRadio.getStyleClass().add("radio-chip");
-        posfixadoRadio.getStyleClass().add("radio-chip");
-        hibridoRadio.getStyleClass().add("radio-chip");
-        acaoRadio.getStyleClass().add("radio-chip");
+        for (ToggleButton b : new ToggleButton[]{prefixadoBtn, posfixadoBtn, hibridoBtn, acaoBtn}) {
+            b.getStyleClass().add("seg-btn");
+            b.setToggleGroup(group);
+        }
 
-        prefixadoRadio.setToggleGroup(group);
-        posfixadoRadio.setToggleGroup(group);
-        hibridoRadio.setToggleGroup(group);
-        acaoRadio.setToggleGroup(group);
+        prefixadoBtn.setSelected(true);
 
-        prefixadoRadio.setSelected(true);
-
+        // Prevent deselect — always keep one button selected
         group.selectedToggleProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal == prefixadoRadio) currentType = InvestmentTypeEnum.PREFIXADO;
-            else if (newVal == posfixadoRadio) currentType = InvestmentTypeEnum.POS_FIXADO;
-            else if (newVal == hibridoRadio) currentType = InvestmentTypeEnum.HIBRIDO;
-            else if (newVal == acaoRadio) currentType = InvestmentTypeEnum.ACAO;
-
+            if (newVal == null) {
+                group.selectToggle(oldVal);
+                return;
+            }
+            if      (newVal == prefixadoBtn) currentType = InvestmentTypeEnum.PREFIXADO;
+            else if (newVal == posfixadoBtn) currentType = InvestmentTypeEnum.POS_FIXADO;
+            else if (newVal == hibridoBtn)   currentType = InvestmentTypeEnum.HIBRIDO;
+            else if (newVal == acaoBtn)      currentType = InvestmentTypeEnum.ACAO;
             updateInputsVisibility();
         });
 
-        FlowPane chips = new FlowPane(8, 6, prefixadoRadio, posfixadoRadio, hibridoRadio, acaoRadio);
-        chips.setAlignment(Pos.CENTER_LEFT);
+        HBox segmented = new HBox(0, prefixadoBtn, posfixadoBtn, hibridoBtn, acaoBtn);
+        segmented.getStyleClass().add("segmented");
+        segmented.setAlignment(Pos.CENTER_LEFT);
 
-        box.getChildren().addAll(label, chips);
+        box.getChildren().addAll(label, segmented);
         return box;
     }
 
