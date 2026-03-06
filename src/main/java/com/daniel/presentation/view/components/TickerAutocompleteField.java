@@ -38,6 +38,17 @@ public final class TickerAutocompleteField extends TextField {
                 suggestionsMenu.hide();
             }
         });
+
+        // Propagate app theme to the popup's own scene (PopupWindow does not inherit parent stylesheets)
+        suggestionsMenu.setOnShowing(e -> {
+            javafx.scene.Scene popupScene = suggestionsMenu.getScene();
+            if (popupScene != null) {
+                String css = TickerAutocompleteField.class
+                        .getResource("/styles/app.css").toExternalForm();
+                if (!popupScene.getStylesheets().contains(css))
+                    popupScene.getStylesheets().add(css);
+            }
+        });
     }
 
     private void loadSuggestions(String query) {
@@ -63,6 +74,7 @@ public final class TickerAutocompleteField extends TextField {
         for (BrapiClient.TickerSuggestion suggestion : suggestions) {
             Label label = new Label(suggestion.ticker() + " - " + suggestion.name());
             label.getStyleClass().add("autocomplete-item");
+            label.setMaxWidth(Double.MAX_VALUE);
 
             CustomMenuItem item = new CustomMenuItem(label);
             item.setHideOnClick(true);

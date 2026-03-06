@@ -1048,6 +1048,11 @@
     -fx-border-color: -color-border;
     -fx-border-width: 0 0 0 1;
 }
+/* Toolbar vertical separator — slightly stronger visibility inside .toolbar surface */
+.toolbar .separator:vertical .line {
+    -fx-border-color: -color-border-strong;
+    -fx-border-width: 0 0 0 1;
+}
 
 /* Tooltip */
 .tooltip {
@@ -1121,6 +1126,12 @@
     -fx-text-fill: -color-text-1;
     -fx-font-size: 13px;
     -fx-cursor: hand;
+    -fx-background-radius: 6;
+    -fx-max-width: infinity;
+    -fx-background-color: transparent;
+}
+.autocomplete-item:hover {
+    -fx-background-color: -color-surface-2;
     -fx-background-radius: 6;
 }
 
@@ -1241,6 +1252,14 @@
     -fx-border-color: -color-border-strong;
     -fx-padding: 8 12;
 }
+/* Specificity fix: .dialog-pane .text-field (0,2,0) overrides .text-field:focused (0,1,1).
+   Add an explicit focused rule with higher specificity to restore the accent ring. */
+.dialog-pane .text-field:focused {
+    -fx-background-color: -color-surface-2;
+    -fx-border-color: -color-accent;
+    -fx-border-width: 1.5;
+    -fx-effect: dropshadow(gaussian, -color-accent-glow, 8, 0, 0, 0);
+}
 .dialog-pane .graphic-container { -fx-padding: 0 16 0 0; }
 
 /* ═══════════════════════════════════════════════
@@ -1345,6 +1364,9 @@
     -fx-border-color: -color-border transparent transparent transparent;
     -fx-border-width: 1 0 0 0;
 }
+/* Neutralize the base .dialog-pane > .button-bar > .container padding so only the
+   button-bar's own padding applies — prevents double-inset in dark-dialog chrome */
+.dark-dialog > .button-bar > .container { -fx-padding: 0; }
 .dark-dialog .tab-pane                               { -fx-background-color: -color-bg-0; }
 .dark-dialog .tab-pane .tab-header-area .tab-header-background { -fx-background-color: -color-bg-1; }
 .dark-dialog .tab-pane .tab-header-area              { -fx-padding: 0 0 0 6; }
@@ -1357,12 +1379,19 @@
 .dark-dialog .scroll-pane > .viewport                { -fx-background-color: transparent; }
 .dark-dialog .tab-pane .tab:hover                    { -fx-background-color: -color-surface-2; -fx-background-radius: 8 8 0 0; }
 .dark-dialog .tab-pane .focus-indicator              { -fx-stroke: transparent; }
+/* Header-panel radius must match the dialog chrome (12px) not the base dialog-pane (14px) */
+.dark-dialog .header-panel {
+    -fx-background-radius: 10 10 0 0;
+    -fx-background-color: -color-surface;
+}
 /* Button overrides: higher specificity so primary-btn/ghost-btn beat .dialog-pane > .button-bar .button */
 .dark-dialog .button-bar .button.primary-btn         { -fx-background-color: -color-accent-strong; -fx-text-fill: white; -fx-border-color: transparent; }
-.dark-dialog .button-bar .button.primary-btn:hover   { -fx-background-color: -color-accent; }
-.dark-dialog .button-bar .button.primary-btn:pressed { -fx-background-color: derive(-color-accent-strong, -25%); }
+.dark-dialog .button-bar .button.primary-btn:hover   { -fx-background-color: -color-accent; -fx-border-color: transparent; }
+.dark-dialog .button-bar .button.primary-btn:pressed { -fx-background-color: derive(-color-accent-strong, -25%); -fx-border-color: transparent; }
+.dark-dialog .button-bar .button.primary-btn:focused { -fx-border-color: transparent; -fx-effect: dropshadow(gaussian, -color-accent-a45, 8, 0, 0, 0); }
 .dark-dialog .button-bar .button.ghost-btn           { -fx-background-color: -color-surface; -fx-text-fill: -color-text-1; -fx-border-color: -color-border-strong; }
 .dark-dialog .button-bar .button.ghost-btn:hover     { -fx-background-color: -color-surface-2; }
+.dark-dialog .button-bar .button.ghost-btn:focused   { -fx-effect: dropshadow(gaussian, -color-white-a12, 5, 0, 0, 0); }
 
 /* ═══════════════════════════════════════════════
    DASHBOARD — KPI + Performance
@@ -1446,10 +1475,12 @@
     -fx-text-fill: white;
     -fx-font-weight: 800;
     -fx-border-color: transparent;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
 }
-.primary-btn:hover   { -fx-background-color: -color-accent; }
-.primary-btn:pressed { -fx-background-color: derive(-color-accent-strong, -25%); }
-.primary-btn:focused { -fx-effect: dropshadow(gaussian, -color-accent-a45, 8, 0, 0, 0); }
+.primary-btn:hover   { -fx-background-color: -color-accent; -fx-border-color: transparent; }
+.primary-btn:pressed { -fx-background-color: derive(-color-accent-strong, -25%); -fx-border-color: transparent; }
+.primary-btn:focused { -fx-border-color: transparent; -fx-effect: dropshadow(gaussian, -color-accent-a45, 8, 0, 0, 0); }
 
 /* Performance metric values (dashboard chart panel) */
 .metric-lg {
@@ -1458,6 +1489,11 @@
     -fx-font-weight: 700;
     -fx-text-fill: -color-text-1;
 }
+/* Specificity override: .metric-lg is declared later than .pos/.neg/.state-info,
+   so without these rules the base text-fill would silently win. */
+.metric-lg.pos        { -fx-text-fill: -color-success; }
+.metric-lg.neg        { -fx-text-fill: -color-danger; }
+.metric-lg.state-info { -fx-text-fill: -color-info; }
 .metric-subtitle {
     -fx-font-size: 11px;
     -fx-font-weight: 600;
