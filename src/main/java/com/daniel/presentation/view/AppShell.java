@@ -87,6 +87,7 @@ public final class AppShell {
                 () -> go("Configurações")
         );
         shell.getChildren().add(welcome.getNode());
+        welcome.getNode().toFront();
         welcome.animateIn();
     }
 

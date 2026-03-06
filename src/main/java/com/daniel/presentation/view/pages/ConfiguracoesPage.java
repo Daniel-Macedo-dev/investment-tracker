@@ -128,6 +128,14 @@ public final class ConfiguracoesPage implements Page {
         HBox btnRow = new HBox(10, testBtn, saveBtn);
         btnRow.setAlignment(Pos.CENTER_LEFT);
 
+        Button showWelcomeBtn = new Button("Mostrar tela de boas-vindas");
+        showWelcomeBtn.getStyleClass().add("ghost-btn");
+        showWelcomeBtn.setOnAction(e -> {
+            WelcomeOverlay.resetShown();
+            WelcomeOverlay.requestShow();
+            ToastHost.showInfo("Boas-vindas exibidas!");
+        });
+
         Separator sep = new Separator();
 
         card.getChildren().addAll(
@@ -136,7 +144,8 @@ public final class ConfiguracoesPage implements Page {
                 tokenStatusLabel,
                 sep,
                 autoUpdateCheckbox,
-                btnRow
+                btnRow,
+                showWelcomeBtn
         );
         return card;
     }
@@ -198,14 +207,7 @@ public final class ConfiguracoesPage implements Page {
         privacy.getStyleClass().add("text-helper");
         privacy.setWrapText(true);
 
-        Button showWelcomeBtn = new Button("Mostrar tela de boas-vindas novamente");
-        showWelcomeBtn.getStyleClass().add("ghost-btn");
-        showWelcomeBtn.setOnAction(e -> {
-            WelcomeOverlay.resetShown();
-            WelcomeOverlay.requestShow();
-        });
-
-        card.getChildren().addAll(title, version, new Separator(), apis, privacy, showWelcomeBtn);
+        card.getChildren().addAll(title, version, new Separator(), apis, privacy);
         return card;
     }
 

@@ -311,8 +311,8 @@ public final class InvestmentTypesPage implements Page {
 
         // Actions column
         TableColumn<InvestmentType, Void> actionsCol = new TableColumn<>("Ações");
-        actionsCol.setMinWidth(240);
-        actionsCol.setPrefWidth(250);
+        actionsCol.setMinWidth(200);
+        actionsCol.setPrefWidth(220);
         actionsCol.setSortable(false);
         actionsCol.setCellFactory(col -> new TableCell<>() {
             private final Button editBtn = new Button("Editar", Icons.edit());
@@ -413,8 +413,8 @@ public final class InvestmentTypesPage implements Page {
         boolean compact = width < 850;
         actionDisplay.set(compact ? ContentDisplay.GRAPHIC_ONLY : ContentDisplay.LEFT);
         if (actionsColRef != null) {
-            actionsColRef.setMinWidth(compact ? 96 : 240);
-            actionsColRef.setPrefWidth(compact ? 106 : 250);
+            actionsColRef.setMinWidth(compact ? 96 : 200);
+            actionsColRef.setPrefWidth(compact ? 106 : 220);
         }
     }
 

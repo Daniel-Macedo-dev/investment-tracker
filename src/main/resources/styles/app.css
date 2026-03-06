@@ -1541,11 +1541,12 @@
 .bp-sm .toolbar { -fx-spacing: 8; -fx-padding: 8 12; }
 
 /* bp-xs: < 850 — icon-only sidebar (handled via icon-compact class) */
-.bp-xs .page-root { -fx-padding: 14 14 18 14; -fx-spacing: 14; }
-.bp-xs .card      { -fx-padding: 10; -fx-background-radius: 8; -fx-border-radius: 8; }
+.bp-xs .page-root  { -fx-padding: 14 14 18 14; -fx-spacing: 14; }
+.bp-xs .card       { -fx-padding: 10; -fx-background-radius: 8; -fx-border-radius: 8; }
 .bp-xs .chart-card { -fx-padding: 10 10 4 10; }
-.bp-xs .toolbar   { -fx-spacing: 6; -fx-padding: 6 10; }
+.bp-xs .toolbar    { -fx-spacing: 6; -fx-padding: 6 10; }
 .bp-xs .table-cell { -fx-padding: 7 8; }
+.bp-xs .filter-flow { -fx-hgap: 6; -fx-vgap: 6; -fx-padding: 8 10; }
 
 /* ═══════════════════════════════════════════════
    WELCOME OVERLAY
