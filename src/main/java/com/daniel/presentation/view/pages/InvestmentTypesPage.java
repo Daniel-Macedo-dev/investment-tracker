@@ -287,18 +287,18 @@ public final class InvestmentTypesPage implements Page {
 
         // Actions column
         TableColumn<InvestmentType, Void> actionsCol = new TableColumn<>("Ações");
-        actionsCol.setMinWidth(220);
-        actionsCol.setPrefWidth(230);
+        actionsCol.setMinWidth(240);
+        actionsCol.setPrefWidth(250);
         actionsCol.setSortable(false);
         actionsCol.setCellFactory(col -> new TableCell<>() {
             private final Button editBtn = new Button("Editar", Icons.edit());
-            private final Button sellBtn = new Button("Registrar venda", Icons.sell());
-            private final Button delBtn  = new Button(null, Icons.trash());
+            private final Button sellBtn = new Button("Vender", Icons.sell());
+            private final Button delBtn  = new Button("Excluir", Icons.trash());
             private final HBox box = new HBox(6, editBtn, sellBtn, delBtn);
             {
                 editBtn.getStyleClass().add("icon-text-btn");
                 sellBtn.getStyleClass().addAll("icon-text-btn", "sell-action-btn");
-                delBtn.getStyleClass().addAll("icon-btn", "danger-icon-btn");
+                delBtn.getStyleClass().addAll("icon-text-btn", "danger-action-btn");
                 Tooltip.install(editBtn, new Tooltip("Editar investimento"));
                 Tooltip.install(sellBtn, new Tooltip("Registrar venda"));
                 Tooltip.install(delBtn,  new Tooltip("Excluir investimento"));

@@ -154,7 +154,7 @@ public final class SimulationPage implements Page {
     }
 
     private HBox buildTypeSelector() {
-        HBox box = new HBox(16);
+        HBox box = new HBox(12);
         box.getStyleClass().add("toolbar");
         box.setAlignment(Pos.CENTER_LEFT);
 
@@ -189,7 +189,10 @@ public final class SimulationPage implements Page {
             updateInputsVisibility();
         });
 
-        box.getChildren().addAll(label, prefixadoRadio, posfixadoRadio, hibridoRadio, acaoRadio);
+        FlowPane chips = new FlowPane(8, 6, prefixadoRadio, posfixadoRadio, hibridoRadio, acaoRadio);
+        chips.setAlignment(Pos.CENTER_LEFT);
+
+        box.getChildren().addAll(label, chips);
         return box;
     }
 

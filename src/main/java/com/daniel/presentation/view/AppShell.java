@@ -2,6 +2,7 @@ package com.daniel.presentation.view;
 
 import com.daniel.core.service.DailyTrackingUseCase;
 import com.daniel.presentation.view.components.ToastHost;
+import com.daniel.presentation.view.components.WelcomeOverlay;
 import com.daniel.presentation.view.pages.*;
 import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
@@ -44,11 +45,20 @@ public final class AppShell {
         shell.getStyleClass().add("app-shell");
         ToastHost.install(shell);
 
+        if (WelcomeOverlay.shouldShow()) {
+            WelcomeOverlay welcome = new WelcomeOverlay(
+                    () -> go("Cadastrar Investimento"),
+                    () -> go("Configurações")
+            );
+            shell.getChildren().add(welcome.getNode());
+            welcome.animateIn();
+        }
+
         root.sceneProperty().addListener((obs, oldScene, newScene) -> {
             if (newScene != null) {
-                applyCompact(root, newScene.getWidth());
+                applyBreakpoints(root, newScene.getWidth());
                 newScene.widthProperty().addListener((o, old, w) ->
-                        applyCompact(root, w.doubleValue()));
+                        applyBreakpoints(root, w.doubleValue()));
             }
         });
 
@@ -56,9 +66,18 @@ public final class AppShell {
         return shell;
     }
 
-    private static void applyCompact(BorderPane root, double width) {
-        if (width < 1100) root.getStyleClass().add("compact");
-        else root.getStyleClass().remove("compact");
+    private static void applyBreakpoints(BorderPane root, double width) {
+        root.getStyleClass().removeAll("compact", "bp-md", "bp-sm", "bp-xs", "icon-compact");
+        if (width < 850) {
+            root.getStyleClass().addAll("compact", "bp-xs", "icon-compact");
+        } else if (width < 1000) {
+            root.getStyleClass().addAll("compact", "bp-sm");
+        } else if (width < 1100) {
+            root.getStyleClass().addAll("compact", "bp-sm");
+        } else if (width < 1200) {
+            root.getStyleClass().add("bp-md");
+        }
+        // width >= 1200 → default (no class)
     }
 
     private Parent sidebar() {

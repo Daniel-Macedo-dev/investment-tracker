@@ -1,19 +1,11 @@
 /* ═══════════════════════════════════════════════
-   FONTS — Inter Variable Font (rsms/inter v4.1)
-   License: SIL Open Font License 1.1 (see OFL.txt)
-   ═══════════════════════════════════════════════ */
-@font-face {
-    font-family: 'Inter';
-    src: url('../fonts/InterVariable.ttf');
-    font-weight: 100 900;
-    font-style: normal;
-}
-
-/* ═══════════════════════════════════════════════
    ROOT — Design Tokens + JavaFX Overrides
+   System font stack: Segoe UI Variable (Win11) →
+   Segoe UI (Win10) → SF Pro Display (macOS) →
+   Roboto (Linux) → Helvetica Neue → Arial
    ═══════════════════════════════════════════════ */
 .root {
-    -fx-font-family: "Inter";
+    -fx-font-family: "Segoe UI Variable", "Segoe UI", "SF Pro Display", "Roboto", "Helvetica Neue", "Arial", sans-serif;
 
     /* Backgrounds */
     -color-bg-0: #0B1220;
@@ -76,7 +68,7 @@
 }
 
 /* ═══════════════════════════════════════════════
-   TYPOGRAPHY — Inter Variable Font scale
+   TYPOGRAPHY — System font scale
    Weight axis: 400 body · 500 medium · 600 semibold
                 700 bold · 800 extrabold · 900 black
    ═══════════════════════════════════════════════ */
@@ -466,16 +458,24 @@
     -fx-effect: dropshadow(gaussian, -color-accent-glow, 8, 0, 0, 0);
 }
 
-/* Suppress the inner button-cell from inheriting any focus fill */
+/* Suppress the inner button-cell from inheriting any focus/hover fill */
 .combo-box-base > .list-cell {
     -fx-background-color: transparent;
     -fx-text-fill: -color-text-1;
     -fx-padding: 0 4;
 }
 .combo-box-base:focused > .list-cell,
-.combo-box-base:hover   > .list-cell {
+.combo-box-base:hover   > .list-cell,
+.combo-box-base:showing > .list-cell {
     -fx-background-color: transparent;
     -fx-text-fill: -color-text-1;
+}
+/* Showing state (dropdown open) — matches focused appearance */
+.combo-box-base:showing {
+    -fx-background-color: -color-surface-2;
+    -fx-border-color: -color-accent;
+    -fx-border-width: 1.5;
+    -fx-effect: dropshadow(gaussian, -color-accent-glow, 8, 0, 0, 0);
 }
 
 /* DatePicker text field inside */
@@ -599,13 +599,18 @@
     -fx-border-color: -color-accent-a35;
 }
 .radio-chip:selected:hover { -fx-background-color: derive(-color-accent-soft, 15%); }
-/* Collapse the native radio circle on chips */
+/* Collapse the native radio circle on chips — both width AND height */
 .radio-chip .radio {
     -fx-min-width: 0; -fx-max-width: 0; -fx-pref-width: 0;
     -fx-min-height: 0; -fx-max-height: 0; -fx-pref-height: 0;
     -fx-padding: 0;
 }
-.radio-chip .dot { -fx-min-width: 0; -fx-max-width: 0; -fx-pref-width: 0; }
+.radio-chip .dot {
+    -fx-min-width: 0; -fx-max-width: 0; -fx-pref-width: 0;
+    -fx-min-height: 0; -fx-max-height: 0; -fx-pref-height: 0;
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+}
 .radio-chip:focused {
     -fx-border-color: -color-accent-a35;
     -fx-effect: dropshadow(gaussian, -color-accent-glow, 6, 0, 0, 0);
@@ -780,6 +785,17 @@
 .danger-icon-btn:hover   { -fx-background-color: -color-danger-a15; }
 .danger-icon-btn:pressed { -fx-background-color: -color-danger-a25; }
 .danger-icon-btn .icon-danger { -fx-icon-color: -color-danger; }
+
+/* Text+icon danger action button (delete row) */
+.danger-action-btn {
+    -fx-text-fill: -color-danger;
+    -fx-border-color: -color-danger-a25;
+    -fx-background-color: transparent;
+}
+.danger-action-btn .icon { -fx-icon-color: -color-danger; }
+.danger-action-btn:hover   { -fx-background-color: -color-danger-a15; -fx-text-fill: -color-danger; -fx-border-color: -color-danger-a30; }
+.danger-action-btn:pressed { -fx-background-color: -color-danger-a25; }
+.danger-action-btn:focused { -fx-border-color: -color-danger-a30; }
 
 /* ── Segmented toggle group — replaces ToggleButton bar ── */
 .segmented {
@@ -1143,10 +1159,12 @@
 .combo-box-popup .list-cell:filled:selected { -fx-background-color: -color-accent-soft; -fx-text-fill: -color-accent; }
 
 .combo-box-base .arrow-button              { -fx-background-color: transparent; -fx-padding: 0 8 0 4; -fx-background-radius: 0 8 8 0; }
-.combo-box-base .arrow-button:hover        { -fx-background-color: -color-accent-soft; }
+.combo-box-base .arrow-button:hover        { -fx-background-color: -color-surface-3; }
 .combo-box-base:focused .arrow-button      { -fx-background-color: transparent; }
+.combo-box-base:showing .arrow-button      { -fx-background-color: transparent; }
 .combo-box-base .arrow                     { -fx-background-color: -color-text-3; -fx-scale-x: 0.9; -fx-scale-y: 0.9; }
 .combo-box-base:focused .arrow             { -fx-background-color: -color-accent; }
+.combo-box-base:showing .arrow             { -fx-background-color: -color-accent; }
 
 /* ═══════════════════════════════════════════════
    POPUPS — DatePicker
@@ -1497,3 +1515,96 @@
     -fx-alignment: CENTER;
     -fx-graphic-text-gap: 0;
 }
+
+/* ═══════════════════════════════════════════════
+   BREAKPOINTS v2 — bp-md / bp-sm / bp-xs
+   ═══════════════════════════════════════════════ */
+
+/* bp-md: 1100–1200 — slightly tighter layout */
+.bp-md .page-root { -fx-padding: 20 24 24 24; -fx-spacing: 16; }
+.bp-md .card      { -fx-padding: 14; }
+
+/* bp-sm: 850–1100 — narrow sidebar + tighter spacing */
+.bp-sm .sidebar {
+    -fx-pref-width: 180;
+    -fx-min-width: 180;
+    -fx-max-width: 180;
+}
+.bp-sm .sidebar-title { -fx-font-size: 13px; }
+.bp-sm .toolbar { -fx-spacing: 8; -fx-padding: 8 12; }
+
+/* bp-xs: < 850 — icon-only sidebar (handled via icon-compact class) */
+.bp-xs .page-root { -fx-padding: 14 14 18 14; -fx-spacing: 14; }
+.bp-xs .card      { -fx-padding: 10; -fx-background-radius: 8; -fx-border-radius: 8; }
+.bp-xs .chart-card { -fx-padding: 10 10 4 10; }
+.bp-xs .toolbar   { -fx-spacing: 6; -fx-padding: 6 10; }
+.bp-xs .table-cell { -fx-padding: 7 8; }
+
+/* ═══════════════════════════════════════════════
+   WELCOME OVERLAY
+   ═══════════════════════════════════════════════ */
+.welcome-overlay {
+    -fx-background-color: rgba(0,0,0,0.65);
+    -fx-alignment: CENTER;
+}
+.welcome-card {
+    -fx-background-color: -color-surface;
+    -fx-background-radius: 20;
+    -fx-border-radius: 20;
+    -fx-border-color: -color-border-strong;
+    -fx-border-width: 1;
+    -fx-padding: 40 48;
+    -fx-spacing: 20;
+    -fx-alignment: CENTER;
+    -fx-max-width: 520;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.55), 30, 0, 0, 8);
+}
+.welcome-logo {
+    -fx-font-size: 42px;
+}
+.welcome-title {
+    -fx-font-size: 22px;
+    -fx-font-weight: 900;
+    -fx-text-fill: -color-text-1;
+    -fx-text-alignment: CENTER;
+    -fx-alignment: CENTER;
+}
+.welcome-subtitle {
+    -fx-font-size: 13px;
+    -fx-text-fill: -color-text-2;
+    -fx-text-alignment: CENTER;
+    -fx-alignment: CENTER;
+    -fx-wrap-text: true;
+    -fx-text-overrun: CLIP;
+}
+.welcome-cta-primary {
+    -fx-background-color: -color-accent-strong;
+    -fx-text-fill: white;
+    -fx-background-radius: 12;
+    -fx-font-size: 14px;
+    -fx-font-weight: 800;
+    -fx-padding: 12 24;
+    -fx-cursor: hand;
+    -fx-max-width: infinity;
+}
+.welcome-cta-primary:hover   { -fx-background-color: -color-accent; }
+.welcome-cta-primary:pressed { -fx-background-color: derive(-color-accent-strong, -20%); }
+.welcome-cta-secondary {
+    -fx-background-color: -color-surface-2;
+    -fx-text-fill: -color-text-1;
+    -fx-border-color: -color-border-strong;
+    -fx-border-radius: 12;
+    -fx-background-radius: 12;
+    -fx-font-size: 13px;
+    -fx-font-weight: 700;
+    -fx-padding: 10 20;
+    -fx-cursor: hand;
+    -fx-max-width: infinity;
+}
+.welcome-cta-secondary:hover  { -fx-background-color: -color-surface-3; }
+.welcome-skip {
+    -fx-font-size: 12px;
+    -fx-text-fill: -color-text-3;
+    -fx-cursor: hand;
+}
+.welcome-skip:hover { -fx-text-fill: -color-text-2; }
