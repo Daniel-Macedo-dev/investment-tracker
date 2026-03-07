@@ -567,6 +567,16 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
             alert.setTitle("Validação");
             alert.setHeaderText("Corrija os erros:");
             alert.setContentText(errors.toString());
+            alert.getDialogPane().getStylesheets().add(
+                    getClass().getResource("/styles/app.css").toExternalForm());
+            alert.getDialogPane().getStyleClass().addAll("dark-dialog", "dark-dialog-simple");
+            alert.initStyle(javafx.stage.StageStyle.TRANSPARENT);
+            alert.setOnShowing(ev -> {
+                javafx.scene.Scene sc = alert.getDialogPane().getScene();
+                if (sc != null) sc.setFill(Color.TRANSPARENT);
+                ToastHost.showDim();
+            });
+            alert.setOnHidden(ev -> ToastHost.hideDim());
             alert.showAndWait();
             return false;
         }

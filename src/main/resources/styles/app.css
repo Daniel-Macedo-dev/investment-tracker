@@ -1429,6 +1429,7 @@
     -fx-border-color: -color-warning-a22;
     -fx-border-width: 1;
     -fx-font-size: 12px;
+    -fx-wrap-text: true;
 }
 
 /* Benchmark toggles (CDI, SELIC, IPCA, IBOVESPA) */
@@ -1476,6 +1477,8 @@
     -fx-background-color: -color-accent-strong;
     -fx-text-fill: white;
     -fx-font-weight: 800;
+    -fx-font-size: 13px;
+    -fx-cursor: hand;
     -fx-border-color: transparent;
     -fx-background-radius: 10;
     -fx-border-radius: 10;
