@@ -3,6 +3,7 @@ package com.daniel.core.service;
 import com.daniel.core.domain.entity.*;
 import com.daniel.core.domain.entity.Enums.FlowKind;
 import com.daniel.core.domain.repository.*;
+import com.daniel.core.domain.repository.IStockPriceProvider;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,9 @@ class DailyTrackingUseCaseTest {
 
     static class StubTypeRepo implements IInvestmentTypeRepository {
         final List<InvestmentType> all = new ArrayList<>();
+        int nextId = 10;
+        String lastCreatedName;
+        int lastUpdatedId = -1;
 
         void add(InvestmentType inv) { all.add(inv); }
 
@@ -35,6 +39,25 @@ class DailyTrackingUseCaseTest {
         @Override public void save(String name) {}
         @Override public void rename(int id, String newName) {}
         @Override public void delete(long id) {}
+
+        @Override
+        public int createFull(String name, String category, String liquidity,
+                              java.time.LocalDate investmentDate, java.math.BigDecimal profitability,
+                              java.math.BigDecimal investedValue, String typeOfInvestment,
+                              String indexType, java.math.BigDecimal indexPercentage,
+                              String ticker, java.math.BigDecimal purchasePrice, Integer quantity) {
+            lastCreatedName = name;
+            return nextId++;
+        }
+
+        @Override
+        public void updateFull(int id, String name, String category, String liquidity,
+                               java.time.LocalDate investmentDate, java.math.BigDecimal profitability,
+                               java.math.BigDecimal investedValue, String typeOfInvestment,
+                               String indexType, java.math.BigDecimal indexPercentage,
+                               String ticker, java.math.BigDecimal purchasePrice, Integer quantity) {
+            lastUpdatedId = id;
+        }
     }
 
     static class StubFlowRepo implements IFlowRepository {
@@ -61,6 +84,9 @@ class DailyTrackingUseCaseTest {
             investments.computeIfAbsent(date, k -> new HashMap<>()).put(typeId, cents);
         }
 
+        final Map<LocalDate, Long> upsertedCash = new HashMap<>();
+        final Map<LocalDate, Map<Long, Long>> upsertedInvestments = new HashMap<>();
+
         @Override public long getCash(LocalDate date) { return cash.getOrDefault(date, 0L); }
         @Override public void setCash(LocalDate date) {}
         @Override public Map<Long, Long> getAllInvestimentsForDate(LocalDate date) {
@@ -68,6 +94,24 @@ class DailyTrackingUseCaseTest {
         }
         @Override public void setInvestimentValue(LocalDate date, long typeId, long cents) {}
         @Override public Map<String, Long> seriesForInvestiments(long investimentsTypeId) { return Map.of(); }
+
+        @Override public void upsertCash(LocalDate date, long cashCents) {
+            upsertedCash.put(date, cashCents);
+        }
+        @Override public void upsertInvestment(LocalDate date, long investmentTypeId,
+                                               long valueCents, String note) {
+            upsertedInvestments.computeIfAbsent(date, k -> new HashMap<>())
+                               .put(investmentTypeId, valueCents);
+        }
+    }
+
+    static class StubPriceProvider implements IStockPriceProvider {
+        private final Map<String, Double> prices = new HashMap<>();
+
+        void put(String ticker, double price) { prices.put(ticker, price); }
+
+        @Override
+        public Double fetchPrice(String ticker) { return prices.get(ticker); }
     }
 
     static class StubTxRepo implements ITransactionRepository {
@@ -87,15 +131,17 @@ class DailyTrackingUseCaseTest {
     private StubFlowRepo flowRepo;
     private StubSnapshotRepo snapRepo;
     private StubTxRepo txRepo;
+    private StubPriceProvider priceProvider;
     private DailyTrackingUseCase uc;
 
     @BeforeEach
     void setUp() {
-        typeRepo = new StubTypeRepo();
-        flowRepo = new StubFlowRepo();
-        snapRepo = new StubSnapshotRepo();
-        txRepo   = new StubTxRepo();
-        uc = new DailyTrackingUseCase(flowRepo, typeRepo, snapRepo, txRepo);
+        typeRepo      = new StubTypeRepo();
+        flowRepo      = new StubFlowRepo();
+        snapRepo      = new StubSnapshotRepo();
+        txRepo        = new StubTxRepo();
+        priceProvider = new StubPriceProvider();
+        uc = new DailyTrackingUseCase(flowRepo, typeRepo, snapRepo, txRepo, priceProvider);
     }
 
     // ===== Formatting helpers =====
@@ -698,5 +744,107 @@ class DailyTrackingUseCaseTest {
         );
         // getCurrentValue returns 100000, investedCents = 100000 → 0%
         assertEquals(0.0, uc.getProfitability(inv, LocalDate.now()), 0.001);
+    }
+
+    // ===== saveEntry =====
+
+    @Test
+    void saveEntry_null_doesNothing() {
+        uc.saveEntry(null);
+        assertTrue(snapRepo.upsertedCash.isEmpty());
+        assertTrue(snapRepo.upsertedInvestments.isEmpty());
+    }
+
+    @Test
+    void saveEntry_withPositiveCash_upsertsCash() {
+        LocalDate date = LocalDate.of(2024, 6, 1);
+        DailyEntry entry = new DailyEntry(date, 50000L, Map.of());
+        uc.saveEntry(entry);
+        assertEquals(50000L, snapRepo.upsertedCash.get(date));
+    }
+
+    @Test
+    void saveEntry_withNegativeCash_skipsCashUpsert() {
+        LocalDate date = LocalDate.of(2024, 6, 1);
+        DailyEntry entry = new DailyEntry(date, -1L, Map.of());
+        uc.saveEntry(entry);
+        assertFalse(snapRepo.upsertedCash.containsKey(date));
+    }
+
+    @Test
+    void saveEntry_withInvestmentValues_upsertsEachInvestment() {
+        InvestmentType inv1 = new InvestmentType(1, "A");
+        InvestmentType inv2 = new InvestmentType(2, "B");
+        LocalDate date = LocalDate.of(2024, 6, 1);
+        DailyEntry entry = new DailyEntry(date, -1L,
+                Map.of(inv1, 10000L, inv2, 20000L));
+        uc.saveEntry(entry);
+
+        Map<Long, Long> saved = snapRepo.upsertedInvestments.get(date);
+        assertNotNull(saved);
+        assertEquals(10000L, saved.get(1L));
+        assertEquals(20000L, saved.get(2L));
+    }
+
+    @Test
+    void saveEntry_negativeInvestmentValue_isSkipped() {
+        InvestmentType inv = new InvestmentType(1, "A");
+        LocalDate date = LocalDate.of(2024, 6, 1);
+        DailyEntry entry = new DailyEntry(date, -1L, Map.of(inv, -5000L));
+        uc.saveEntry(entry);
+        assertFalse(snapRepo.upsertedInvestments.containsKey(date));
+    }
+
+    // ===== createTypeFull / updateTypeFull delegate to repo =====
+
+    @Test
+    void createTypeFull_delegatesToRepo_returnsId() {
+        int id = uc.createTypeFull(
+                "Meu CDB", "RENDA_FIXA", "MEDIA",
+                LocalDate.of(2024, 1, 1), BigDecimal.valueOf(12.0),
+                BigDecimal.valueOf(1000.0), "PREFIXADO",
+                null, null, null, null, null
+        );
+        assertEquals("Meu CDB", typeRepo.lastCreatedName);
+        assertEquals(10, id); // StubTypeRepo starts at nextId=10
+    }
+
+    @Test
+    void updateTypeFull_delegatesToRepo() {
+        uc.updateTypeFull(
+                5, "Renamed", "RENDA_FIXA", "ALTA",
+                LocalDate.of(2024, 1, 1), BigDecimal.valueOf(10.0),
+                BigDecimal.valueOf(500.0), "PREFIXADO",
+                null, null, null, null, null
+        );
+        assertEquals(5, typeRepo.lastUpdatedId);
+    }
+
+    // ===== getCurrentValue — ticker path uses IStockPriceProvider =====
+
+    @Test
+    void getCurrentValue_withTickerAndProvider_returnsProviderValue() {
+        // 100 shares × R$35.50 = R$3550.00 = 355000 cents
+        priceProvider.put("PETR4", 35.50);
+        InvestmentType inv = new InvestmentType(
+                1, "PETR4", "ACOES", "MUITO_ALTA",
+                LocalDate.now(), null, BigDecimal.valueOf(3000),
+                "ACAO", null, null, "PETR4", BigDecimal.valueOf(30.0), 100, null
+        );
+        long result = uc.getCurrentValue(inv, LocalDate.now());
+        assertEquals(355000L, result);
+    }
+
+    @Test
+    void getCurrentValue_providerReturnsNull_fallsBackToPurchasePrice() {
+        // provider returns null → fallback: 100 × R$30.00 = 300000 cents
+        // priceProvider has no entry for PETR4 → returns null
+        InvestmentType inv = new InvestmentType(
+                1, "PETR4", "ACOES", "MUITO_ALTA",
+                LocalDate.now(), null, BigDecimal.valueOf(3000),
+                "ACAO", null, null, "PETR4", BigDecimal.valueOf(30.0), 100, null
+        );
+        long result = uc.getCurrentValue(inv, LocalDate.now());
+        assertEquals(300000L, result); // purchasePrice fallback
     }
 }

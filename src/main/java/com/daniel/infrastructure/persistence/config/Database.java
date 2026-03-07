@@ -7,18 +7,30 @@ import java.sql.Statement;
 
 public final class Database {
 
-    private static final String URL = "jdbc:sqlite:investment_tracker.db";
+    private static final String DEFAULT_URL = "jdbc:sqlite:investment_tracker.db";
+    private static String jdbcUrl = DEFAULT_URL;
     private static Connection connection = null;
 
     private Database() {
         // Singleton
     }
 
+    /**
+     * Override the JDBC URL before the first {@link #open()} call.
+     * Closes any existing connection first so the new URL takes effect.
+     * Intended for tests only (e.g. {@code jdbc:sqlite::memory:}).
+     * Production code should never call this method.
+     */
+    public static synchronized void configure(String url) {
+        close();
+        jdbcUrl = (url != null) ? url : DEFAULT_URL;
+    }
+
     public static synchronized Connection open() {
         try {
             if (connection == null) {
                 System.out.println("🔧 Criando conexão com o banco de dados...");
-                connection = DriverManager.getConnection(URL);
+                connection = DriverManager.getConnection(jdbcUrl);
 
                 // Criar tabelas
                 System.out.println("🔧 Criando tabelas...");
@@ -28,7 +40,8 @@ public final class Database {
 
             if (connection.isClosed()) {
                 System.out.println("⚠️ Connection estava fechada, reabrindo...");
-                connection = DriverManager.getConnection(URL);
+                connection = DriverManager.getConnection(jdbcUrl);
+                createTables();
             }
 
             return connection;
@@ -56,8 +69,10 @@ public final class Database {
 
     public static void close() {
         try {
-            if (connection != null && !connection.isClosed()) {
-                connection.close();
+            if (connection != null) {
+                if (!connection.isClosed()) {
+                    connection.close();
+                }
                 connection = null;
             }
         } catch (SQLException e) {

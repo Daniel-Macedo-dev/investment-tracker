@@ -3,9 +3,6 @@ package com.daniel.core.service;
 import com.daniel.core.domain.entity.*;
 import com.daniel.core.domain.entity.Enums.InvestmentTypeEnum;
 import com.daniel.core.domain.repository.*;
-import com.daniel.infrastructure.api.BrapiClient;
-import com.daniel.infrastructure.persistence.repository.InvestmentTypeRepository;
-import com.daniel.infrastructure.persistence.repository.SnapshotRepository;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
@@ -19,6 +16,7 @@ public final class DailyTrackingUseCase {
     private final IInvestmentTypeRepository typeRepo;
     private final ISnapshotRepository snapshotRepo;
     private final ITransactionRepository txRepo;
+    private final IStockPriceProvider priceProvider;
 
     private static final NumberFormat BRL = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
 
@@ -26,11 +24,13 @@ public final class DailyTrackingUseCase {
             IFlowRepository flowRepo,
             IInvestmentTypeRepository typeRepo,
             ISnapshotRepository snapshotRepo,
-            ITransactionRepository txRepo) {
+            ITransactionRepository txRepo,
+            IStockPriceProvider priceProvider) {
         this.flowRepo = flowRepo;
         this.typeRepo = typeRepo;
         this.snapshotRepo = snapshotRepo;
         this.txRepo = txRepo;
+        this.priceProvider = priceProvider;
     }
 
     // ========== INVESTMENT TYPES ==========
@@ -56,13 +56,9 @@ public final class DailyTrackingUseCase {
                               BigDecimal investedValue, String typeOfInvestment,
                               String indexType, BigDecimal indexPercentage,
                               String ticker, BigDecimal purchasePrice, Integer quantity) {
-        if (typeRepo instanceof InvestmentTypeRepository repo) {
-            return repo.createFull(name, category, liquidity, investmentDate,
-                    profitability, investedValue, typeOfInvestment,
-                    indexType, indexPercentage, ticker, purchasePrice, quantity);
-        } else {
-            throw new UnsupportedOperationException("Repository não suporta createFull");
-        }
+        return typeRepo.createFull(name, category, liquidity, investmentDate,
+                profitability, investedValue, typeOfInvestment,
+                indexType, indexPercentage, ticker, purchasePrice, quantity);
     }
 
     public void updateTypeFull(int id, String name, String category, String liquidity,
@@ -70,13 +66,9 @@ public final class DailyTrackingUseCase {
                                BigDecimal investedValue, String typeOfInvestment,
                                String indexType, BigDecimal indexPercentage,
                                String ticker, BigDecimal purchasePrice, Integer quantity) {
-        if (typeRepo instanceof InvestmentTypeRepository repo) {
-            repo.updateFull(id, name, category, liquidity, investmentDate,
-                    profitability, investedValue, typeOfInvestment,
-                    indexType, indexPercentage, ticker, purchasePrice, quantity);
-        } else {
-            throw new UnsupportedOperationException("Repository não suporta updateFull");
-        }
+        typeRepo.updateFull(id, name, category, liquidity, investmentDate,
+                profitability, investedValue, typeOfInvestment,
+                indexType, indexPercentage, ticker, purchasePrice, quantity);
     }
 
     // ========== TRANSAÇÕES (COMPRA/VENDA) ==========
@@ -116,12 +108,10 @@ public final class DailyTrackingUseCase {
             return;
         }
 
-        if (snapshotRepo instanceof SnapshotRepository snapRepo) {
-            for (InvestmentType inv : all) {
-                long valueCents = getCurrentValue(inv, date);
-                if (valueCents > 0) {
-                    snapRepo.upsertInvestment(date, inv.id(), valueCents, null);
-                }
+        for (InvestmentType inv : all) {
+            long valueCents = getCurrentValue(inv, date);
+            if (valueCents > 0) {
+                snapshotRepo.upsertInvestment(date, inv.id(), valueCents, null);
             }
         }
     }
@@ -196,11 +186,8 @@ public final class DailyTrackingUseCase {
                 inv.quantity() != null && inv.purchasePrice() != null) {
 
             try {
-                // Buscar preço atual na Brapi
-                BrapiClient.StockData data = BrapiClient.fetchStockData(inv.ticker());
-
-                if (data != null && data.isValid()) {
-                    double currentPrice = data.regularMarketPrice();
+                Double currentPrice = priceProvider.fetchPrice(inv.ticker());
+                if (currentPrice != null) {
                     int quantity = inv.quantity();
                     long valueCents = (long)(currentPrice * quantity * 100);
 
@@ -414,9 +401,7 @@ public final class DailyTrackingUseCase {
 
         // Salvar caixa
         if (entry.cashCents() >= 0) {
-            if (snapshotRepo instanceof SnapshotRepository repo) {
-                repo.upsertCash(entry.date(), entry.cashCents());
-            }
+            snapshotRepo.upsertCash(entry.date(), entry.cashCents());
         }
 
         for (var e : entry.investmentValuesCents().entrySet()) {
@@ -424,10 +409,7 @@ public final class DailyTrackingUseCase {
             Long cents = e.getValue();
             if (cents != null && cents >= 0) {
                 snapshotRepo.setInvestimentValue(entry.date(), type.id(), cents);
-
-                if (snapshotRepo instanceof SnapshotRepository repo) {
-                    repo.upsertInvestment(entry.date(), type.id(), cents, null);
-                }
+                snapshotRepo.upsertInvestment(entry.date(), type.id(), cents, null);
             }
         }
     }
