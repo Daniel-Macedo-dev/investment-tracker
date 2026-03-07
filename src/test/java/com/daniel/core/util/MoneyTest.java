@@ -121,4 +121,102 @@ class MoneyTest {
         long recovered = Money.textToCentsOrZero(formatted);
         assertEquals(original, recovered);
     }
+
+    @Test
+    void negativeCents_roundTrip() {
+        long original = -125050L;
+        String formatted = Money.centsToCurrencyText(original);
+        long recovered = Money.textToCentsOrZero(formatted);
+        assertEquals(original, recovered);
+    }
+
+    // ===== Edge cases — textToCentsOrZero =====
+
+    @Test
+    void oneCent_minimumAmount() {
+        // "0,01" → 1 cent
+        assertEquals(1L, Money.textToCentsOrZero("0,01"));
+    }
+
+    @Test
+    void largeAmountMultipleThousandGroups() {
+        // "1.000.000,50" → multiple dot groups + comma decimal
+        assertEquals(100_000_050L, Money.textToCentsOrZero("1.000.000,50"));
+    }
+
+    @Test
+    void currencySymbolOnly_returnsZero() {
+        // "R$" after strip → blank → 0
+        assertEquals(0L, Money.textToCentsOrZero("R$"));
+    }
+
+    @Test
+    void currencySymbolWithNbsp_returnsZero() {
+        // "R$\u00A0" after strip + NBSP removal → blank → 0
+        assertEquals(0L, Money.textToCentsOrZero("R$\u00A0"));
+    }
+
+    @Test
+    void leadingAndTrailingSpaces_stripped() {
+        // "  12,50  " → 1250 cents
+        assertEquals(1250L, Money.textToCentsOrZero("  12,50  "));
+    }
+
+    @Test
+    void negativeWithCurrencySymbol_parsed() {
+        // "R$ -12,50" → should produce -1250 cents
+        // Negative sign comes AFTER R$ is stripped
+        assertEquals(-1250L, Money.textToCentsOrZero("R$ -12,50"));
+    }
+
+    @Test
+    void wholeNumberFiveDigits() {
+        // "99999" → 9999900 cents
+        assertEquals(9_999_900L, Money.textToCentsOrZero("99999"));
+    }
+
+    @Test
+    void decimalDotFormat_threeDigits() {
+        // "100.50" — dot-only (no comma) → treated as decimal
+        assertEquals(10050L, Money.textToCentsOrZero("100.50"));
+    }
+
+    // ===== textToCentsSafe — error path =====
+
+    @Test
+    void safe_invalidInput_throwsIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class,
+                () -> Money.textToCentsSafe("abc"));
+    }
+
+    @Test
+    void safe_alphabeticMixed_throwsIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class,
+                () -> Money.textToCentsSafe("12abc"));
+    }
+
+    // ===== centsToCurrencyText — formatting checks =====
+
+    @Test
+    void centsToCurrencyText_negativeAmount_containsDigits() {
+        String result = Money.centsToCurrencyText(-1250L);
+        assertTrue(result.contains("12"), "Expected '12' in: " + result);
+        assertTrue(result.contains("50"), "Expected '50' in: " + result);
+    }
+
+    @Test
+    void centsToCurrencyText_oneCent_roundTrip() {
+        long original = 1L;
+        String formatted = Money.centsToCurrencyText(original);
+        long recovered = Money.textToCentsOrZero(formatted);
+        assertEquals(original, recovered);
+    }
+
+    @Test
+    void centsToCurrencyText_largePrecise_roundTrip() {
+        long original = 9_999_999_99L; // R$ 99.999.999,99
+        String formatted = Money.centsToCurrencyText(original);
+        long recovered = Money.textToCentsOrZero(formatted);
+        assertEquals(original, recovered);
+    }
 }

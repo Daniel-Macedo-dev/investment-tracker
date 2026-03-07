@@ -113,4 +113,78 @@ class InvestmentCalculatorTest {
         assertEquals(0.0, calc.lucro(), 0.001);
         assertEquals(0.0, calc.rentabilidade(), 0.001);
     }
+
+    @Test
+    void acao_singleShare_smallPosition() {
+        var calc = InvestmentCalculator.calculateAcao(50.0, 1, 55.0, 0.0);
+        assertEquals(50.0, calc.valorInvestido(), 0.001);
+        assertEquals(55.0, calc.valorAtual(), 0.001);
+        assertEquals(5.0, calc.lucro(), 0.001);
+        assertEquals(0.10, calc.rentabilidade(), 0.001);
+    }
+
+    @Test
+    void acao_largeQuantity_correctScale() {
+        // 10000 shares * R$30 bought, sold at R$33
+        var calc = InvestmentCalculator.calculateAcao(30.0, 10000, 33.0, 0.0);
+        assertEquals(300000.0, calc.valorInvestido(), 0.01);
+        assertEquals(330000.0, calc.valorAtual(), 0.01);
+        assertEquals(30000.0, calc.lucro(), 0.01);
+    }
+
+    // ===== calculatePrefixado — additional edge cases =====
+
+    @Test
+    void prefixado_hundredPercentRate_doubles() {
+        // 100% annual rate for 1 period → value doubles
+        double result = InvestmentCalculator.calculatePrefixado(1000.0, 1.0, 1);
+        assertEquals(2000.0, result, 0.001);
+    }
+
+    @Test
+    void prefixado_fractionalPeriod_handledByMath() {
+        // 10% for 0.5 periods → 1000 * (1.1)^0.5 ≈ 1048.8
+        double result = InvestmentCalculator.calculatePrefixado(1000.0, 0.10, 0);
+        // 0 periods returns exactly the capital (identity)
+        assertEquals(1000.0, result, 0.001);
+    }
+
+    // ===== calculatePosfixado — additional edge cases =====
+
+    @Test
+    void posfixado_zeroIndexRate_returnsCapital() {
+        // 100% of 0% index = no growth
+        double result = InvestmentCalculator.calculatePosfixado(1000.0, 1.0, 0.0, 5);
+        assertEquals(1000.0, result, 0.001);
+    }
+
+    @Test
+    void posfixado_zeroPercentage_returnsCapital() {
+        // 0% of any index = no growth
+        double result = InvestmentCalculator.calculatePosfixado(1000.0, 0.0, 0.135, 3);
+        assertEquals(1000.0, result, 0.001);
+    }
+
+    @Test
+    void posfixado_hundredTwentyPercent_exceedsIndex() {
+        // 120% of CDI 10% = effective 12%
+        double result = InvestmentCalculator.calculatePosfixado(1000.0, 1.2, 0.10, 1);
+        assertEquals(1120.0, result, 0.001);
+    }
+
+    // ===== calculateHibrido — additional edge cases =====
+
+    @Test
+    void hibrido_bothRatesHigh_combinedGrowth() {
+        // IPCA 10% + fixed 5%: (1.10 * 1.05) - 1 = 0.155 → 1000 * 1.155 = 1155
+        double result = InvestmentCalculator.calculateHibrido(1000.0, 0.05, 0.10, 1);
+        assertEquals(1155.0, result, 0.001);
+    }
+
+    @Test
+    void hibrido_multiPeriod_compoundsCorrectly() {
+        // IPCA 5% + fixed 5%, 2 periods: (1.1025)^2 * 1000 ≈ 1215.5
+        double result = InvestmentCalculator.calculateHibrido(1000.0, 0.05, 0.05, 2);
+        assertEquals(1215.5, result, 0.1);
+    }
 }

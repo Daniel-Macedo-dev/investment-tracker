@@ -412,4 +412,291 @@ class DailyTrackingUseCaseTest {
 
         assertTrue(uc.hasAnyDataPublic(today));
     }
+
+    // ===== summaryFor — outflow increases profit =====
+
+    @Test
+    void summaryFor_outflowFromInvestment_increasesProfit() {
+        InvestmentType inv = new InvestmentType(
+                1, "Tesouro", "RENDA_FIXA", "ALTA",
+                LocalDate.of(2023, 1, 1), BigDecimal.valueOf(0.12), BigDecimal.valueOf(1000)
+        );
+        typeRepo.add(inv);
+
+        LocalDate today    = LocalDate.of(2024, 3, 7);
+        LocalDate yesterday = today.minusDays(1);
+
+        // Yesterday 50000, withdrew 3000, today 48000
+        // profitCents = 48000 - 50000 + 3000 = 1000
+        snapRepo.putInvestment(today, 1L, 48000L);
+        snapRepo.putInvestment(yesterday, 1L, 50000L);
+
+        Flow outflow = new Flow(1L, today,
+                FlowKind.INVESTMENT, 1L,   // from this investment
+                FlowKind.CASH, null,
+                3000L, null);
+        flowRepo.add(today, outflow);
+
+        DailySummary summary = uc.summaryFor(today);
+
+        assertEquals(1000L, summary.investmentProfitTodayCents().get(1L));
+    }
+
+    @Test
+    void summaryFor_twoInvestments_totalIncludesBoth() {
+        InvestmentType t1 = new InvestmentType(
+                1, "Tesouro", "RENDA_FIXA", "ALTA",
+                LocalDate.of(2023, 1, 1), BigDecimal.valueOf(0.12), BigDecimal.valueOf(1000)
+        );
+        InvestmentType t2 = new InvestmentType(
+                2, "LCI", "RENDA_FIXA", "MEDIA",
+                LocalDate.of(2023, 1, 1), BigDecimal.valueOf(0.10), BigDecimal.valueOf(500)
+        );
+        typeRepo.add(t1);
+        typeRepo.add(t2);
+
+        LocalDate today = LocalDate.of(2024, 3, 7);
+        snapRepo.putCash(today, 5000L);
+        snapRepo.putInvestment(today, 1L, 30000L);
+        snapRepo.putInvestment(today, 2L, 20000L);
+
+        DailySummary summary = uc.summaryFor(today);
+
+        assertEquals(55000L, summary.totalTodayCents()); // 5000 + 30000 + 20000
+        assertEquals(2, summary.investmentTodayCents().size());
+    }
+
+    @Test
+    void summaryFor_firstEntry_noYesterdayData_profitEqualsValue() {
+        InvestmentType inv = new InvestmentType(
+                1, "Tesouro", "RENDA_FIXA", "ALTA",
+                LocalDate.of(2023, 1, 1), BigDecimal.valueOf(0.12), BigDecimal.valueOf(1000)
+        );
+        typeRepo.add(inv);
+
+        LocalDate today = LocalDate.of(2024, 3, 7);
+        snapRepo.putInvestment(today, 1L, 40000L);
+        // No yesterday data → yesterdayCents = 0
+
+        DailySummary summary = uc.summaryFor(today);
+
+        // profit = 40000 - 0 = 40000
+        assertEquals(40000L, summary.investmentProfitTodayCents().get(1L));
+    }
+
+    // ===== rangeSummary =====
+
+    @Test
+    void rangeSummary_sameDayFromTo_profitIsZero() {
+        InvestmentType inv = new InvestmentType(
+                1, "Tesouro", "RENDA_FIXA", "ALTA",
+                LocalDate.of(2023, 1, 1), BigDecimal.valueOf(0.12), BigDecimal.valueOf(1000)
+        );
+        typeRepo.add(inv);
+
+        LocalDate date     = LocalDate.of(2024, 3, 7);
+        LocalDate dayBefore = date.minusDays(1);
+
+        snapRepo.putInvestment(date, 1L, 51000L);
+        snapRepo.putInvestment(dayBefore, 1L, 50000L);
+
+        // rangeSummary(date, date) → last.profit - first.profit = 1000 - 1000 = 0
+        DailyTrackingUseCase.RangeSummary range = uc.rangeSummary(date, date);
+
+        assertEquals(0L, range.totalProfitCents());
+    }
+
+    @Test
+    void rangeSummary_returnsPerInvestmentProfit() {
+        InvestmentType inv = new InvestmentType(
+                1, "Tesouro", "RENDA_FIXA", "ALTA",
+                LocalDate.of(2023, 1, 1), BigDecimal.valueOf(0.12), BigDecimal.valueOf(1000)
+        );
+        typeRepo.add(inv);
+
+        LocalDate from = LocalDate.of(2024, 3, 1);
+        LocalDate to   = LocalDate.of(2024, 3, 7);
+
+        // from: yesterday=0, today=50000 → profit=50000
+        snapRepo.putInvestment(from, 1L, 50000L);
+        // to: yesterday=50000, today=51000 → profit=1000
+        snapRepo.putInvestment(to, 1L, 51000L);
+        snapRepo.putInvestment(to.minusDays(1), 1L, 50000L);
+
+        DailyTrackingUseCase.RangeSummary range = uc.rangeSummary(from, to);
+
+        // totalProfit = last.totalProfit - first.totalProfit = 1000 - 50000 = -49000
+        assertEquals(-49000L, range.totalProfitCents());
+        // profitByInv for id=1: lastProfit(1000) - firstProfit(50000) = -49000
+        assertEquals(-49000L, range.profitByInvestmentCents().get(1L));
+    }
+
+    // ===== groupByTicker — blank ticker excluded =====
+
+    @Test
+    void groupByTicker_blankTicker_excluded() {
+        typeRepo.add(new InvestmentType(
+                1, "Renda Fixa", "RENDA_FIXA", "ALTA",
+                LocalDate.now(), null, BigDecimal.valueOf(1000),
+                "PREFIXADO", null, null, "   ", null, null, null // blank ticker
+        ));
+        assertTrue(uc.groupByTicker().isEmpty());
+    }
+
+    // ===== getAveragePrice — null purchasePrice skipped =====
+
+    @Test
+    void getAveragePrice_nullPurchasePrice_skipped() {
+        typeRepo.add(new InvestmentType(
+                1, "PETR4", "ACOES", "MUITO_ALTA",
+                LocalDate.now(), null, BigDecimal.valueOf(3000),
+                "ACAO", null, null, "PETR4", null, 100, null // purchasePrice null
+        ));
+        // null purchasePrice → skipped → totalQuantity=0 → returns 0.0
+        assertEquals(0.0, uc.getAveragePrice("PETR4"), 0.001);
+    }
+
+    // ===== getTotalQuantity — null quantity skipped =====
+
+    @Test
+    void getTotalQuantity_nullQuantity_skipped() {
+        typeRepo.add(new InvestmentType(
+                1, "PETR4", "ACOES", "MUITO_ALTA",
+                LocalDate.now(), null, BigDecimal.valueOf(3000),
+                "ACAO", null, null, "PETR4", BigDecimal.valueOf(30.0), null, null // quantity null
+        ));
+        assertEquals(0, uc.getTotalQuantity("PETR4"));
+    }
+
+    // ===== calculateCurrentValue — pure calculation paths (no BrapiClient) =====
+
+    @Test
+    void calculateCurrentValue_nullInvestedValue_returnsZero() {
+        InvestmentType inv = new InvestmentType(
+                1, "Test", "RENDA_FIXA", "ALTA",
+                LocalDate.now(), BigDecimal.valueOf(0.12), null
+        );
+        assertEquals(0L, uc.calculateCurrentValue(inv, LocalDate.now()));
+    }
+
+    @Test
+    void calculateCurrentValue_nullProfitability_returnsZero() {
+        InvestmentType inv = new InvestmentType(
+                1, "Test", "RENDA_FIXA", "ALTA",
+                LocalDate.now(), null, BigDecimal.valueOf(1000)
+        );
+        assertEquals(0L, uc.calculateCurrentValue(inv, LocalDate.now()));
+    }
+
+    @Test
+    void calculateCurrentValue_acoaWithCurrentPrice_returnsQuantityTimesPrice() {
+        // ACAO with currentPrice: 100 shares * R$ 35.00 = R$ 3500.00 = 350000 cents
+        InvestmentType inv = new InvestmentType(
+                1, "PETR4", "ACOES", "MUITO_ALTA",
+                LocalDate.now(), BigDecimal.valueOf(0.05), BigDecimal.valueOf(3000),
+                "ACAO", null, null, "PETR4", BigDecimal.valueOf(30.0), 100,
+                BigDecimal.valueOf(35.0) // currentPrice
+        );
+        assertEquals(350000L, uc.calculateCurrentValue(inv, LocalDate.now()));
+    }
+
+    @Test
+    void calculateCurrentValue_acaoWithPurchasePriceOnly_usesPurchasePrice() {
+        // ACAO without currentPrice, with purchasePrice: 100 * 30.00 = 3000.00 = 300000 cents
+        InvestmentType inv = new InvestmentType(
+                1, "PETR4", "ACOES", "MUITO_ALTA",
+                LocalDate.now(), BigDecimal.valueOf(0.05), BigDecimal.valueOf(3000),
+                "ACAO", null, null, "PETR4", BigDecimal.valueOf(30.0), 100, null
+        );
+        assertEquals(300000L, uc.calculateCurrentValue(inv, LocalDate.now()));
+    }
+
+    @Test
+    void calculateCurrentValue_nonAcao_nullDate_returnsInvestedValue() {
+        // No investmentDate → returns investedValue * 100
+        InvestmentType inv = new InvestmentType(
+                1, "CDB", "RENDA_FIXA", "MEDIA",
+                null, BigDecimal.valueOf(0.12), BigDecimal.valueOf(1000.0)
+        );
+        // investedValue = 1000.0 → 1000 * 100 = 100000 cents
+        assertEquals(100000L, uc.calculateCurrentValue(inv, LocalDate.now()));
+    }
+
+    @Test
+    void calculateCurrentValue_nonAcao_withDate_compoundInterest() {
+        // Invested R$1000 at 100% annual rate, exactly 365 days ago → should ≈ double
+        LocalDate investmentDate = LocalDate.of(2023, 1, 1);
+        LocalDate today          = LocalDate.of(2024, 1, 1);
+
+        InvestmentType inv = new InvestmentType(
+                1, "CDB", "RENDA_FIXA", "MEDIA",
+                investmentDate, BigDecimal.valueOf(100.0), BigDecimal.valueOf(1000.0)
+        );
+        long result = uc.calculateCurrentValue(inv, today);
+        // 1000 * (1 + 1.0)^1 = 2000 → 200000 cents (approximately)
+        assertEquals(200000L, result, 500L); // 0.5% tolerance for day rounding
+    }
+
+    // ===== getCurrentValue — non-ticker paths (no BrapiClient) =====
+
+    @Test
+    void getCurrentValue_noTicker_investedValueOnly_returnsInvestedValue() {
+        // No ticker, no date → falls to investedValue path
+        InvestmentType inv = new InvestmentType(
+                1, "Poupança", "RENDA_FIXA", "MUITO_ALTA",
+                null, null, BigDecimal.valueOf(5000.0)
+        );
+        long result = uc.getCurrentValue(inv, LocalDate.now());
+        assertEquals(500000L, result); // 5000 * 100
+    }
+
+    @Test
+    void getCurrentValue_noTicker_withDateAndRate_appliesCompoundInterest() {
+        // R$1000 at 10% annual, 12 months → should be > 100000 cents
+        LocalDate investmentDate = LocalDate.of(2023, 1, 1);
+        LocalDate today          = LocalDate.of(2024, 1, 1);
+
+        InvestmentType inv = new InvestmentType(
+                1, "CDB", "RENDA_FIXA", "MEDIA",
+                investmentDate, BigDecimal.valueOf(10.0), BigDecimal.valueOf(1000.0)
+        );
+        long result = uc.getCurrentValue(inv, today);
+        assertTrue(result > 100000L, "Expected compound growth > R$1000, got: " + result);
+    }
+
+    @Test
+    void getCurrentValue_noValues_returnsZero() {
+        // Neither ticker, profitability, investedValue → 0
+        InvestmentType inv = new InvestmentType(1, "Empty");
+        long result = uc.getCurrentValue(inv, LocalDate.now());
+        assertEquals(0L, result);
+    }
+
+    // ===== getProfitability =====
+
+    @Test
+    void getProfitability_nullInvestedValue_returnsZero() {
+        InvestmentType inv = new InvestmentType(1, "Test");
+        assertEquals(0.0, uc.getProfitability(inv, LocalDate.now()), 0.001);
+    }
+
+    @Test
+    void getProfitability_zeroInvestedValue_returnsZero() {
+        InvestmentType inv = new InvestmentType(
+                1, "Test", "RENDA_FIXA", "ALTA",
+                LocalDate.now(), BigDecimal.valueOf(0.12), BigDecimal.valueOf(0)
+        );
+        assertEquals(0.0, uc.getProfitability(inv, LocalDate.now()), 0.001);
+    }
+
+    @Test
+    void getProfitability_noDateNoRate_breakEven() {
+        // getCurrentValue with no date returns investedValue*100 → profitability = 0%
+        InvestmentType inv = new InvestmentType(
+                1, "CDB", "RENDA_FIXA", "ALTA",
+                null, BigDecimal.valueOf(0.12), BigDecimal.valueOf(1000.0)
+        );
+        // getCurrentValue returns 100000, investedCents = 100000 → 0%
+        assertEquals(0.0, uc.getProfitability(inv, LocalDate.now()), 0.001);
+    }
 }
