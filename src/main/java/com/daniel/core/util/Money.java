@@ -25,7 +25,7 @@ public final class Money {
         if (s.isEmpty()) return 0L;
 
         s = s.replace("R$", "").trim();
-        s = s.replace(" ", "");
+        s = s.replace(" ", "").replace("\u00A0", "");
 
         boolean neg = s.startsWith("-");
         if (neg) s = s.substring(1);
