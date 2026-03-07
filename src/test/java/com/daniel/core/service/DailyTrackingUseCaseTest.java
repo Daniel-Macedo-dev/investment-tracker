@@ -87,13 +87,19 @@ class DailyTrackingUseCaseTest {
         final Map<LocalDate, Long> upsertedCash = new HashMap<>();
         final Map<LocalDate, Map<Long, Long>> upsertedInvestments = new HashMap<>();
 
+        final Map<Long, Map<String, Long>> seriesData = new HashMap<>();
+
+        void putSeries(long typeId, Map<String, Long> series) { seriesData.put(typeId, series); }
+
         @Override public long getCash(LocalDate date) { return cash.getOrDefault(date, 0L); }
         @Override public void setCash(LocalDate date) {}
         @Override public Map<Long, Long> getAllInvestimentsForDate(LocalDate date) {
             return investments.getOrDefault(date, Map.of());
         }
         @Override public void setInvestimentValue(LocalDate date, long typeId, long cents) {}
-        @Override public Map<String, Long> seriesForInvestiments(long investimentsTypeId) { return Map.of(); }
+        @Override public Map<String, Long> seriesForInvestiments(long investimentsTypeId) {
+            return seriesData.getOrDefault(investimentsTypeId, Map.of());
+        }
 
         @Override public void upsertCash(LocalDate date, long cashCents) {
             upsertedCash.put(date, cashCents);
@@ -107,11 +113,16 @@ class DailyTrackingUseCaseTest {
 
     static class StubPriceProvider implements IStockPriceProvider {
         private final Map<String, Double> prices = new HashMap<>();
+        private final java.util.Set<String> throwing = new java.util.HashSet<>();
 
         void put(String ticker, double price) { prices.put(ticker, price); }
+        void throwFor(String ticker) { throwing.add(ticker); }
 
         @Override
-        public Double fetchPrice(String ticker) { return prices.get(ticker); }
+        public Double fetchPrice(String ticker) {
+            if (throwing.contains(ticker)) throw new RuntimeException("simulated network error");
+            return prices.get(ticker);
+        }
     }
 
     static class StubTxRepo implements ITransactionRepository {
@@ -846,5 +857,261 @@ class DailyTrackingUseCaseTest {
         );
         long result = uc.getCurrentValue(inv, LocalDate.now());
         assertEquals(300000L, result); // purchasePrice fallback
+    }
+
+    // ===== loadEntry =====
+
+    @Test
+    void loadEntry_emptyState_returnsZeroCashAndEmptyInvestments() {
+        LocalDate date = LocalDate.of(2024, 5, 1);
+        DailyEntry entry = uc.loadEntry(date);
+        assertEquals(date, entry.date());
+        assertEquals(0L, entry.cashCents());
+        assertTrue(entry.investmentValuesCents().isEmpty());
+    }
+
+    @Test
+    void loadEntry_withCash_returnsCash() {
+        LocalDate date = LocalDate.of(2024, 5, 1);
+        snapRepo.putCash(date, 75000L);
+        DailyEntry entry = uc.loadEntry(date);
+        assertEquals(75000L, entry.cashCents());
+    }
+
+    @Test
+    void loadEntry_withTypesButNoSnapshot_mapsAllToZero() {
+        typeRepo.add(new InvestmentType(1, "CDB"));
+        typeRepo.add(new InvestmentType(2, "LCI"));
+        LocalDate date = LocalDate.of(2024, 5, 1);
+
+        DailyEntry entry = uc.loadEntry(date);
+
+        assertEquals(2, entry.investmentValuesCents().size());
+        entry.investmentValuesCents().values().forEach(v -> assertEquals(0L, v));
+    }
+
+    @Test
+    void loadEntry_withSnapshot_mapsCorrectCents() {
+        InvestmentType inv = new InvestmentType(1, "CDB");
+        typeRepo.add(inv);
+        LocalDate date = LocalDate.of(2024, 5, 1);
+        snapRepo.putInvestment(date, 1L, 80000L);
+
+        DailyEntry entry = uc.loadEntry(date);
+
+        assertEquals(80000L, entry.investmentValuesCents().get(inv));
+    }
+
+    @Test
+    void loadEntry_typeNotInSnapshot_returnsZeroForMissingType() {
+        InvestmentType inv1 = new InvestmentType(1, "CDB");
+        InvestmentType inv2 = new InvestmentType(2, "LCI");
+        typeRepo.add(inv1);
+        typeRepo.add(inv2);
+        LocalDate date = LocalDate.of(2024, 5, 1);
+        snapRepo.putInvestment(date, 1L, 50000L); // only inv1 has data
+
+        DailyEntry entry = uc.loadEntry(date);
+
+        assertEquals(50000L, entry.investmentValuesCents().get(inv1));
+        assertEquals(0L,     entry.investmentValuesCents().get(inv2));
+    }
+
+    // ===== takeSnapshotIfNeeded =====
+
+    @Test
+    void takeSnapshotIfNeeded_snapshotAlreadyExists_doesNotUpsert() {
+        LocalDate date = LocalDate.of(2024, 5, 1);
+        // pre-existing snapshot data → early return
+        snapRepo.putInvestment(date, 1L, 40000L);
+
+        uc.takeSnapshotIfNeeded(date);
+
+        // no additional upserts should have happened
+        assertTrue(snapRepo.upsertedInvestments.isEmpty());
+    }
+
+    @Test
+    void takeSnapshotIfNeeded_noTypes_doesNotUpsert() {
+        LocalDate date = LocalDate.of(2024, 5, 1);
+        // typeRepo is empty → early return after checking existing snapshot (also empty)
+        uc.takeSnapshotIfNeeded(date);
+        assertTrue(snapRepo.upsertedInvestments.isEmpty());
+    }
+
+    @Test
+    void takeSnapshotIfNeeded_typeWithInvestedValue_upsertsCalculatedValue() {
+        // investedValue=1000 with no date/profitability → getCurrentValue = 1000*100 = 100000
+        InvestmentType inv = new InvestmentType(
+                3, "Poupança", "RENDA_FIXA", "MUITO_ALTA",
+                null, null, BigDecimal.valueOf(1000.0)
+        );
+        typeRepo.add(inv);
+        LocalDate date = LocalDate.of(2024, 5, 1);
+
+        uc.takeSnapshotIfNeeded(date);
+
+        Map<Long, Long> upserted = snapRepo.upsertedInvestments.get(date);
+        assertNotNull(upserted);
+        assertEquals(100000L, upserted.get(3L));
+    }
+
+    @Test
+    void takeSnapshotIfNeeded_typeWithZeroValue_notUpserted() {
+        // type with no investedValue/profitability/ticker → getCurrentValue = 0 → not upserted
+        InvestmentType inv = new InvestmentType(4, "Empty");
+        typeRepo.add(inv);
+        LocalDate date = LocalDate.of(2024, 5, 1);
+
+        uc.takeSnapshotIfNeeded(date);
+
+        // upsertedInvestments should not have an entry for this date
+        assertFalse(snapRepo.upsertedInvestments.containsKey(date));
+    }
+
+    @Test
+    void takeSnapshotIfNeeded_withTickerType_usesProviderPrice() {
+        // 50 shares × R$40.00 = R$2000.00 = 200000 cents
+        priceProvider.put("VALE3", 40.0);
+        InvestmentType inv = new InvestmentType(
+                5, "VALE3", "ACOES", "MUITO_ALTA",
+                LocalDate.now(), null, BigDecimal.valueOf(1500),
+                "ACAO", null, null, "VALE3", BigDecimal.valueOf(30.0), 50, null
+        );
+        typeRepo.add(inv);
+        LocalDate date = LocalDate.of(2024, 5, 1);
+
+        uc.takeSnapshotIfNeeded(date);
+
+        Map<Long, Long> upserted = snapRepo.upsertedInvestments.get(date);
+        assertNotNull(upserted);
+        assertEquals(200000L, upserted.get(5L));
+    }
+
+    // ===== seriesForInvestment =====
+
+    @Test
+    void seriesForInvestment_noData_returnsEmptyList() {
+        // stub returns empty map by default
+        List<DailyTrackingUseCase.SeriesPoint> points = uc.seriesForInvestment(99);
+        assertNotNull(points);
+        assertTrue(points.isEmpty());
+    }
+
+    @Test
+    void seriesForInvestment_singlePoint_parsedCorrectly() {
+        snapRepo.putSeries(1L, Map.of("2024-03-07", 50000L));
+
+        List<DailyTrackingUseCase.SeriesPoint> points = uc.seriesForInvestment(1);
+
+        assertEquals(1, points.size());
+        assertEquals(LocalDate.of(2024, 3, 7), points.get(0).date());
+        assertEquals(50000L, points.get(0).valueCents());
+    }
+
+    @Test
+    void seriesForInvestment_multiplePoints_allParsed() {
+        snapRepo.putSeries(2L, Map.of(
+                "2024-01-01", 10000L,
+                "2024-02-01", 11000L,
+                "2024-03-01", 12000L
+        ));
+
+        List<DailyTrackingUseCase.SeriesPoint> points = uc.seriesForInvestment(2);
+
+        assertEquals(3, points.size());
+        long total = points.stream().mapToLong(DailyTrackingUseCase.SeriesPoint::valueCents).sum();
+        assertEquals(33000L, total);
+    }
+
+    // ===== getCurrentValue — ticker-path branch coverage =====
+
+    @Test
+    void getCurrentValue_blankTicker_routesToNonTickerPath() {
+        // Guard: !ticker.isBlank() fails → falls to investedValue path
+        InvestmentType inv = new InvestmentType(
+                1, "X", "ACOES", "MUITO_ALTA",
+                null, null, BigDecimal.valueOf(500.0),
+                "ACAO", null, null, "   ", BigDecimal.valueOf(30.0), 100, null
+        );
+        assertEquals(50000L, uc.getCurrentValue(inv, LocalDate.now()));
+    }
+
+    @Test
+    void getCurrentValue_nullQuantity_routesToNonTickerPath() {
+        // Guard: quantity != null fails → falls to investedValue path
+        InvestmentType inv = new InvestmentType(
+                1, "X", "ACOES", "MUITO_ALTA",
+                null, null, BigDecimal.valueOf(500.0),
+                "ACAO", null, null, "PETR4", BigDecimal.valueOf(30.0), null, null
+        );
+        assertEquals(50000L, uc.getCurrentValue(inv, LocalDate.now()));
+    }
+
+    @Test
+    void getCurrentValue_nullPurchasePrice_routesToNonTickerPath() {
+        // Guard: purchasePrice != null fails → falls to investedValue path
+        InvestmentType inv = new InvestmentType(
+                1, "X", "ACOES", "MUITO_ALTA",
+                null, null, BigDecimal.valueOf(500.0),
+                "ACAO", null, null, "PETR4", null, 100, null
+        );
+        assertEquals(50000L, uc.getCurrentValue(inv, LocalDate.now()));
+    }
+
+    @Test
+    void getCurrentValue_providerThrows_fallsBackToPurchasePrice() {
+        // Exception in fetchPrice → catch block → fallback: 50 × R$25.00 = 125000 cents
+        priceProvider.throwFor("ITUB4");
+        InvestmentType inv = new InvestmentType(
+                1, "ITUB4", "ACOES", "MUITO_ALTA",
+                null, null, BigDecimal.valueOf(1000),
+                "ACAO", null, null, "ITUB4", BigDecimal.valueOf(25.0), 50, null
+        );
+        assertEquals(125000L, uc.getCurrentValue(inv, LocalDate.now()));
+    }
+
+    @Test
+    void getCurrentValue_providerReturnsZero_returnsZero() {
+        // price=0.0 → (long)(0.0 * qty * 100) = 0L; no fallback — zero is a valid provider return
+        priceProvider.put("MGLU3", 0.0);
+        InvestmentType inv = new InvestmentType(
+                1, "MGLU3", "ACOES", "MUITO_ALTA",
+                null, null, BigDecimal.valueOf(2000),
+                "ACAO", null, null, "MGLU3", BigDecimal.valueOf(10.0), 200, null
+        );
+        assertEquals(0L, uc.getCurrentValue(inv, LocalDate.now()));
+    }
+
+    @Test
+    void getCurrentValue_multipleInvestments_differentTickers_resolvedIndependently() {
+        priceProvider.put("PETR4", 35.0);  // 100 × 35.00 × 100 = 350000
+        priceProvider.put("VALE3", 45.0);  // 50  × 45.00 × 100 = 225000
+
+        InvestmentType petr = new InvestmentType(
+                1, "PETR4", "ACOES", "MUITO_ALTA",
+                null, null, BigDecimal.valueOf(3000),
+                "ACAO", null, null, "PETR4", BigDecimal.valueOf(30.0), 100, null
+        );
+        InvestmentType vale = new InvestmentType(
+                2, "VALE3", "ACOES", "MUITO_ALTA",
+                null, null, BigDecimal.valueOf(1500),
+                "ACAO", null, null, "VALE3", BigDecimal.valueOf(40.0), 50, null
+        );
+
+        assertEquals(350000L, uc.getCurrentValue(petr, LocalDate.now()));
+        assertEquals(225000L, uc.getCurrentValue(vale, LocalDate.now()));
+    }
+
+    @Test
+    void getCurrentValue_priceMathTruncatesToLong() {
+        // 33.33 × 3 × 100 = 9999.0 → (long) truncates to 9999, not rounded to 10000
+        priceProvider.put("TEST", 33.33);
+        InvestmentType inv = new InvestmentType(
+                1, "TEST", "ACOES", "MUITO_ALTA",
+                null, null, BigDecimal.valueOf(1000),
+                "ACAO", null, null, "TEST", BigDecimal.valueOf(30.0), 3, null
+        );
+        assertEquals(9999L, uc.getCurrentValue(inv, LocalDate.now()));
     }
 }
