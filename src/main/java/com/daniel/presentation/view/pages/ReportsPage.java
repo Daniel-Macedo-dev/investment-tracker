@@ -127,6 +127,19 @@ public final class ReportsPage implements Page {
         TableColumn<ExtractRow, String> typeCol = new TableColumn<>("Tipo");
         typeCol.setCellValueFactory(v -> new SimpleStringProperty(v.getValue().type));
         typeCol.setPrefWidth(100);
+        typeCol.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                getStyleClass().removeAll("pos", "neg");
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item);
+                    getStyleClass().add("Compra".equals(item) ? "neg" : "pos");
+                }
+            }
+        });
 
         TableColumn<ExtractRow, String> descCol = new TableColumn<>("Descrição");
         descCol.setCellValueFactory(v -> new SimpleStringProperty(v.getValue().description));
@@ -208,19 +221,31 @@ public final class ReportsPage implements Page {
 
         table.setItems(FXCollections.observableArrayList(rows));
 
-        totalComprasLabel.setText("- " + daily.brl(totalCompras));
-        totalVendasLabel.setText("+ " + daily.brl(totalVendas));
-
         long lucro = totalVendas - totalCompras;
-        lucroRealizadoLabel.setText((lucro >= 0 ? "+ " : "- ") + daily.brl(Math.abs(lucro)));
 
-        // Reset then apply state colors
-        totalComprasLabel.getStyleClass().removeAll("pos", "neg", "kpi-value");
-        totalComprasLabel.getStyleClass().addAll("kpi-value", "neg");
-        totalVendasLabel.getStyleClass().removeAll("pos", "neg", "kpi-value");
-        totalVendasLabel.getStyleClass().addAll("kpi-value", "pos");
-        lucroRealizadoLabel.getStyleClass().removeAll("pos", "neg", "kpi-value");
-        lucroRealizadoLabel.getStyleClass().addAll("kpi-value", lucro >= 0 ? "pos" : "neg");
+        if (rows.isEmpty()) {
+            totalComprasLabel.setText("—");
+            totalVendasLabel.setText("—");
+            lucroRealizadoLabel.setText("—");
+            totalComprasLabel.getStyleClass().removeAll("pos", "neg", "kpi-value");
+            totalComprasLabel.getStyleClass().addAll("kpi-value", "muted");
+            totalVendasLabel.getStyleClass().removeAll("pos", "neg", "kpi-value");
+            totalVendasLabel.getStyleClass().addAll("kpi-value", "muted");
+            lucroRealizadoLabel.getStyleClass().removeAll("pos", "neg", "kpi-value");
+            lucroRealizadoLabel.getStyleClass().addAll("kpi-value", "muted");
+        } else {
+            totalComprasLabel.setText("- " + daily.brl(totalCompras));
+            totalVendasLabel.setText("+ " + daily.brl(totalVendas));
+            lucroRealizadoLabel.setText((lucro >= 0 ? "+ " : "- ") + daily.brl(Math.abs(lucro)));
+
+            // Reset then apply state colors
+            totalComprasLabel.getStyleClass().removeAll("pos", "neg", "muted", "kpi-value");
+            totalComprasLabel.getStyleClass().addAll("kpi-value", "neg");
+            totalVendasLabel.getStyleClass().removeAll("pos", "neg", "muted", "kpi-value");
+            totalVendasLabel.getStyleClass().addAll("kpi-value", "pos");
+            lucroRealizadoLabel.getStyleClass().removeAll("pos", "neg", "muted", "kpi-value");
+            lucroRealizadoLabel.getStyleClass().addAll("kpi-value", lucro >= 0 ? "pos" : "neg");
+        }
     }
 
     private record ExtractRow(

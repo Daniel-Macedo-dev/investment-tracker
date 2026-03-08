@@ -68,6 +68,9 @@ public final class DashboardPage implements Page {
     private final Label metricBenchmarkLabel = new Label("—");
     private final Label metricBenchmarkTitleLabel = new Label("Rent. CDI");
 
+    private final Label noComparisonHint = new Label(
+            "Sem dados suficientes — adicione investimentos com valor registrado para ver o gráfico de performance.");
+
     private int selectedFilterMonths = 12;
     private LocalDate customFrom = null;
     private LocalDate customTo = null;
@@ -421,7 +424,12 @@ public final class DashboardPage implements Page {
         // Barra de filtro de período
         buildFilterBar();
 
-        box.getChildren().addAll(title, filterBar, datePickerBox, contentRow);
+        noComparisonHint.getStyleClass().add("empty-hint");
+        noComparisonHint.setWrapText(true);
+        noComparisonHint.setVisible(false);
+        noComparisonHint.setManaged(false);
+
+        box.getChildren().addAll(title, filterBar, datePickerBox, noComparisonHint, contentRow);
         return box;
     }
 
@@ -513,7 +521,11 @@ public final class DashboardPage implements Page {
                                        LocalDate today) {
         comparisonChart.getData().clear();
 
-        if (investments.isEmpty()) return;
+        if (investments.isEmpty()) {
+            noComparisonHint.setVisible(true);
+            noComparisonHint.setManaged(true);
+            return;
+        }
 
         // Calcular total investido e patrimônio atual
         long totalInvestido = 0L;
@@ -523,7 +535,13 @@ public final class DashboardPage implements Page {
                         .multiply(java.math.BigDecimal.valueOf(100)).longValue();
             }
         }
-        if (totalInvestido == 0) return;
+        if (totalInvestido == 0) {
+            noComparisonHint.setVisible(true);
+            noComparisonHint.setManaged(true);
+            return;
+        }
+        noComparisonHint.setVisible(false);
+        noComparisonHint.setManaged(false);
 
         long patrimonioAtual = currentValues.values().stream()
                 .mapToLong(Long::longValue).sum();

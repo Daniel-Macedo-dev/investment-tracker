@@ -519,8 +519,8 @@ public final class SimulationPage implements Page {
             updateChartMonths(capital, monthlyRate, months, "Renda Fixa");
 
         } catch (Exception e) {
-            resultLabel.setText("Verifique os campos");
-            resultSubLabel.setText("");
+            resultLabel.setText("Verifique os valores");
+            resultSubLabel.setText("Certifique-se de que todos os campos estão preenchidos corretamente.");
             applyResultStyle(false);
         }
     }
@@ -601,12 +601,12 @@ public final class SimulationPage implements Page {
             projectionChart.getData().add(series);
 
         } catch (NumberFormatException e) {
-            resultLabel.setText("Quantidade deve ser um número");
-            resultSubLabel.setText("");
+            resultLabel.setText("Quantidade inválida");
+            resultSubLabel.setText("Informe apenas números inteiros no campo Quantidade.");
             applyResultStyle(false);
         } catch (Exception e) {
-            resultLabel.setText("Preencha todos os campos corretamente");
-            resultSubLabel.setText("");
+            resultLabel.setText("Verifique os campos");
+            resultSubLabel.setText("Preencha o ticker, preço de compra e quantidade.");
             applyResultStyle(false);
         }
     }

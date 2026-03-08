@@ -48,6 +48,9 @@ public final class DiversificationPage implements Page {
 
     private final Label totalPatrimonyLabel = new Label("—");
 
+    // Empty state — shown when no investments are registered
+    private final VBox noInvestmentsPanel = buildNoInvestmentsPanel();
+
     public DiversificationPage(DailyTrackingUseCase dailyTrackingUseCase) {
         this.daily = dailyTrackingUseCase;
 
@@ -82,7 +85,7 @@ public final class DiversificationPage implements Page {
 
         VBox suggestionsBox = buildSuggestionsTable();
 
-        root.getChildren().addAll(header, patrimonyBox, controlsRow, tablesRow, suggestionsBox);
+        root.getChildren().addAll(header, patrimonyBox, noInvestmentsPanel, controlsRow, tablesRow, suggestionsBox);
 
         scrollPane.setContent(root);
         scrollPane.setFitToWidth(true);
@@ -429,6 +432,23 @@ public final class DiversificationPage implements Page {
         return box;
     }
 
+    private VBox buildNoInvestmentsPanel() {
+        VBox box = new VBox(8);
+        box.getStyleClass().add("empty-state");
+        box.setAlignment(Pos.CENTER);
+        Label icon = new Label("📊");
+        icon.getStyleClass().add("empty-icon");
+        Label title = new Label("Nenhum investimento cadastrado");
+        title.getStyleClass().add("empty-title");
+        Label hint = new Label("Cadastre seus ativos em \"Meus Investimentos\" para ver a análise de diversificação.");
+        hint.getStyleClass().add("empty-hint");
+        hint.setWrapText(true);
+        box.getChildren().addAll(icon, title, hint);
+        box.setVisible(false);
+        box.setManaged(false);
+        return box;
+    }
+
     private void refreshData() {
         LocalDate today = LocalDate.now();
         List<InvestmentType> investments = daily.listTypes();
@@ -438,8 +458,12 @@ public final class DiversificationPage implements Page {
             currentTable.getItems().clear();
             idealTable.getItems().clear();
             suggestionsTable.getItems().clear();
+            noInvestmentsPanel.setVisible(true);
+            noInvestmentsPanel.setManaged(true);
             return;
         }
+        noInvestmentsPanel.setVisible(false);
+        noInvestmentsPanel.setManaged(false);
 
         Map<Long, Long> currentValues = daily.getAllCurrentValues(today);
         long totalPatrimony = daily.getTotalPatrimony(today);

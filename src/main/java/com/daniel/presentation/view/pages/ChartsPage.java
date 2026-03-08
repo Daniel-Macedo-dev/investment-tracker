@@ -24,6 +24,7 @@ public final class ChartsPage implements Page {
     private final ComboBox<InvestmentType> picker = new ComboBox<>();
     private final ComboBox<Integer> range = new ComboBox<>();
     private VBox noDataOverlay;
+    private Label noDataHint;
 
     private final CategoryAxis x = new CategoryAxis();
     private final NumberAxis y = new NumberAxis();
@@ -101,7 +102,7 @@ public final class ChartsPage implements Page {
         noDataIcon.getStyleClass().add("empty-icon");
         Label noDataTitle = new Label("Nenhum dado disponível");
         noDataTitle.getStyleClass().add("empty-title");
-        Label noDataHint = new Label("Selecione um ativo com entradas registradas");
+        noDataHint = new Label("Selecione um ativo com entradas registradas");
         noDataHint.getStyleClass().add("empty-hint");
         noDataOverlay.getChildren().addAll(noDataIcon, noDataTitle, noDataHint);
         noDataOverlay.setVisible(false);
@@ -140,10 +141,20 @@ public final class ChartsPage implements Page {
     @Override
     public void onShow() {
         picker.setItems(FXCollections.observableArrayList(daily.listTypes()));
-        if (!picker.getItems().isEmpty() && picker.getValue() == null) {
-            picker.setValue(picker.getItems().get(0));
+        if (picker.getItems().isEmpty()) {
+            if (noDataHint != null) {
+                noDataHint.setText("Cadastre um investimento em \"Meus Investimentos\" para começar");
+            }
+            setNoDataVisible(true);
+        } else {
+            if (noDataHint != null) {
+                noDataHint.setText("Selecione um ativo com entradas registradas");
+            }
+            if (picker.getValue() == null) {
+                picker.setValue(picker.getItems().get(0));
+            }
+            reload();
         }
-        reload();
     }
 
     private void setNoDataVisible(boolean visible) {
@@ -188,7 +199,8 @@ public final class ChartsPage implements Page {
         for (var d : s.getData()) {
             d.nodeProperty().addListener((obs, oldN, n) -> {
                 if (n != null) {
-                    Tooltip.install(n, new Tooltip("R$ " + d.getYValue()));
+                    double value = ((Number) d.getYValue()).doubleValue();
+                    Tooltip.install(n, new Tooltip(String.format("R$ %.2f", value).replace('.', ',')));
                 }
             });
         }

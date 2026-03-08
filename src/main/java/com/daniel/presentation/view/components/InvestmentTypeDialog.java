@@ -225,8 +225,12 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         liquidityCombo.setButtonCell(new LiquidityCell());
         liquidityCombo.setMaxWidth(Double.MAX_VALUE);
 
-        VBox catBox = new VBox(4, new Label("Categoria *"), categoryCombo);
-        VBox liqBox = new VBox(4, new Label("Liquidez *"), liquidityCombo);
+        Label catLabel2 = new Label("Categoria *");
+        catLabel2.getStyleClass().add("form-label");
+        Label liqLabel2 = new Label("Liquidez *");
+        liqLabel2.getStyleClass().add("form-label");
+        VBox catBox = new VBox(4, catLabel2, categoryCombo);
+        VBox liqBox = new VBox(4, liqLabel2, liquidityCombo);
         HBox.setHgrow(catBox, Priority.ALWAYS);
         HBox.setHgrow(liqBox, Priority.ALWAYS);
         HBox classifRow = new HBox(12, catBox, liqBox);
@@ -268,16 +272,26 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         indexCombo.getItems().addAll(IndexTypeEnum.values());
         indexCombo.setPromptText("CDI, Selic, IPCA");
         indexCombo.setMaxWidth(Double.MAX_VALUE);
-        indexPercentageField.setPromptText("1.0 = 100%, 1.05 = 105%");
+        indexPercentageField.setPromptText("Ex: 110 (para 110% do índice)");
+
+        Label indexLabel2 = new Label("Índice");
+        indexLabel2.getStyleClass().add("form-label");
+        Label indexPctLabel = new Label("Percentual do Índice (%)");
+        indexPctLabel.getStyleClass().add("form-label");
+        Label indexPctHint = new Label("Informe o percentual em relação ao índice. Ex: 110 = 110% do CDI.");
+        indexPctHint.getStyleClass().add("text-helper");
+        indexPctHint.setWrapText(true);
 
         indexFieldsBox = new VBox(8,
-                new Label("Índice"), indexCombo,
-                new Label("Percentual do Índice"), indexPercentageField);
+                indexLabel2, indexCombo,
+                indexPctLabel, indexPercentageField, indexPctHint);
         indexFieldsBox.setVisible(false);
         indexFieldsBox.setManaged(false);
 
+        Label typeLbl = new Label("Tipo *");
+        typeLbl.getStyleClass().add("form-label");
         VBox typeCard = buildCard("Tipo de Investimento",
-                new Label("Tipo *"), typeCombo, indexFieldsBox);
+                typeLbl, typeCombo, indexFieldsBox);
 
         // ── Card 2: Rentabilidade ──
         rentabilityModeCombo.getItems().addAll(RentabilityMode.values());
@@ -299,30 +313,42 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         // Fixed rate sub-box
         profitabilityField.setPromptText("Ex: 13.75");
         profitabilityField.setTextFormatter(createDecimalFormatter());
-        fixedRateBox = new VBox(6, new Label("Rentabilidade Anual (%)"), profitabilityField);
+        Label rentAbLabel = new Label("Rentabilidade Anual (%)");
+        rentAbLabel.getStyleClass().add("form-label");
+        fixedRateBox = new VBox(6, rentAbLabel, profitabilityField);
 
         // Benchmark sub-box
         benchmarkCombo.getItems().addAll("CDI", "SELIC", "IPCA");
         benchmarkCombo.setValue("CDI");
         benchmarkCombo.setMaxWidth(Double.MAX_VALUE);
-        benchmarkPercentField.setPromptText("110 (= 110% do CDI)");
+        benchmarkPercentField.setPromptText("Ex: 110 (= 110% do CDI)");
+        Label benchLabel2 = new Label("Benchmark");
+        benchLabel2.getStyleClass().add("form-label");
+        Label benchPctLabel2 = new Label("Percentual do Benchmark (%)");
+        benchPctLabel2.getStyleClass().add("form-label");
         benchmarkBox = new VBox(6,
-                new Label("Benchmark"), benchmarkCombo,
-                new Label("Percentual do Benchmark"), benchmarkPercentField);
+                benchLabel2, benchmarkCombo,
+                benchPctLabel2, benchmarkPercentField);
 
         // Hybrid sub-box
-        hybridFixedField.setPromptText("5.0");
-        hybridIndexField.setPromptText("4.5 (IPCA)");
+        hybridFixedField.setPromptText("Ex: 5.0");
+        hybridIndexField.setPromptText("Ex: 4.5 (IPCA estimado)");
+        Label hybFixLabel = new Label("Taxa Fixa (% a.a.)");
+        hybFixLabel.getStyleClass().add("form-label");
+        Label hybIdxLabel = new Label("Taxa do Índice (% a.a.)");
+        hybIdxLabel.getStyleClass().add("form-label");
         hybridBox = new VBox(6,
-                new Label("Taxa Fixa (% a.a.)"), hybridFixedField,
-                new Label("Taxa do Índice (% a.a.)"), hybridIndexField);
+                hybFixLabel, hybridFixedField,
+                hybIdxLabel, hybridIndexField);
 
         Label profitHint = new Label("💡 Não aplicável para Ações, FIIs e Criptomoedas.");
         profitHint.getStyleClass().add("text-helper");
         profitHint.setWrapText(true);
 
+        Label modalidadeLabel = new Label("Modalidade:");
+        modalidadeLabel.getStyleClass().add("form-label");
         rentabilitySection = new VBox(10,
-                new Label("Modalidade:"), rentabilityModeCombo,
+                modalidadeLabel, rentabilityModeCombo,
                 fixedRateBox, benchmarkBox, hybridBox,
                 profitHint);
 
@@ -333,10 +359,16 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         purchasePriceField.setTextFormatter(Money.currencyFormatterEditable());
         quantityField.setPromptText("100");
 
+        Label tickerLbl = new Label("Ticker");
+        tickerLbl.getStyleClass().add("form-label");
+        Label priceLbl = new Label("Preço de Compra (unitário)");
+        priceLbl.getStyleClass().add("form-label");
+        Label qtyLbl = new Label("Quantidade");
+        qtyLbl.getStyleClass().add("form-label");
         ativoCard = buildCard("Ativo",
-                new Label("Ticker"), tickerField,
-                new Label("Preço de Compra"), purchasePriceField,
-                new Label("Quantidade"), quantityField);
+                tickerLbl, tickerField,
+                priceLbl, purchasePriceField,
+                qtyLbl, quantityField);
         ativoCard.setVisible(false);
         ativoCard.setManaged(false);
 
@@ -353,8 +385,10 @@ public final class InvestmentTypeDialog extends Dialog<InvestmentTypeDialog.Inve
         valueHint.getStyleClass().add("text-helper");
         valueHint.setWrapText(true);
 
+        Label valueLbl = new Label("Valor Investido *");
+        valueLbl.getStyleClass().add("form-label");
         VBox valueCard = buildCard("Valor Investido",
-                new Label("Valor Investido *"), investedValueField,
+                valueLbl, investedValueField,
                 autoFillLabel, valueHint);
 
         VBox content = new VBox(14, typeCard, rentCard, ativoCard, valueCard);

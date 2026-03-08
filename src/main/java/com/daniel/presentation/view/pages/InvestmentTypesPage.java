@@ -373,6 +373,8 @@ public final class InvestmentTypesPage implements Page {
     private void applyFilter() {
         String search = searchField.getText() == null ? "" : searchField.getText().toLowerCase();
         String catSel = categoryFilter.getValue();
+        boolean filterActive = !search.isBlank()
+                || (catSel != null && !catSel.equals("Todas categorias"));
 
         filteredItems.setPredicate(inv -> {
             boolean matchesSearch = search.isBlank()
@@ -394,6 +396,21 @@ public final class InvestmentTypesPage implements Page {
 
             return matchesSearch && matchesCat;
         });
+
+        // Update placeholder to distinguish filtered vs empty portfolio
+        if (filterActive && filteredItems.isEmpty() && !allItems.isEmpty()) {
+            VBox filteredEmpty = new VBox(8);
+            filteredEmpty.getStyleClass().add("empty-state");
+            filteredEmpty.setAlignment(Pos.CENTER);
+            Label fIcon = new Label("🔍");
+            fIcon.getStyleClass().add("empty-icon");
+            Label fTitle = new Label("Nenhum resultado encontrado");
+            fTitle.getStyleClass().add("empty-title");
+            Label fHint = new Label("Tente outros termos ou remova os filtros ativos.");
+            fHint.getStyleClass().add("empty-hint");
+            filteredEmpty.getChildren().addAll(fIcon, fTitle, fHint);
+            table.setPlaceholder(filteredEmpty);
+        }
     }
 
     private HBox createBadge(String text, String hexColor) {
@@ -582,7 +599,7 @@ public final class InvestmentTypesPage implements Page {
     private void onEdit() {
         InvestmentType sel = table.getSelectionModel().getSelectedItem();
         if (sel == null) {
-            Dialogs.info("Atenção", "Selecione um investimento.");
+            ToastHost.showWarn("Selecione um investimento para editar.");
             return;
         }
 
@@ -633,7 +650,7 @@ public final class InvestmentTypesPage implements Page {
     private void onSell() {
         InvestmentType sel = table.getSelectionModel().getSelectedItem();
         if (sel == null) {
-            Dialogs.info("Atenção", "Selecione um investimento para vender.");
+            ToastHost.showWarn("Selecione um investimento para vender.");
             return;
         }
 
@@ -679,6 +696,9 @@ public final class InvestmentTypesPage implements Page {
 
         Label qtyLabel = new Label("Quantidade:");
         qtyLabel.getStyleClass().add("form-label");
+        Label qtyHint = new Label("Deixe em branco para venda total ou informe a quantidade parcial.");
+        qtyHint.getStyleClass().add("text-helper");
+        qtyHint.setWrapText(true);
         Label priceLabel = new Label("Preço Unitário:");
         priceLabel.getStyleClass().add("form-label");
         Label dateLabel = new Label("Data da Venda:");
@@ -687,7 +707,7 @@ public final class InvestmentTypesPage implements Page {
         noteLabel.getStyleClass().add("form-label");
 
         VBox content = new VBox(8,
-                qtyLabel, qtyField,
+                qtyLabel, qtyField, qtyHint,
                 priceLabel, priceField,
                 dateLabel, datePicker,
                 noteLabel, noteField
@@ -707,7 +727,7 @@ public final class InvestmentTypesPage implements Page {
 
                 daily.recordSell(sel.id(), sel.name(), sel.ticker(),
                         qty, unitCents > 0 ? unitCents : null, totalCents, sellDate, note);
-                Dialogs.info("Sucesso", "Venda registrada no extrato!");
+                ToastHost.showSuccess("Venda registrada no extrato!");
             } catch (Exception e) {
                 Dialogs.error("Erro ao registrar venda: " + e.getMessage());
             }
@@ -717,7 +737,7 @@ public final class InvestmentTypesPage implements Page {
     private void onDelete() {
         InvestmentType sel = table.getSelectionModel().getSelectedItem();
         if (sel == null) {
-            Dialogs.info("Atenção", "Selecione um investimento.");
+            ToastHost.showWarn("Selecione um investimento para excluir.");
             return;
         }
 
